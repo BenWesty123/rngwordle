@@ -73,41 +73,41 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | A cappella | Every letter is A, E, I, O, or U | 5 | ×14 |
 | Rewind | Backwards, it is a different word in this list. A palindrome stays Mirror | 844 | ×7 |
 | Ditto | The second half repeats the first, at least 4 letters | 59 | ×10 |
-| From Latin | Wiktionary traces a borrowing, inheritance, or derivation to Latin | 12,508 | ×3 |
-| From French | Wiktionary traces it to French, including Old French and Anglo-Norman | 9,580 | ×4 |
-| From Old English | Wiktionary traces it to Old English | 4,416 | ×5 |
-| From Greek | Wiktionary traces it to Greek | 3,420 | ×5 |
-| From Proto-Indo-European | Wiktionary traces it to Proto-Indo-European | 3,339 | ×5 |
-| From Proto-Germanic | Wiktionary traces it to Proto-Germanic | 3,181 | ×5 |
-| From Proto-West Germanic | Wiktionary traces it to Proto-West Germanic | 2,333 | ×6 |
-| From German | Wiktionary traces it to German | 1,170 | ×7 |
-| From Italian | Wiktionary traces it to Italian | 895 | ×7 |
-| From Norse | Wiktionary traces it to Old Norse or North Germanic | 880 | ×7 |
-| From Dutch | Wiktionary traces it to Dutch | 772 | ×7 |
-| From Spanish | Wiktionary traces it to Spanish | 730 | ×7 |
-| From Arabic | Wiktionary traces it to Arabic | 415 | ×8 |
-| From East Asia | Wiktionary traces it to Chinese or Japanese | 365 | ×8 |
-| From Frankish | Wiktionary traces it to Frankish | 369 | ×8 |
-| From Low German | Wiktionary traces it to Low German or Old Saxon | 301 | ×8 |
-| From Irish | Wiktionary traces it to Irish | 287 | ×8 |
-| From Hindi | Wiktionary traces it to Hindi or Hindustani | 227 | ×9 |
-| From Hebrew | Wiktionary traces it to Hebrew | 211 | ×9 |
-| From Portuguese | Wiktionary traces it to Portuguese | 216 | ×9 |
-| From Sanskrit | Wiktionary traces it to Sanskrit | 201 | ×9 |
-| From Persian | Wiktionary traces it to Persian | 193 | ×9 |
-| From Scots | Wiktionary traces it to Scots | 182 | ×9 |
-| From Russian | Wiktionary traces it to Russian | 145 | ×9 |
-| From Yiddish | Wiktionary traces it to Yiddish | 132 | ×9 |
-| From Proto-Celtic | Wiktionary traces it to Proto-Celtic | 137 | ×9 |
-| From Ottoman Turkish | Wiktionary traces it to Ottoman Turkish or Turkish | 119 | ×9 |
-| From Scottish Gaelic | Wiktionary traces it to Scottish Gaelic | 115 | ×10 |
-| From Proto-Italic | Wiktionary traces it to Proto-Italic | 119 | ×9 |
-| From Gaulish | Wiktionary traces it to Gaulish | 95 | ×10 |
-| From Swedish | Wiktionary traces it to Swedish | 88 | ×10 |
+| From Latin | Wiktionary traces a borrowing, inheritance, or derivation to Latin | 30,078 | ×2 |
+| From French | Wiktionary traces it to French, including Old French and Anglo-Norman | 24,550 | ×3 |
+| From Old English | Wiktionary traces it to Old English | 12,877 | ×3 |
+| From Greek | Wiktionary traces it to Greek | 7,238 | ×4 |
+| From Proto-Indo-European | Wiktionary traces it to Proto-Indo-European | 10,667 | ×4 |
+| From Proto-Germanic | Wiktionary traces it to Proto-Germanic | 10,509 | ×4 |
+| From Proto-West Germanic | Wiktionary traces it to Proto-West Germanic | 7,831 | ×4 |
+| From German | Wiktionary traces it to German | 3,003 | ×5 |
+| From Italian | Wiktionary traces it to Italian | 2,147 | ×6 |
+| From Norse | Wiktionary traces it to Old Norse or North Germanic | 2,861 | ×5 |
+| From Dutch | Wiktionary traces it to Dutch | 2,403 | ×6 |
+| From Spanish | Wiktionary traces it to Spanish | 1,581 | ×6 |
+| From Arabic | Wiktionary traces it to Arabic | 923 | ×7 |
+| From East Asia | Wiktionary traces it to Chinese or Japanese | 811 | ×7 |
+| From Frankish | Wiktionary traces it to Frankish | 1,267 | ×6 |
+| From Low German | Wiktionary traces it to Low German or Old Saxon | 1,041 | ×7 |
+| From Irish | Wiktionary traces it to Irish | 760 | ×7 |
+| From Hindi | Wiktionary traces it to Hindi or Hindustani | 492 | ×8 |
+| From Hebrew | Wiktionary traces it to Hebrew | 499 | ×8 |
+| From Portuguese | Wiktionary traces it to Portuguese | 493 | ×8 |
+| From Sanskrit | Wiktionary traces it to Sanskrit | 427 | ×8 |
+| From Persian | Wiktionary traces it to Persian | 439 | ×8 |
+| From Scots | Wiktionary traces it to Scots | 513 | ×8 |
+| From Russian | Wiktionary traces it to Russian | 309 | ×8 |
+| From Yiddish | Wiktionary traces it to Yiddish | 323 | ×8 |
+| From Proto-Celtic | Wiktionary traces it to Proto-Celtic | 387 | ×8 |
+| From Ottoman Turkish | Wiktionary traces it to Ottoman Turkish or Turkish | 254 | ×8 |
+| From Scottish Gaelic | Wiktionary traces it to Scottish Gaelic | 305 | ×8 |
+| From Proto-Italic | Wiktionary traces it to Proto-Italic | 371 | ×8 |
+| From Gaulish | Wiktionary traces it to Gaulish | 279 | ×8 |
+| From Swedish | Wiktionary traces it to Swedish | 214 | ×9 |
 | Sound word | Webster 1913 marks the word as imitative | 49 | ×11 |
-| From Afrikaans | Wiktionary traces it to Afrikaans | 46 | ×11 |
+| From Afrikaans | Wiktionary traces it to Afrikaans | 100 | ×10 |
 
-Origin tags are built offline from English Wiktionary, using the [kaikki.org](https://kaikki.org/dictionary/English/index.html) wiktextract dump, and shipped with the game. Wiktionary text is available under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). Only borrowed-from, inherited-from, and derived-from templates count. A cognate mentioned as “akin to” does not. A hop through Middle English, or through another modern English stage, is followed to that word’s own borrowed, inherited, or derived templates. There is no From Middle English card. 23,913 of the 172,823 ENABLE words have at least one of these origins. A miss means Wiktionary has no usable origin for that language. The sound-word row is still the public-domain note in Webster’s Revised Unabridged Dictionary (1913).
+Origin tags are built offline from English Wiktionary, using the [kaikki.org](https://kaikki.org/dictionary/English/index.html) wiktextract dump, and shipped with the game. Wiktionary text is available under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). Only borrowed-from, inherited-from, and derived-from templates count. A cognate mentioned as “akin to” does not. A hop through Middle English, or through another modern English stage, is followed to that word’s own borrowed, inherited, or derived templates. There is no From Middle English card. An inflected form inherits the lemma’s origin languages. That copy uses Wiktionary’s form-of link when the entry says this word is a form of another English word. A regular stem is used only when that link is missing and exactly one ENABLE stem is unambiguous. Compounds such as computer and email stay without an origin from this pass. 57,920 of the 172,823 ENABLE words have at least one of these origins. A miss means Wiktionary has no usable origin for that language. The sound-word row is still the public-domain note in Webster’s Revised Unabridged Dictionary (1913).
 
 Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tautonym. Palindromes were already Mirror. Noun, verb, and adjective still need part-of-speech tags this list does not have. No vowels is already Bone dry, and a doubled letter is already Twins.
 

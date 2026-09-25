@@ -212,6 +212,25 @@ test("origins come from Wiktionary, and a silence is a miss", () => {
   assert.match(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.detail ?? "", /Wiktionary has no usable/);
 });
 
+test("inflected forms inherit the lemma's origins", () => {
+  const from = (word: string) =>
+    scoreWord(word)
+      .rows.filter((row) => row.id.startsWith("from-") && row.scored)
+      .map((row) => row.id);
+
+  assert.deepEqual(from("books"), from("book"));
+  assert.deepEqual(from("computed"), from("compute"));
+  assert.deepEqual(from("running"), from("run"));
+  assert.deepEqual(from("computer"), []);
+  assert.deepEqual(from("email"), []);
+
+  const seed = from("seed");
+  assert.ok(seed.includes("from-old-english"));
+  assert.equal(seed.includes("from-latin"), false);
+  assert.equal(seed.includes("from-french"), false);
+  assert.ok(from("see").includes("from-latin"));
+});
+
 test("sound words, rewinds, and dittos are separate from mirror", () => {
   const buzz = scoreWord("buzz");
   assert.equal(buzz.rows.find((row) => row.id === "sound-word")?.scored, true);
