@@ -82,6 +82,7 @@ export const FACTOR_MATCHES = {
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
+  "perfect-balance": 17684,
   "a-to-u": 28,
   "next-door": 16304,
   ing: 12564,
@@ -367,6 +368,18 @@ export function scoreWord(word: string): ScoredWord {
       hit: oneVowel.hit,
       hitDetail: `Every vowel is ${oneVowel.vowel.toUpperCase()} (${oneVowel.count} of them).`,
       missDetail: "Needs at least 3 vowels, and they all have to be the same one. Y does not count.",
+    },
+    {
+      id: "perfect-balance",
+      name: "Perfect balance",
+      hit: vowels > 0 && vowels === consonants,
+      hitDetail: `${vowels} vowels and ${consonants} consonants.`,
+      missDetail:
+        vowels === 0
+          ? "No A, E, I, O, or U. Y counts as a consonant."
+          : length % 2 === 1
+            ? "An odd number of letters cannot split evenly."
+            : "Vowels and consonants are not an even split.",
     },
     {
       id: "a-to-u",

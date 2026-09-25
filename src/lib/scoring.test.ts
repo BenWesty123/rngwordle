@@ -53,7 +53,8 @@ test("quiz is scrabble tiles times length times contraband", () => {
   assert.equal(scored.lengthMultiplier, 32);
   assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 3);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(scored.total, 22 * 32 * 3 * 2);
+  assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 3);
+  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3);
   assert.equal(product(scored), scored.total);
 });
 
@@ -151,6 +152,27 @@ test("banana is a one vowel wonder", () => {
   assert.equal(scoreWord("see").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
   assert.equal(scoreWord("rhythm").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
   assert.equal(scoreWord("syzygy").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
+});
+
+test("banana is in perfect balance", () => {
+  const scored = scoreWord("banana");
+  const row = scored.rows.find((entry) => entry.id === "perfect-balance");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 3);
+  assert.equal(row?.name, "Perfect balance ×3");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
+  assert.match(row?.reason ?? "", /3 vowels and 3 consonants/);
+
+  const area = scoreWord("area");
+  assert.equal(area.rows.find((entry) => entry.id === "perfect-balance")?.scored, false);
+
+  const cat = scoreWord("cat");
+  assert.equal(cat.rows.find((entry) => entry.id === "perfect-balance")?.scored, false);
+  assert.match(cat.rows.find((entry) => entry.id === "perfect-balance")?.detail ?? "", /odd number/);
+
+  const rhythm = scoreWord("rhythm");
+  assert.equal(rhythm.rows.find((entry) => entry.id === "perfect-balance")?.scored, false);
+  assert.match(rhythm.rows.find((entry) => entry.id === "perfect-balance")?.detail ?? "", /Y counts as a consonant/);
 });
 
 test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
