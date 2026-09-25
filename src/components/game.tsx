@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
-import { armScoreAudio, playLetterPoints, stopScoreAudio } from "@/lib/score-sound";
+import { armScoreAudio, playLetterPoints, playMultiplier, resetMultiplierPitch, stopScoreAudio } from "@/lib/score-sound";
 import { formatRowValue, scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -328,6 +328,7 @@ function ScoreReveal({
   onCopy: (text: string) => void;
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
+  const stepsRef = useRef(steps);
   const tilesRef = useRef(scored.tiles);
   const [letters, setLetters] = useState(0);
   const [applied, setApplied] = useState(0);
@@ -378,12 +379,20 @@ function ScoreReveal({
     if (!baseDone) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce || steps.length === 0) return;
+    resetMultiplierPitch();
+    const heard = { current: 0 };
     const id = window.setInterval(() => {
-      setApplied((current) => {
-        const next = Math.min(steps.length, current + 1);
-        if (next >= steps.length) window.clearInterval(id);
-        return next;
-      });
+      const pending = stepsRef.current;
+      const current = heard.current;
+      if (current >= pending.length) {
+        window.clearInterval(id);
+        return;
+      }
+      const step = pending[current];
+      if (step?.points) playMultiplier(step.points);
+      heard.current = current + 1;
+      setApplied(heard.current);
+      if (heard.current >= pending.length) window.clearInterval(id);
     }, 1450);
     timer.current = id;
     return () => window.clearInterval(id);
