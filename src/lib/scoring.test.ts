@@ -73,7 +73,7 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.tileSum, 17);
   assert.equal(scored.lengthMultiplier, 8);
   assert.equal(scored.rows.find((row) => row.id === "quiet-letters")?.points, 7);
-  assert.equal(scored.total, 17 * 8 * 9 * 7);
+  assert.equal(scored.total, product(scored));
 });
 
 test("stop pays Anagram once per other word with the same letters", () => {
@@ -148,7 +148,7 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
   assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 3);
-  assert.equal(scored.total, 14 * 6 * 4 * 11 * 2 * 2 * 2 * 2);
+  assert.equal(scored.total, product(scored));
 });
 
 test("aa can be all vowels without counting as a mirror", () => {
@@ -159,7 +159,7 @@ test("aa can be all vowels without counting as a mirror", () => {
   assert.equal(scored.rows.find((row) => row.id === "twins")?.scored, true);
   assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 4);
   assert.equal(scored.rows.find((row) => row.id === "flat-type")?.points, 4);
-  assert.equal(scored.total, 2 * 128 * 14 * 2 * 4 * 4);
+  assert.equal(scored.total, product(scored));
 });
 
 test("neighbours, endings, and spelling slips pay only when they hit", () => {
@@ -181,13 +181,19 @@ test("neighbours, endings, and spelling slips pay only when they hit", () => {
   assert.equal(scoreWord("quiz").rows.find((row) => row.id === "lone-q")?.scored, false);
 });
 
-test("origins come from the 1913 Webster trace, and a silence is a miss", () => {
+test("origins come from Wiktionary, and a silence is a miss", () => {
   const echo = scoreWord("echo");
   assert.equal(echo.rows.find((row) => row.id === "from-greek")?.points, FACTOR_MULTIPLIERS["from-greek"]);
+  assert.equal(echo.rows.find((row) => row.id === "from-latin")?.scored, true);
   assert.equal(echo.tileSum, 9);
   assert.equal(echo.lengthMultiplier, 32);
   assert.equal(echo.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(echo.total, 9 * 32 * FACTOR_MULTIPLIERS["from-greek"] * 2);
+  assert.equal(echo.total, product(echo));
+
+  const philosophy = scoreWord("philosophy");
+  assert.equal(philosophy.rows.find((row) => row.id === "from-greek")?.scored, true);
+  assert.equal(philosophy.rows.find((row) => row.id === "from-latin")?.scored, true);
+  assert.equal(philosophy.rows.find((row) => row.id === "from-french")?.scored, true);
 
   assert.equal(scoreWord("piano").rows.find((row) => row.id === "from-italian")?.scored, true);
   assert.equal(scoreWord("they").rows.find((row) => row.id === "from-norse")?.scored, true);
@@ -198,8 +204,8 @@ test("origins come from the 1913 Webster trace, and a silence is a miss", () => 
   assert.equal(scoreWord("ghoul").rows.find((row) => row.id === "from-persian")?.scored, true);
   assert.equal(scoreWord("cheetah").rows.find((row) => row.id === "from-hindi")?.scored, true);
   assert.equal(scoreWord("ginkgo").rows.find((row) => row.id === "from-east-asia")?.scored, true);
-  assert.equal(scoreWord("philosophy").rows.find((row) => row.id === "from-greek")?.scored, false);
   assert.equal(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.scored, false);
+  assert.match(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.detail ?? "", /Wiktionary has no usable/);
 });
 
 test("sound words, rewinds, and dittos are separate from mirror", () => {

@@ -8,9 +8,9 @@
  * Every other factor multiplies only when it hits. The multiplier is
  * round(3 × log10(list size / matches)), and at least ×2.
  * Y is never a vowel. Ascenders are b d f h k l t. Descenders are g j p q y.
- * Origin and sound-word tags come from Webster's 1913 dictionary, not from
- * every word in the list. A miss means that etymology is silent, not that
- * the origin is impossible.
+ * Origin tags come from English Wiktionary borrowed, inherited, and derived
+ * templates. A miss means Wiktionary has no usable origin for that language.
+ * Sound-word tags still come from Webster's 1913 dictionary.
  */
 
 import enableWordsText from "@/data/enable-words.json";
@@ -91,17 +91,39 @@ export const FACTOR_MATCHES = {
   "flat-type": 6069,
   rewind: 844,
   ditto: 59,
-  "from-greek": 1227,
-  "from-italian": 369,
-  "from-dutch": 119,
-  "from-norse": 86,
-  "from-arabic": 102,
+  "from-latin": 12373,
+  "from-french": 9334,
+  "from-old-english": 4269,
+  "from-greek": 3383,
+  "from-proto-indo-european": 3279,
+  "from-proto-germanic": 3032,
+  "from-proto-west-germanic": 2050,
+  "from-german": 1160,
+  "from-italian": 890,
+  "from-norse": 813,
+  "from-dutch": 759,
+  "from-spanish": 717,
+  "from-arabic": 406,
   "sound-word": 49,
-  "from-persian": 48,
-  "from-hindi": 42,
-  "from-sanskrit": 31,
-  "from-hebrew": 24,
-  "from-east-asia": 13,
+  "from-east-asia": 364,
+  "from-frankish": 352,
+  "from-low-german": 293,
+  "from-irish": 285,
+  "from-hindi": 227,
+  "from-hebrew": 211,
+  "from-portuguese": 210,
+  "from-sanskrit": 199,
+  "from-persian": 191,
+  "from-scots": 182,
+  "from-russian": 145,
+  "from-yiddish": 132,
+  "from-proto-celtic": 129,
+  "from-ottoman-turkish": 116,
+  "from-scottish-gaelic": 114,
+  "from-proto-italic": 100,
+  "from-gaulish": 93,
+  "from-swedish": 84,
+  "from-afrikaans": 46,
 } as const;
 
 export type FactorId = keyof typeof FACTOR_MATCHES;
@@ -518,30 +540,52 @@ function originFactors(word: string): Array<{
     hasFact(word, "japanese") ? "Japanese" : null,
   ].filter((name): name is string => name !== null);
   const origins: Array<{ id: FactorId; name: string; tag: string; language: string }> = [
+    { id: "from-latin", name: "From Latin", tag: "latin", language: "Latin" },
+    { id: "from-french", name: "From French", tag: "french", language: "French" },
+    { id: "from-old-english", name: "From Old English", tag: "old-english", language: "Old English" },
     { id: "from-greek", name: "From Greek", tag: "greek", language: "Greek" },
+    { id: "from-proto-indo-european", name: "From Proto-Indo-European", tag: "proto-indo-european", language: "Proto-Indo-European" },
+    { id: "from-proto-germanic", name: "From Proto-Germanic", tag: "proto-germanic", language: "Proto-Germanic" },
+    { id: "from-proto-west-germanic", name: "From Proto-West Germanic", tag: "proto-west-germanic", language: "Proto-West Germanic" },
+    { id: "from-german", name: "From German", tag: "german", language: "German" },
     { id: "from-italian", name: "From Italian", tag: "italian", language: "Italian" },
-    { id: "from-dutch", name: "From Dutch", tag: "dutch", language: "Dutch" },
     { id: "from-norse", name: "From Norse", tag: "norse", language: "Norse" },
+    { id: "from-dutch", name: "From Dutch", tag: "dutch", language: "Dutch" },
+    { id: "from-spanish", name: "From Spanish", tag: "spanish", language: "Spanish" },
     { id: "from-arabic", name: "From Arabic", tag: "arabic", language: "Arabic" },
-    { id: "from-persian", name: "From Persian", tag: "persian", language: "Persian" },
+    { id: "from-frankish", name: "From Frankish", tag: "frankish", language: "Frankish" },
+    { id: "from-low-german", name: "From Low German", tag: "low-german", language: "Low German" },
+    { id: "from-irish", name: "From Irish", tag: "irish", language: "Irish" },
     { id: "from-hindi", name: "From Hindi", tag: "hindi", language: "Hindi" },
-    { id: "from-sanskrit", name: "From Sanskrit", tag: "sanskrit", language: "Sanskrit" },
     { id: "from-hebrew", name: "From Hebrew", tag: "hebrew", language: "Hebrew" },
+    { id: "from-portuguese", name: "From Portuguese", tag: "portuguese", language: "Portuguese" },
+    { id: "from-sanskrit", name: "From Sanskrit", tag: "sanskrit", language: "Sanskrit" },
+    { id: "from-persian", name: "From Persian", tag: "persian", language: "Persian" },
+    { id: "from-scots", name: "From Scots", tag: "scots", language: "Scots" },
+    { id: "from-russian", name: "From Russian", tag: "russian", language: "Russian" },
+    { id: "from-yiddish", name: "From Yiddish", tag: "yiddish", language: "Yiddish" },
+    { id: "from-proto-celtic", name: "From Proto-Celtic", tag: "proto-celtic", language: "Proto-Celtic" },
+    { id: "from-ottoman-turkish", name: "From Ottoman Turkish", tag: "ottoman-turkish", language: "Ottoman Turkish" },
+    { id: "from-scottish-gaelic", name: "From Scottish Gaelic", tag: "scottish-gaelic", language: "Scottish Gaelic" },
+    { id: "from-proto-italic", name: "From Proto-Italic", tag: "proto-italic", language: "Proto-Italic" },
+    { id: "from-gaulish", name: "From Gaulish", tag: "gaulish", language: "Gaulish" },
+    { id: "from-swedish", name: "From Swedish", tag: "swedish", language: "Swedish" },
+    { id: "from-afrikaans", name: "From Afrikaans", tag: "afrikaans", language: "Afrikaans" },
   ];
   return [
     ...origins.map((origin) => ({
       id: origin.id,
       name: origin.name,
       hit: hasFact(word, origin.tag),
-      hitDetail: `Webster 1913 traces it to ${origin.language}.`,
-      missDetail: `No ${origin.language} trace in the 1913 Webster etymology on file.`,
+      hitDetail: `Wiktionary traces it to ${origin.language}.`,
+      missDetail: `Wiktionary has no usable ${origin.language} origin for this word.`,
     })),
     {
       id: "from-east-asia",
       name: "From East Asia",
       hit: east.length > 0,
-      hitDetail: `Webster 1913 traces it to ${east.join(" and ")}.`,
-      missDetail: "No Chinese or Japanese trace in the 1913 Webster etymology on file.",
+      hitDetail: `Wiktionary traces it to ${east.join(" and ")}.`,
+      missDetail: "Wiktionary has no usable Chinese or Japanese origin for this word.",
     },
   ];
 }
