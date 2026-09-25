@@ -383,7 +383,6 @@ function ScoreReveal({
   const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
-  const timer = useRef<number | null>(null);
   const baseDone = letters >= scored.tiles.length;
   const done = baseDone && settled >= steps.length;
   const tileTarget = scored.tiles.slice(0, letters).reduce((sum, tile) => sum + tile.value, 0);
@@ -395,14 +394,6 @@ function ScoreReveal({
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      const id = window.setTimeout(() => {
-        setLetters(tilesRef.current.length);
-        setApplied(steps.length);
-        setSettled(steps.length);
-      }, 0);
-      return () => window.clearTimeout(id);
-    }
     const heard = { current: 0 };
     const id = window.setInterval(() => {
       const current = heard.current;
@@ -413,12 +404,11 @@ function ScoreReveal({
       const tiles = tilesRef.current;
       const tile = tiles[current];
       const runningBefore = tiles.slice(0, current).reduce((sum, item) => sum + item.value, 0);
-      if (tile) playLetterPoints(tile.value, runningBefore);
+      if (tile && !reduce) playLetterPoints(tile.value, runningBefore);
       heard.current = current + 1;
       setLetters(heard.current);
       if (heard.current >= tiles.length) window.clearInterval(id);
     }, 460);
-    timer.current = id;
     return () => {
       window.clearInterval(id);
       stopScoreAudio();
@@ -428,14 +418,15 @@ function ScoreReveal({
   useEffect(() => {
     if (!baseDone) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
     const tier = standingFor(scored.total).tier.id;
-    prepareMultiplierScore(
-      stepsRef.current.map((step) => step.points ?? 0),
-      tier,
-    );
+    if (!reduce) {
+      prepareMultiplierScore(
+        stepsRef.current.map((step) => step.points ?? 0),
+        tier,
+      );
+    }
     if (steps.length === 0) {
-      playVerdict();
+      if (!reduce) playVerdict();
       return;
     }
     const heard = { current: 0 };
@@ -443,7 +434,7 @@ function ScoreReveal({
       const pending = stepsRef.current;
       const current = heard.current;
       if (current < pending.length) {
-        playMultiplier(current);
+        if (!reduce) playMultiplier(current);
         heard.current = current + 1;
         setApplied(heard.current);
         setSettled(current);
@@ -452,17 +443,10 @@ function ScoreReveal({
       setSettled(pending.length);
       window.clearInterval(id);
     }, 1450);
-    timer.current = id;
     return () => window.clearInterval(id);
   }, [baseDone, scored.total, steps.length]);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      displayRef.current = target;
-      const id = window.setTimeout(() => setDisplay(target), 0);
-      return () => window.clearTimeout(id);
-    }
     const from = displayRef.current;
     if (from === target) return;
     let frame = 0;
@@ -479,17 +463,6 @@ function ScoreReveal({
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [target, baseDone]);
-
-  function skip() {
-    if (timer.current !== null) {
-      window.clearInterval(timer.current);
-      timer.current = null;
-    }
-    stopScoreAudio();
-    setLetters(scored.tiles.length);
-    setApplied(steps.length);
-    setSettled(steps.length);
-  }
 
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, applied - 1));
   const currentStep = activeStep;
@@ -562,12 +535,6 @@ function ScoreReveal({
         <p className="mt-3 text-sm text-muted-foreground">
           Beats {formatBeaten(live.beaten)} of {live.wordCount.toLocaleString("en-US")} words
         </p>
-        <p className="mt-2 text-sm text-foreground/90">{live.tier.blurb}</p>
-        {!done ? (
-          <Button type="button" variant="outline" className="mt-5 h-8" onClick={skip}>
-            Skip
-          </Button>
-        ) : null}
       </div>
 
       {baseDone ? (
