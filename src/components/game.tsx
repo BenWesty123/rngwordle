@@ -292,26 +292,6 @@ function Result({
 
       {!spinning ? (
         <>
-          <ul className="mt-6 flex flex-wrap justify-center gap-1.5" aria-label="Scrabble tiles">
-            {scored.tiles.map((tile, index) => (
-              <li
-                key={`${tile.letter}-${index}`}
-                className={cn(
-                  "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase",
-                  scored.length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
-                  tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
-                  tile.twin && "ring-1 ring-foreground/30 ring-inset",
-                )}
-                title={tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined}
-              >
-                {tile.letter}
-                <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">
-                  {tile.value}
-                </span>
-              </li>
-            ))}
-          </ul>
-
           <ScoreReveal
             key={scored.word}
             scored={scored}
@@ -346,12 +326,15 @@ function ScoreReveal({
   onCopy: (text: string) => void;
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
+  const [letters, setLetters] = useState(0);
   const [applied, setApplied] = useState(0);
-  const [display, setDisplay] = useState(scored.tileSum);
-  const displayRef = useRef(scored.tileSum);
+  const [display, setDisplay] = useState(0);
+  const displayRef = useRef(0);
   const timer = useRef<number | null>(null);
-  const done = applied >= steps.length;
-  const target = runningTotal(scored.tileSum, steps, applied);
+  const baseDone = letters >= scored.tiles.length;
+  const done = baseDone && applied >= steps.length;
+  const tileTarget = scored.tiles.slice(0, letters).reduce((sum, tile) => sum + tile.value, 0);
+  const target = baseDone ? runningTotal(scored.tileSum, steps, applied) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
   const visibleRows = done ? scored.rows : [scored.rows[0]!, ...steps.slice(0, applied)];
@@ -359,26 +342,38 @@ function ScoreReveal({
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || steps.length === 0) {
-      const id = window.setTimeout(() => setApplied(steps.length), 0);
+    if (reduce) {
+      const id = window.setTimeout(() => {
+        setLetters(scored.tiles.length);
+        setApplied(steps.length);
+      }, 0);
       return () => window.clearTimeout(id);
     }
     const id = window.setInterval(() => {
-      setApplied((current) => {
-        const next = Math.min(steps.length, current + 1);
-        if (next >= steps.length && timer.current !== null) {
-          window.clearInterval(timer.current);
-          timer.current = null;
-        }
+      setLetters((current) => {
+        const next = Math.min(scored.tiles.length, current + 1);
+        if (next >= scored.tiles.length) window.clearInterval(id);
         return next;
       });
-    }, 820);
+    }, 460);
     timer.current = id;
-    return () => {
-      window.clearInterval(id);
-      timer.current = null;
-    };
-  }, [steps.length]);
+    return () => window.clearInterval(id);
+  }, [scored.tiles.length, steps.length]);
+
+  useEffect(() => {
+    if (!baseDone) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || steps.length === 0) return;
+    const id = window.setInterval(() => {
+      setApplied((current) => {
+        const next = Math.min(steps.length, current + 1);
+        if (next >= steps.length) window.clearInterval(id);
+        return next;
+      });
+    }, 1450);
+    timer.current = id;
+    return () => window.clearInterval(id);
+  }, [baseDone, steps.length]);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -393,7 +388,7 @@ function ScoreReveal({
     let start = 0;
     const tick = (now: number) => {
       if (start === 0) start = now;
-      const t = Math.min(1, (now - start) / 520);
+      const t = Math.min(1, (now - start) / (baseDone ? 700 : 280));
       const eased = 1 - (1 - t) ** 3;
       const next = Math.round(from + (target - from) * eased);
       displayRef.current = next;
@@ -402,18 +397,20 @@ function ScoreReveal({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [target]);
+  }, [target, baseDone]);
 
   function skip() {
     if (timer.current !== null) {
       window.clearInterval(timer.current);
       timer.current = null;
     }
+    setLetters(scored.tiles.length);
     setApplied(steps.length);
   }
 
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, applied - 1));
-  const currentStep = applied > 0 ? steps[applied - 1] : null;
+  const currentStep = baseDone && applied > 0 ? steps[applied - 1] : null;
+  const addedTile = applied === 0 && letters > 0 ? scored.tiles[letters - 1] : null;
 
   return (
     <>
@@ -424,18 +421,40 @@ function ScoreReveal({
           tone.glow,
         )}
       />
+      <ul className="mt-6 flex flex-wrap justify-center gap-1.5" aria-label="Scrabble tiles">
+        {scored.tiles.map((tile, index) => (
+          <li
+            key={`${tile.letter}-${index}`}
+            className={cn(
+              "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase transition-opacity duration-300",
+              scored.length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
+              tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
+              tile.twin && "ring-1 ring-foreground/30 ring-inset",
+              index >= letters && "opacity-30",
+              index === letters - 1 && applied === 0 && "score-rise ring-1 ring-amber-200/80",
+            )}
+            title={tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined}
+          >
+            {tile.letter}
+            <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
+          </li>
+        ))}
+      </ul>
+
       <div className="mt-8 text-center">
         <p className="sr-only">Score</p>
-        <p key={applied} className={cn("score-rise font-mono tabular-nums", scoreSize(display))}>
+        <p key={`${letters}-${applied}`} className={cn("score-rise font-mono tabular-nums", scoreSize(display))}>
           {display.toLocaleString("en-US")}
         </p>
         <p className="mt-3 text-sm text-foreground" aria-live="polite">
-          {currentStep ? currentStep.name : "Scrabble tiles"}
+          {currentStep ? currentStep.name : addedTile ? `${addedTile.letter.toUpperCase()} adds ${addedTile.value}` : "Scrabble tiles"}
         </p>
         <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
           {currentStep
             ? `${previous.toLocaleString("en-US")} × ${currentStep.points} = ${target.toLocaleString("en-US")}`
-            : "The base, before any multiplier."}
+            : baseDone
+              ? "The base, before any multiplier."
+              : "Adding the letter scores."}
         </p>
         <p
           className={cn(
@@ -449,7 +468,7 @@ function ScoreReveal({
           Beats {formatBeaten(live.beaten)} of {live.wordCount.toLocaleString("en-US")} words
         </p>
         <p className="mt-2 text-sm text-foreground/90">{live.tier.blurb}</p>
-        {!done && steps.length > 0 ? (
+        {!done ? (
           <Button type="button" variant="outline" className="mt-5 h-8" onClick={skip}>
             Skip
           </Button>
@@ -490,7 +509,7 @@ function ScoreReveal({
                   row.scored ? "text-foreground" : "text-muted-foreground",
                 )}
               >
-                {formatPoints(row)}
+                {row.id === "tiles" && !baseDone ? tileTarget.toLocaleString("en-US") : formatPoints(row)}
               </p>
             </li>
           ))}
