@@ -6,6 +6,7 @@ import {
   MULTIPLIER_CAP_HZ,
   MULTIPLIER_FLOOR_HZ,
   multiplierBlipCount,
+  multiplierRiseSemitones,
   planMultiplierRuns,
 } from "./score-sound";
 
@@ -44,14 +45,21 @@ function lastNote(run: { frequency: number }[]): number {
   return run[run.length - 1]!.frequency;
 }
 
+function riseSemitones(run: { frequency: number }[]): number {
+  return 12 * Math.log2(lastNote(run) / run[0]!.frequency);
+}
+
 test("echo's later multiplier ends higher than the earlier one", () => {
   const [length, greek] = planMultiplierRuns([32, 6]);
   assert.equal(length!.length, 12);
   assert.equal(greek!.length, 6);
   assert.ok(lastNote(greek!) > lastNote(length!));
-  assert.ok(greek![0]!.frequency < lastNote(length!));
-  assert.ok(greek![0]!.frequency < lastNote(greek!));
   assert.equal(lastNote(greek!), MULTIPLIER_CAP_HZ);
+  assert.ok(riseSemitones(length!) > 4 && riseSemitones(length!) <= 8.01);
+  assert.ok(riseSemitones(greek!) >= 2 && riseSemitones(greek!) <= 4.01);
+  assert.equal(multiplierRiseSemitones(2), 2);
+  assert.equal(multiplierRiseSemitones(6), 3);
+  assert.equal(multiplierRiseSemitones(32), 8);
   for (const run of [length!, greek!]) {
     assert.ok(run.every((note) => note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ));
     assert.ok(run.every((note, index) => index === 0 || note.frequency >= run[index - 1]!.frequency));

@@ -15,6 +15,14 @@ export function multiplierBlipCount(multiplier: number): number {
   return Math.min(MULTIPLIER_BLIP_CAP, Math.max(3, Math.round(multiplier)));
 }
 
+export function multiplierRiseSemitones(multiplier: number): number {
+  if (multiplier >= 32) return 8;
+  if (multiplier >= 12) return 6;
+  if (multiplier >= 8) return 4;
+  if (multiplier >= 4) return 3;
+  return 2;
+}
+
 function hzAboveFloor(semitones: number): number {
   return MULTIPLIER_FLOOR_HZ * 2 ** (semitones / 12);
 }
@@ -26,21 +34,16 @@ export function planMultiplierRuns(multipliers: number[]): ScoreNote[][] {
   const firstEnd = 12;
   const lastEnd = 36;
   const step = count === 1 ? 0 : (lastEnd - firstEnd) / (count - 1);
-  let previousEnd: number | null = null;
   return hits.map((multiplier, index) => {
     const endHz = hzAboveFloor(count === 1 ? lastEnd : firstEnd + step * index);
-    const notes = multiplierClimb(multiplier, endHz, previousEnd);
-    previousEnd = notes[notes.length - 1]?.frequency ?? endHz;
-    return notes;
+    return multiplierClimb(multiplier, endHz);
   });
 }
 
-function multiplierClimb(multiplier: number, endHz: number, previousEnd: number | null): ScoreNote[] {
+function multiplierClimb(multiplier: number, endHz: number): ScoreNote[] {
   const count = multiplierBlipCount(multiplier);
-  const dipped =
-    previousEnd === null ? endHz / 2 : Math.min(previousEnd * 2 ** (-2 / 12), endHz * 2 ** (-4 / 12));
-  let startHz = Math.max(MULTIPLIER_FLOOR_HZ, dipped);
-  if (startHz >= endHz) startHz = Math.max(MULTIPLIER_FLOOR_HZ, endHz * 2 ** (-1 / 12));
+  const rise = multiplierRiseSemitones(multiplier);
+  const startHz = Math.max(MULTIPLIER_FLOOR_HZ, endHz * 2 ** (-rise / 12));
   const gap = Math.min(0.048, 0.55 / Math.max(count, 1));
   const notes: ScoreNote[] = [];
   for (let index = 0; index < count; index += 1) {
