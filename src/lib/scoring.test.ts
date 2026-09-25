@@ -138,6 +138,21 @@ test("almost is alphabet soup", () => {
   assert.equal(scored.rows.find((row) => row.id === "alphabet-soup")?.points, 8);
 });
 
+test("banana is a one vowel wonder", () => {
+  const scored = scoreWord("banana");
+  const row = scored.rows.find((entry) => entry.id === "one-vowel-wonder");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 5);
+  assert.equal(row?.name, "One vowel wonder ×5");
+  assert.deepEqual(row?.highlight, [1, 3, 5]);
+  assert.match(row?.reason ?? "", /Every vowel is A/);
+
+  assert.equal(scoreWord("area").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
+  assert.equal(scoreWord("see").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
+  assert.equal(scoreWord("rhythm").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
+  assert.equal(scoreWord("syzygy").rows.find((entry) => entry.id === "one-vowel-wonder")?.scored, false);
+});
+
 test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   const scored = scoreWord("facetious");
   assert.equal(scored.lengthMultiplier, 1);

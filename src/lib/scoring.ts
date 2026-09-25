@@ -81,6 +81,7 @@ export const FACTOR_MATCHES = {
   "alphabet-soup": 411,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
+  "one-vowel-wonder": 2856,
   "a-to-u": 28,
   "next-door": 16304,
   ing: 12564,
@@ -217,6 +218,7 @@ export function scoreWord(word: string): ScoredWord {
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
   const vowelRich = vowels > consonants;
+  const oneVowel = oneVowelWonder(normalized);
   const aToU = hasVowelOrder(normalized);
   const nextDoor = Math.abs(normalized.charCodeAt(0) - normalized.charCodeAt(length - 1)) === 1;
   const ing = length > 3 && normalized.endsWith("ing");
@@ -358,6 +360,13 @@ export function scoreWord(word: string): ScoredWord {
         vowels === consonants
           ? "Vowels and consonants are tied."
           : "Consonants outnumber the vowels.",
+    },
+    {
+      id: "one-vowel-wonder",
+      name: "One vowel wonder",
+      hit: oneVowel.hit,
+      hitDetail: `Every vowel is ${oneVowel.vowel.toUpperCase()} (${oneVowel.count} of them).`,
+      missDetail: "Needs at least 3 vowels, and they all have to be the same one. Y does not count.",
     },
     {
       id: "a-to-u",
@@ -630,7 +639,7 @@ function factorHighlight(id: FactorId, word: string): number[] {
   }
   if (id === "quiet-letters") return quietIndices(word);
   if (id === "i-before-e") return iBeforeEIndices(word);
-  if (id === "vowel-sweep") {
+  if (id === "vowel-sweep" || id === "one-vowel-wonder") {
     return [...word].flatMap((letter, index) => (VOWELS.has(letter) ? [index] : []));
   }
   if (id === "a-to-u") return aToUIndices(word);
@@ -723,6 +732,18 @@ function vowelCount(word: string): number {
   let count = 0;
   for (const letter of word) if (VOWELS.has(letter)) count += 1;
   return count;
+}
+
+function oneVowelWonder(word: string): { hit: boolean; vowel: string; count: number } {
+  let vowel = "";
+  let count = 0;
+  for (const letter of word) {
+    if (!VOWELS.has(letter)) continue;
+    if (vowel && letter !== vowel) return { hit: false, vowel: "", count: 0 };
+    vowel = letter;
+    count += 1;
+  }
+  return { hit: count >= 3, vowel, count };
 }
 
 function hasVowelOrder(word: string): boolean {

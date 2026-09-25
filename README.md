@@ -60,6 +60,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Ing | Ends in -ing, and the word is longer than the ending | 12,564 | ×3 |
 | Flat type | No ascenders (b, d, f, h, k, l, t) and no descenders (g, j, p, q, y). The dot on i does not count | 6,069 | ×4 |
 | Vowel rich | More A, E, I, O, U than consonants | 5,979 | ×4 |
+| One vowel wonder | At least 3 vowels, and every one of them is the same vowel. Y does not count | 2,856 | ×5 |
 | Vowel sweep | A, E, I, O, and U all appear | 2,462 | ×6 |
 | I before E | “ei” with no c in front, or “ie” right after c | 2,169 | ×6 |
 | Ist | Ends in -ist, and the word is longer than the ending | 1,197 | ×6 |

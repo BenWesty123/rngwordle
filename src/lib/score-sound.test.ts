@@ -60,7 +60,7 @@ test("air ends bright and bookkeeper ends low and thin", () => {
   const air = scoreWord("air");
   const book = scoreWord("bookkeeper");
   assert.equal(standingFor(air.total).tier.id, "epic");
-  assert.equal(standingFor(book.total).tier.id, "common");
+  assert.equal(standingFor(book.total).tier.id, "trash");
   const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const bookHits = book.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const strong = planRollSound(airHits, standingFor(air.total).tier.id);
