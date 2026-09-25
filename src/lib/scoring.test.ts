@@ -64,7 +64,8 @@ test("kayak multiplies mirror", () => {
   assert.equal(scored.lengthMultiplier, 16);
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
   assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
-  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2);
+  assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 4);
+  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2 * 4);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -173,6 +174,26 @@ test("banana is in perfect balance", () => {
   const rhythm = scoreWord("rhythm");
   assert.equal(rhythm.rows.find((entry) => entry.id === "perfect-balance")?.scored, false);
   assert.match(rhythm.rows.find((entry) => entry.id === "perfect-balance")?.detail ?? "", /Y counts as a consonant/);
+});
+
+test("banana alternates and book does not", () => {
+  const scored = scoreWord("banana");
+  const row = scored.rows.find((entry) => entry.id === "alternator");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 4);
+  assert.equal(row?.name, "Alternator ×4");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "alternator")?.scored, false);
+  assert.match(book.rows.find((entry) => entry.id === "alternator")?.detail ?? "", /next to each other/);
+
+  const single = scoreWord("a");
+  assert.equal(single.rows.find((entry) => entry.id === "alternator")?.scored, false);
+  assert.match(single.rows.find((entry) => entry.id === "alternator")?.detail ?? "", /one-letter/);
+
+  const yes = scoreWord("yes");
+  assert.equal(yes.rows.find((entry) => entry.id === "alternator")?.scored, true);
 });
 
 test("facetious sweeps the vowels and lines them up on a ×1 length", () => {

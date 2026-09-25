@@ -83,6 +83,7 @@ export const FACTOR_MATCHES = {
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
   "perfect-balance": 17684,
+  alternator: 11453,
   "a-to-u": 28,
   "next-door": 16304,
   ing: 12564,
@@ -229,6 +230,7 @@ export function scoreWord(word: string): ScoredWord {
   const loneQ = hasLoneQ(normalized);
   const quiet = quietPatterns(normalized);
   const flat = isFlat(normalized);
+  const alternator = alternates(normalized);
 
   let running = tileSum;
   const afterLength = running * lengthFactor;
@@ -380,6 +382,16 @@ export function scoreWord(word: string): ScoredWord {
           : length % 2 === 1
             ? "An odd number of letters cannot split evenly."
             : "Vowels and consonants are not an even split.",
+    },
+    {
+      id: "alternator",
+      name: "Alternator",
+      hit: alternator,
+      hitDetail: "Vowels and consonants take turns. Y counts as a consonant.",
+      missDetail:
+        length < 2
+          ? "A one-letter word cannot alternate."
+          : "Two vowels or two consonants sit next to each other.",
     },
     {
       id: "a-to-u",
@@ -757,6 +769,16 @@ function oneVowelWonder(word: string): { hit: boolean; vowel: string; count: num
     count += 1;
   }
   return { hit: count >= 3, vowel, count };
+}
+
+function alternates(word: string): boolean {
+  if (word.length < 2) return false;
+  for (let index = 1; index < word.length; index += 1) {
+    const previous = VOWELS.has(word[index - 1]!);
+    const current = VOWELS.has(word[index]!);
+    if (previous === current) return false;
+  }
+  return true;
 }
 
 function hasVowelOrder(word: string): boolean {
