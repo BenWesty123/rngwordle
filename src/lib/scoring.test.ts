@@ -54,7 +54,8 @@ test("quiz is scrabble tiles times length times contraband", () => {
   assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 3);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
   assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 3);
-  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3);
+  assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 2);
+  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3 * 2);
   assert.equal(product(scored), scored.total);
 });
 
@@ -196,20 +197,46 @@ test("banana alternates and book does not", () => {
   assert.equal(yes.rows.find((entry) => entry.id === "alternator")?.scored, true);
 });
 
-test("strengths lights the first consonant run of 5", () => {
+test("chain length sets the multiplier and a run of 1 misses", () => {
   const scored = scoreWord("strengths");
-  const row = scored.rows.find((entry) => entry.id === "consonant-cluster");
-  assert.equal(row?.scored, true);
-  assert.equal(row?.points, 6);
-  assert.equal(row?.name, "Consonant cluster ×6");
-  assert.deepEqual(row?.highlight, [4, 5, 6, 7, 8]);
-  assert.match(row?.reason ?? "", /ngths/);
+  const consonants = scored.rows.find((entry) => entry.id === "consonant-chain");
+  assert.equal(consonants?.scored, true);
+  assert.equal(consonants?.points, 6);
+  assert.equal(consonants?.name, "Consonant chain ×6");
+  assert.deepEqual(consonants?.highlight, [4, 5, 6, 7, 8]);
+  assert.match(consonants?.reason ?? "", /ngths is 5 consonants/);
+  assert.equal(scored.rows.find((entry) => entry.id === "vowel-chain")?.scored, false);
 
   const strength = scoreWord("strength");
-  assert.equal(strength.rows.find((entry) => entry.id === "consonant-cluster")?.scored, false);
+  assert.equal(strength.rows.find((entry) => entry.id === "consonant-chain")?.points, 4);
+  assert.match(strength.rows.find((entry) => entry.id === "consonant-chain")?.reason ?? "", /4 consonants/);
 
   const doubled = scoreWord("cryptanalysts");
-  assert.deepEqual(doubled.rows.find((entry) => entry.id === "consonant-cluster")?.highlight, [0, 1, 2, 3, 4]);
+  assert.deepEqual(doubled.rows.find((entry) => entry.id === "consonant-chain")?.highlight, [0, 1, 2, 3, 4]);
+
+  const rhythm = scoreWord("rhythm");
+  assert.equal(rhythm.rows.find((entry) => entry.id === "consonant-chain")?.points, 8);
+  assert.deepEqual(rhythm.rows.find((entry) => entry.id === "consonant-chain")?.highlight, [0, 1, 2, 3, 4, 5]);
+  assert.equal(rhythm.rows.find((entry) => entry.id === "vowel-chain")?.scored, false);
+
+  const vowels = scoreWord("cooeeing");
+  const vowelRow = vowels.rows.find((entry) => entry.id === "vowel-chain");
+  assert.equal(vowelRow?.points, 14);
+  assert.equal(vowelRow?.name, "Vowel chain ×14");
+  assert.deepEqual(vowelRow?.highlight, [1, 2, 3, 4, 5]);
+  assert.match(vowelRow?.reason ?? "", /ooeei is 5 vowels/);
+  assert.equal(vowels.rows.find((entry) => entry.id === "consonant-chain")?.points, 2);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "vowel-chain")?.points, 2);
+  assert.deepEqual(book.rows.find((entry) => entry.id === "vowel-chain")?.highlight, [1, 2]);
+  assert.equal(book.rows.find((entry) => entry.id === "consonant-chain")?.scored, false);
+
+  const cat = scoreWord("cat");
+  assert.equal(cat.rows.find((entry) => entry.id === "consonant-chain")?.scored, false);
+  assert.equal(cat.rows.find((entry) => entry.id === "vowel-chain")?.scored, false);
+  assert.equal(scoreWord("a").rows.find((entry) => entry.id === "consonant-chain")?.points, null);
+  assert.equal(scoreWord("a").rows.find((entry) => entry.id === "vowel-chain")?.points, null);
 });
 
 test("facetious sweeps the vowels and lines them up on a ×1 length", () => {

@@ -63,7 +63,8 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | One vowel wonder | At least 3 vowels, and every one of them is the same vowel. Y does not count | 2,856 | ×5 |
 | Perfect balance | An equal number of vowels and consonants. Y counts as a consonant. A word with no vowels misses | 17,684 | ×3 |
 | Alternator | Vowels and consonants alternate through the whole word. Y counts as a consonant. A one-letter word misses | 11,453 | ×4 |
-| Consonant cluster | At least 5 consonants in a row. Y counts as a consonant. The card lights the first run that long | 1,755 | ×6 |
+| Consonant chain | Longest unbroken run of consonants, when that run is at least 2. Vowels are A, E, I, O, U. Y is a consonant. A run of 1 gets no card. The card lights that run and shows its length. Multipliers, from how rare a run at least that long is: 2 → ×2, 3 → ×3, 4 → ×4, 5 → ×6, 6 → ×8, 7 → ×11, 8 → ×12, 9 → ×13. Length 3 was tied with length 2 and raised by 1 | 151,998 | by length |
+| Vowel chain | Longest unbroken run of A, E, I, O, or U, when that run is at least 2. Y is a consonant. A run of 1 gets no card. The card lights that run and shows its length. Multipliers: 2 → ×2, 3 → ×6, 4 → ×10, 5 → ×14 | 63,104 | by length |
 | Vowel sweep | A, E, I, O, and U all appear | 2,462 | ×6 |
 | I before E | “ei” with no c in front, or “ie” right after c | 2,169 | ×6 |
 | Ist | Ends in -ist, and the word is longer than the ending | 1,197 | ×6 |

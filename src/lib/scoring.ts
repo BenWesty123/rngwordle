@@ -84,7 +84,8 @@ export const FACTOR_MATCHES = {
   "one-vowel-wonder": 2856,
   "perfect-balance": 17684,
   alternator: 11453,
-  "consonant-cluster": 1755,
+  "consonant-chain": 151998,
+  "vowel-chain": 63104,
   "a-to-u": 28,
   "next-door": 16304,
   ing: 12564,
@@ -144,6 +145,30 @@ export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
     id === "anagram" ? 4 : rarityMultiplier(FACTOR_MATCHES[id]),
   ]),
 ) as Record<FactorId, number>;
+
+/**
+ * Multiplier for a consonant run of this length. Built from how many ENABLE
+ * words have a run at least this long, then raised where two lengths tied.
+ * A run of 1 does not score.
+ */
+export const CONSONANT_CHAIN_MULTIPLIERS: Record<number, number> = {
+  2: 2,
+  3: 3,
+  4: 4,
+  5: 6,
+  6: 8,
+  7: 11,
+  8: 12,
+  9: 13,
+};
+
+/** Same ladder for vowel runs. No ties on the ENABLE list. */
+export const VOWEL_CHAIN_MULTIPLIERS: Record<number, number> = {
+  2: 2,
+  3: 6,
+  4: 10,
+  5: 14,
+};
 
 export type Tile = {
   letter: string;
@@ -232,7 +257,8 @@ export function scoreWord(word: string): ScoredWord {
   const quiet = quietPatterns(normalized);
   const flat = isFlat(normalized);
   const alternator = alternates(normalized);
-  const cluster = consonantCluster(normalized);
+  const consonantChain = longestRun(normalized, false);
+  const vowelChain = longestRun(normalized, true);
 
   let running = tileSum;
   const afterLength = running * lengthFactor;
@@ -396,13 +422,18 @@ export function scoreWord(word: string): ScoredWord {
           : "Two vowels or two consonants sit next to each other.",
     },
     {
-      id: "consonant-cluster",
-      name: "Consonant cluster",
-      hit: cluster !== null,
-      hitDetail: cluster
-        ? `${normalized.slice(cluster.start, cluster.end)} is ${cluster.end - cluster.start} consonants in a row.`
-        : "",
-      missDetail: "No run of 5 consonants. Y counts as a consonant.",
+      id: "consonant-chain",
+      name: "Consonant chain",
+      hit: consonantChain !== null,
+      hitDetail: consonantChain ? chainReason(normalized, consonantChain, "consonants") : "",
+      missDetail: "No consonant run longer than one letter. Y counts as a consonant.",
+    },
+    {
+      id: "vowel-chain",
+      name: "Vowel chain",
+      hit: vowelChain !== null,
+      hitDetail: vowelChain ? chainReason(normalized, vowelChain, "vowels") : "",
+      missDetail: "No vowel run longer than one letter.",
     },
     {
       id: "a-to-u",
@@ -533,6 +564,41 @@ export function scoreWord(word: string): ScoredWord {
         });
         running = next;
       }
+      continue;
+    }
+    if (factor.id === "consonant-chain" || factor.id === "vowel-chain") {
+      const run = factor.id === "consonant-chain" ? consonantChain : vowelChain;
+      if (!run) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      const chainPoints = chainMultiplier(
+        factor.id === "consonant-chain" ? CONSONANT_CHAIN_MULTIPLIERS : VOWEL_CHAIN_MULTIPLIERS,
+        run.length,
+      );
+      const next = running * chainPoints;
+      const reason = chainReason(
+        normalized,
+        run,
+        factor.id === "consonant-chain" ? "consonants" : "vowels",
+      );
+      rows.push({
+        id: factor.id,
+        name: `${factor.name} ×${chainPoints}`,
+        detail: `${reason} ${running.toLocaleString("en-US")} × ${chainPoints} = ${next.toLocaleString("en-US")}.`,
+        points: chainPoints,
+        scored: true,
+        match: normalized.slice(run.start, run.end),
+        highlight: Array.from({ length: run.length }, (_, offset) => run.start + offset),
+        reason,
+      });
+      running = next;
       continue;
     }
     if (!factor.hit) {
@@ -679,7 +745,11 @@ function factorHighlight(id: FactorId, word: string): number[] {
     return [...word].flatMap((letter, index) => (VOWELS.has(letter) ? [index] : []));
   }
   if (id === "a-to-u") return aToUIndices(word);
-  if (id === "consonant-cluster") return consonantClusterIndices(word);
+  if (id === "consonant-chain" || id === "vowel-chain") {
+    const run = longestRun(word, id === "vowel-chain");
+    if (!run) return everyIndex(word.length);
+    return Array.from({ length: run.length }, (_, offset) => run.start + offset);
+  }
   return everyIndex(word.length);
 }
 
@@ -793,24 +863,43 @@ function alternates(word: string): boolean {
   return true;
 }
 
-function consonantCluster(word: string): { start: number; end: number } | null {
+type LetterRun = { start: number; end: number; length: number };
+
+/** First longest run of vowels, or of consonants when `vowel` is false. A run of 1 misses. */
+function longestRun(word: string, vowel: boolean): LetterRun | null {
+  let best: LetterRun | null = null;
   let start = -1;
   for (let index = 0; index <= word.length; index += 1) {
-    const consonant = index < word.length && !VOWELS.has(word[index]!);
-    if (consonant) {
+    const matches = index < word.length && VOWELS.has(word[index]!) === vowel;
+    if (matches) {
       if (start < 0) start = index;
       continue;
     }
-    if (start >= 0 && index - start >= 5) return { start, end: index };
+    if (start >= 0) {
+      const length = index - start;
+      if (length >= 2 && (best === null || length > best.length)) {
+        best = { start, end: index, length };
+      }
+    }
     start = -1;
   }
-  return null;
+  return best;
 }
 
-function consonantClusterIndices(word: string): number[] {
-  const run = consonantCluster(word);
-  if (!run) return everyIndex(word.length);
-  return Array.from({ length: run.end - run.start }, (_, offset) => run.start + offset);
+function chainReason(word: string, run: LetterRun, kind: "consonants" | "vowels"): string {
+  return `${word.slice(run.start, run.end)} is ${run.length} ${kind} in a row.`;
+}
+
+function chainMultiplier(table: Record<number, number>, length: number): number {
+  const known = table[length];
+  if (known !== undefined) return known;
+  const lengths = Object.keys(table)
+    .map(Number)
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+  const longest = lengths.at(-1);
+  if (longest === undefined || length <= longest) return 2;
+  return table[longest]! + (length - longest);
 }
 
 function hasVowelOrder(word: string): boolean {

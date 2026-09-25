@@ -56,10 +56,10 @@ function voicesAtEnd(run: { frequency: number; delay: number }[]): number {
   return run.filter((note) => note.delay === lastDelay).length;
 }
 
-test("air ends bright and bookkeeper ends low and thin", () => {
+test("air ends in a rare chord and bookkeeper ends low and thin", () => {
   const air = scoreWord("air");
   const book = scoreWord("bookkeeper");
-  assert.equal(standingFor(air.total).tier.id, "epic");
+  assert.equal(standingFor(air.total).tier.id, "rare");
   assert.equal(standingFor(book.total).tier.id, "common");
   const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const bookHits = book.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
@@ -68,8 +68,11 @@ test("air ends bright and bookkeeper ends low and thin", () => {
   const strongEnds = strong.runs.map((run) => melodyEnds(run).last);
   for (let index = 1; index < strongEnds.length; index += 1) assert.ok(strongEnds[index]! > strongEnds[index - 1]!);
   assert.ok(strong.verdict[0]!.frequency > strongEnds.at(-1)!);
-  assert.equal(Math.max(...strong.verdict.map((note) => note.frequency)), MULTIPLIER_CAP_HZ);
-  assert.ok(strong.verdict.length >= 3);
+  assert.equal(strong.verdict.length, 2);
+  assert.ok(Math.max(...strong.verdict.map((note) => note.frequency)) < MULTIPLIER_CAP_HZ);
+  const epic = planRollSound(airHits, "epic");
+  assert.equal(Math.max(...epic.verdict.map((note) => note.frequency)), MULTIPLIER_CAP_HZ);
+  assert.ok(epic.verdict.length >= 3);
   assert.equal(voicesAtEnd(weak.runs[0]!), 1);
   assert.equal(weak.verdict.length, 1);
   assert.ok(weak.verdict[0]!.frequency < 200);
@@ -82,8 +85,8 @@ test("air ends bright and bookkeeper ends low and thin", () => {
     const ends = melodyEnds(strong.runs[1]!);
     return 12 * Math.log2(ends.last / ends.first);
   })();
-  assert.ok(lengthRise > 4 && lengthRise <= 8.01);
-  assert.ok(nextRise >= 2 && nextRise <= 4.01);
+  assert.ok(Math.abs(lengthRise - 4) < 0.05);
+  assert.ok(Math.abs(nextRise - 3) < 0.05);
   for (const note of [...strong.runs.flat(), ...strong.verdict, ...weak.runs.flat(), ...weak.verdict]) {
     assert.ok(note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ);
   }
