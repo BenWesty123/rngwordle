@@ -63,6 +63,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | One vowel wonder | At least 3 vowels, and every one of them is the same vowel. Y does not count | 2,856 | ×5 |
 | Perfect balance | An equal number of vowels and consonants. Y counts as a consonant. A word with no vowels misses | 17,684 | ×3 |
 | Alternator | Vowels and consonants alternate through the whole word. Y counts as a consonant. A one-letter word misses | 11,453 | ×4 |
+| Consonant cluster | At least 5 consonants in a row. Y counts as a consonant. The card lights the first run that long | 1,755 | ×6 |
 | Vowel sweep | A, E, I, O, and U all appear | 2,462 | ×6 |
 | I before E | “ei” with no c in front, or “ie” right after c | 2,169 | ×6 |
 | Ist | Ends in -ist, and the word is longer than the ending | 1,197 | ×6 |

@@ -84,6 +84,7 @@ export const FACTOR_MATCHES = {
   "one-vowel-wonder": 2856,
   "perfect-balance": 17684,
   alternator: 11453,
+  "consonant-cluster": 1755,
   "a-to-u": 28,
   "next-door": 16304,
   ing: 12564,
@@ -231,6 +232,7 @@ export function scoreWord(word: string): ScoredWord {
   const quiet = quietPatterns(normalized);
   const flat = isFlat(normalized);
   const alternator = alternates(normalized);
+  const cluster = consonantCluster(normalized);
 
   let running = tileSum;
   const afterLength = running * lengthFactor;
@@ -392,6 +394,15 @@ export function scoreWord(word: string): ScoredWord {
         length < 2
           ? "A one-letter word cannot alternate."
           : "Two vowels or two consonants sit next to each other.",
+    },
+    {
+      id: "consonant-cluster",
+      name: "Consonant cluster",
+      hit: cluster !== null,
+      hitDetail: cluster
+        ? `${normalized.slice(cluster.start, cluster.end)} is ${cluster.end - cluster.start} consonants in a row.`
+        : "",
+      missDetail: "No run of 5 consonants. Y counts as a consonant.",
     },
     {
       id: "a-to-u",
@@ -668,6 +679,7 @@ function factorHighlight(id: FactorId, word: string): number[] {
     return [...word].flatMap((letter, index) => (VOWELS.has(letter) ? [index] : []));
   }
   if (id === "a-to-u") return aToUIndices(word);
+  if (id === "consonant-cluster") return consonantClusterIndices(word);
   return everyIndex(word.length);
 }
 
@@ -779,6 +791,26 @@ function alternates(word: string): boolean {
     if (previous === current) return false;
   }
   return true;
+}
+
+function consonantCluster(word: string): { start: number; end: number } | null {
+  let start = -1;
+  for (let index = 0; index <= word.length; index += 1) {
+    const consonant = index < word.length && !VOWELS.has(word[index]!);
+    if (consonant) {
+      if (start < 0) start = index;
+      continue;
+    }
+    if (start >= 0 && index - start >= 5) return { start, end: index };
+    start = -1;
+  }
+  return null;
+}
+
+function consonantClusterIndices(word: string): number[] {
+  const run = consonantCluster(word);
+  if (!run) return everyIndex(word.length);
+  return Array.from({ length: run.end - run.start }, (_, offset) => run.start + offset);
 }
 
 function hasVowelOrder(word: string): boolean {

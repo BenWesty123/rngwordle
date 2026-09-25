@@ -196,6 +196,22 @@ test("banana alternates and book does not", () => {
   assert.equal(yes.rows.find((entry) => entry.id === "alternator")?.scored, true);
 });
 
+test("strengths lights the first consonant run of 5", () => {
+  const scored = scoreWord("strengths");
+  const row = scored.rows.find((entry) => entry.id === "consonant-cluster");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 6);
+  assert.equal(row?.name, "Consonant cluster ×6");
+  assert.deepEqual(row?.highlight, [4, 5, 6, 7, 8]);
+  assert.match(row?.reason ?? "", /ngths/);
+
+  const strength = scoreWord("strength");
+  assert.equal(strength.rows.find((entry) => entry.id === "consonant-cluster")?.scored, false);
+
+  const doubled = scoreWord("cryptanalysts");
+  assert.deepEqual(doubled.rows.find((entry) => entry.id === "consonant-cluster")?.highlight, [0, 1, 2, 3, 4]);
+});
+
 test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   const scored = scoreWord("facetious");
   assert.equal(scored.lengthMultiplier, 1);
