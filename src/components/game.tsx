@@ -151,8 +151,18 @@ export function Game() {
     <div className="relative min-h-dvh">
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-10">
-        <header>
+        <header className="flex items-center justify-between gap-4">
           <p className="text-[11px] tracking-[0.32em] text-muted-foreground uppercase">RNGWorlde</p>
+          {roll && scored && standing ? (
+            <Button
+              type="button"
+              className="h-9 shrink-0"
+              disabled={!dictionary || spinWord !== null}
+              onClick={onGenerate}
+            >
+              {dictionary ? "Generate again" : "Opening the dictionary…"}
+            </Button>
+          ) : null}
         </header>
 
         {roll && scored && standing ? (
@@ -161,8 +171,6 @@ export function Game() {
             scored={scored}
             standing={standing}
             spinWord={spinWord}
-            dictionaryReady={dictionary !== null}
-            onGenerate={onGenerate}
             copied={copied}
             copyError={copyError}
             onCopy={onCopy}
@@ -241,8 +249,6 @@ function Result({
   scored,
   standing,
   spinWord,
-  dictionaryReady,
-  onGenerate,
   copied,
   copyError,
   onCopy,
@@ -251,8 +257,6 @@ function Result({
   scored: ReturnType<typeof scoreWord>;
   standing: ReturnType<typeof standingFor>;
   spinWord: string | null;
-  dictionaryReady: boolean;
-  onGenerate: () => void;
   copied: boolean;
   copyError: boolean;
   onCopy: (text: string) => void;
@@ -309,8 +313,6 @@ function Result({
           <ScoreReveal
             key={scored.word}
             scored={scored}
-            dictionaryReady={dictionaryReady}
-            onGenerate={onGenerate}
             share={share}
             copied={copied}
             copyError={copyError}
@@ -362,16 +364,12 @@ function WordDefinition({
 
 function ScoreReveal({
   scored,
-  dictionaryReady,
-  onGenerate,
   share,
   copied,
   copyError,
   onCopy,
 }: {
   scored: ReturnType<typeof scoreWord>;
-  dictionaryReady: boolean;
-  onGenerate: () => void;
   share: string;
   copied: boolean;
   copyError: boolean;
@@ -570,18 +568,10 @@ function ScoreReveal({
             Skip
           </Button>
         ) : null}
-        <Button
-          type="button"
-          className="mt-8 h-12 w-full text-base sm:h-14"
-          disabled={!dictionaryReady}
-          onClick={onGenerate}
-        >
-          {dictionaryReady ? "Generate again" : "Opening the dictionary…"}
-        </Button>
       </div>
 
       {baseDone ? (
-        <section className="mt-10" aria-label="Multipliers">
+        <section className="mt-8" aria-label="Multipliers">
           {activeStep ? (
             <MultiplierCard key={`active-${applied}`} word={scored.word} row={activeStep} featured />
           ) : null}
