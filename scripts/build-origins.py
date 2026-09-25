@@ -1,13 +1,17 @@
 """Build origin tags for ENABLE words from English Wiktionary.
 
-Streams the kaikki.org wiktextract JSONL (CC BY-SA). Only borrowed-from and
-inherited-from templates are kept. Cognates ("akin to", template cog) and
-plain derived-from links are ignored. The dump is not vendored.
+Streams the kaikki.org wiktextract JSONL (CC BY-SA). Borrowed-from,
+inherited-from, and derived-from templates count. Cognates ("akin to",
+template cog) do not. A hop through Middle English or modern English is
+followed to that word's own templates. Those stages are not origins.
+The dumps are not vendored.
 
+    curl -fsL "https://kaikki.org/dictionary/Middle%20English/kaikki.org-dictionary-MiddleEnglish.jsonl" \
+      -o /tmp/middle-english.jsonl
     curl -fsL https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl \
       | python3 scripts/build-origins.py
 
-Prints a JSON object of word -> sorted language codes on stdout.
+Prints a JSON object of ENABLE word -> sorted language codes on stdout.
 """
 
 from __future__ import annotations
@@ -15,14 +19,12 @@ from __future__ import annotations
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ENABLE = ROOT / "data" / "enable1.txt"
 
-# Immediate source on {{bor|en|la|...}} / {{inh|en|ang|...}} and the borrowing family.
-# bor/inh are preferred. der is the usual "from Latin/Greek" link on an English entry.
-# cog / ncog ("akin to", "not cognate with") are not an origin.
 TEMPLATES = {
     "bor",
     "bor+",
@@ -38,8 +40,9 @@ TEMPLATES = {
     "der+",
 }
 
-# English stages are not a foreign origin. Unknown codes are not a language.
-SKIP_LANGS = {"en", "enm", "mul", "und", "en-gb", "en-us"}
+# Follow these. They are not From cards.
+SKIP_LANGS = {"en", "enm", "en-gb", "en-us"}
+INDEX_LANGS = SKIP_LANGS
 
 
 def enable_words() -> set[str]:
@@ -51,56 +54,118 @@ def enable_words() -> set[str]:
     return words
 
 
-def headword(word: str, words: set[str]) -> str | None:
-    text = word.strip().lower()
-    if re.fullmatch(r"[a-z]+", text) and text in words:
-        return text
-    if re.fullmatch(r"[a-z]+(-[a-z]+)+", text):
-        key = text.replace("-", "")
-        if key in words:
-            return key
-    return None
+def fold(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return (
+        text.replace("þ", "th")
+        .replace("ð", "th")
+        .replace("æ", "ae")
+        .replace("œ", "oe")
+        .replace("ł", "l")
+        .replace("ø", "o")
+    )
 
 
-def source_lang(args: dict) -> str | None:
-    raw = args.get("2")
+def language_code(raw: object) -> str | None:
     if raw is None:
         return None
     code = str(raw).split("<", 1)[0].split(":", 1)[0].strip().lower()
-    if not re.fullmatch(r"[a-z0-9-]{2,12}", code):
-        return None
-    if code in SKIP_LANGS:
+    if not re.fullmatch(r"[a-z0-9-]{2,16}", code):
         return None
     return code
 
 
+def lemmas(raw: object) -> list[str]:
+    if raw is None:
+        return []
+    text = str(raw).split("<", 1)[0].strip().lower()
+    found: list[str] = []
+    for part in text.split(","):
+        part = part.split("|", 1)[0].strip()
+        if part and part not in {"-", "—"}:
+            found.append(part)
+    return found
+
+
+def ingest(obj: dict, index: dict[tuple[str, str], tuple[set[str], set[tuple[str, str]]]]) -> None:
+    lang = str(obj.get("lang_code") or "")
+    if lang not in INDEX_LANGS:
+        return
+    name = str(obj.get("word") or "").strip().lower()
+    if not name:
+        return
+    direct, hops = index.setdefault((lang, fold(name)), (set(), set()))
+    for template in obj.get("etymology_templates") or []:
+        if template.get("name") not in TEMPLATES:
+            continue
+        args = template.get("args") or {}
+        code = language_code(args.get("2"))
+        if code is None or code in {"mul", "und"}:
+            continue
+        if code in SKIP_LANGS:
+            for cited in lemmas(args.get("3")):
+                hops.add((code, fold(cited)))
+            continue
+        direct.add(code)
+
+
+def load_middle_english(index: dict[tuple[str, str], tuple[set[str], set[tuple[str, str]]]]) -> None:
+    path = Path("/tmp/middle-english.jsonl")
+    if not path.exists():
+        print("missing /tmp/middle-english.jsonl", file=sys.stderr)
+        return
+    for line in path.read_text().splitlines():
+        try:
+            ingest(json.loads(line), index)
+        except json.JSONDecodeError:
+            continue
+
+
 def main() -> None:
     words = enable_words()
-    found: dict[str, set[str]] = {}
+    # (lang, folded lemma) -> (direct source codes, follow hops)
+    index: dict[tuple[str, str], tuple[set[str], set[tuple[str, str]]]] = {}
+    load_middle_english(index)
+
     for line in sys.stdin:
-        if '"lang_code": "en"' not in line and '"lang_code":"en"' not in line:
-            continue
         if "etymology_templates" not in line:
+            continue
+        if '"lang_code": "en' not in line and '"lang_code":"en' not in line:
             continue
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if obj.get("lang_code") != "en":
+        if str(obj.get("lang_code") or "") != "en":
             continue
-        head = headword(str(obj.get("word") or ""), words)
-        if head is None:
-            continue
-        langs = found.setdefault(head, set())
-        for template in obj.get("etymology_templates") or []:
-            if template.get("name") not in TEMPLATES:
-                continue
-            code = source_lang(template.get("args") or {})
-            if code:
-                langs.add(code)
-    payload = {word: sorted(langs) for word, langs in sorted(found.items()) if langs}
+        ingest(obj, index)
+
+    index = {key: entry for key, entry in index.items() if entry[0] or entry[1]}
+
+    def resolve(lang: str, name: str, seen: set[tuple[str, str]]) -> set[str]:
+        key = (lang, fold(name))
+        if key in seen:
+            return set()
+        entry = index.get(key)
+        if entry is None:
+            return set()
+        direct, hops = entry
+        found = set(direct)
+        seen.add(key)
+        for hop_lang, hop_name in hops:
+            found |= resolve(hop_lang, hop_name, seen)
+        seen.remove(key)
+        return found
+
+    payload: dict[str, list[str]] = {}
+    for word in sorted(words):
+        langs = resolve("en", word, set())
+        if langs:
+            payload[word] = sorted(langs)
     json.dump(payload, sys.stdout, ensure_ascii=False)
     sys.stdout.write("\n")
+    print(f"indexed {len(index)} headwords, enable with origins {len(payload)}", file=sys.stderr)
 
 
 if __name__ == "__main__":

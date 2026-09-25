@@ -205,6 +205,10 @@ test("origins come from Wiktionary, and a silence is a miss", () => {
   assert.equal(scoreWord("cheetah").rows.find((row) => row.id === "from-hindi")?.scored, true);
   assert.equal(scoreWord("ginkgo").rows.find((row) => row.id === "from-east-asia")?.scored, true);
   assert.equal(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.scored, false);
+  const cement = scoreWord("cement");
+  assert.equal(cement.rows.find((row) => row.id === "from-french")?.scored, true);
+  assert.equal(cement.rows.find((row) => row.id === "from-latin")?.scored, true);
+  assert.equal(cement.rows.some((row) => row.id === "from-middle-english"), false);
   assert.match(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.detail ?? "", /Wiktionary has no usable/);
 });
 
