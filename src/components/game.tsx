@@ -5,6 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
+import { armScoreAudio, playLetterPoints, stopScoreAudio } from "@/lib/score-sound";
 import { formatRowValue, scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -85,6 +86,7 @@ export function Game() {
   }, [copied]);
 
   function onGenerate() {
+    armScoreAudio();
     if (!dictionary || spinTimer.current !== null) return;
     const word = randomWord(dictionary);
     const next = { date: utcDateKey(), word };
@@ -326,6 +328,7 @@ function ScoreReveal({
   onCopy: (text: string) => void;
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
+  const tilesRef = useRef(scored.tiles);
   const [letters, setLetters] = useState(0);
   const [applied, setApplied] = useState(0);
   const [display, setDisplay] = useState(0);
@@ -344,20 +347,31 @@ function ScoreReveal({
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       const id = window.setTimeout(() => {
-        setLetters(scored.tiles.length);
+        setLetters(tilesRef.current.length);
         setApplied(steps.length);
       }, 0);
       return () => window.clearTimeout(id);
     }
+    const heard = { current: 0 };
     const id = window.setInterval(() => {
-      setLetters((current) => {
-        const next = Math.min(scored.tiles.length, current + 1);
-        if (next >= scored.tiles.length) window.clearInterval(id);
-        return next;
-      });
+      const current = heard.current;
+      if (current >= tilesRef.current.length) {
+        window.clearInterval(id);
+        return;
+      }
+      const tiles = tilesRef.current;
+      const tile = tiles[current];
+      const runningBefore = tiles.slice(0, current).reduce((sum, item) => sum + item.value, 0);
+      if (tile) playLetterPoints(tile.value, runningBefore);
+      heard.current = current + 1;
+      setLetters(heard.current);
+      if (heard.current >= tiles.length) window.clearInterval(id);
     }, 460);
     timer.current = id;
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      stopScoreAudio();
+    };
   }, [scored.tiles.length, steps.length]);
 
   useEffect(() => {
@@ -404,6 +418,7 @@ function ScoreReveal({
       window.clearInterval(timer.current);
       timer.current = null;
     }
+    stopScoreAudio();
     setLetters(scored.tiles.length);
     setApplied(steps.length);
   }

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 4721",
     "precompute": "tsx scripts/precompute.ts",
-    "test": "tsx --test src/lib/scoring.test.ts",
+    "test": "tsx --test src/lib/scoring.test.ts src/lib/score-sound.test.ts",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 4721",
     "lint": "eslint"
