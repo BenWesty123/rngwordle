@@ -1,18 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bundledDefinition, needsRemoteDefinition, plainDefinition } from "./definition";
-
-test("echo keeps the first Webster sense and bookkeeper is absent", () => {
-  assert.match(bundledDefinition("echo") ?? "", /^A nymph,/);
-  assert.equal(bundledDefinition("bookkeeper"), null);
-  assert.equal(bundledDefinition("quiz"), null);
-});
-
-test("any word without a Webster gloss is looked up", () => {
-  assert.equal(needsRemoteDefinition("misogamy"), true);
-  assert.equal(needsRemoteDefinition("bookkeeper"), true);
-  assert.equal(needsRemoteDefinition("echo"), false);
-});
+import { plainDefinition } from "./definition";
 
 test("wiktionary markup collapses to one plain sentence", () => {
   assert.equal(

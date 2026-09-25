@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { bundledDefinition, fetchRemoteDefinition, needsRemoteDefinition } from "@/lib/definition";
+import { fetchRemoteDefinition } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
@@ -331,15 +331,13 @@ function WordDefinition({
   saved: string | null | undefined;
   onSave: (definition: string | null) => void;
 }) {
-  const bundled = bundledDefinition(word);
-  const remote = needsRemoteDefinition(word);
   const onSaveRef = useRef(onSave);
   useEffect(() => {
     onSaveRef.current = onSave;
   });
 
   useEffect(() => {
-    if (!remote || saved !== undefined) return;
+    if (saved !== undefined) return;
     let cancel = false;
     fetchRemoteDefinition(word)
       .then((gloss) => {
@@ -351,9 +349,9 @@ function WordDefinition({
     return () => {
       cancel = true;
     };
-  }, [remote, saved, word]);
+  }, [saved, word]);
 
-  const gloss = bundled ?? (remote ? saved : null);
+  const gloss = saved;
   if (gloss === undefined) return null;
   return (
     <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">

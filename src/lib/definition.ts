@@ -1,15 +1,3 @@
-import definitions from "@/data/definitions.json";
-
-const GLOSS = definitions as Record<string, string>;
-
-export function bundledDefinition(word: string): string | null {
-  return GLOSS[word] ?? null;
-}
-
-export function needsRemoteDefinition(word: string): boolean {
-  return bundledDefinition(word) === null;
-}
-
 export function plainDefinition(html: string): string {
   const text = html
     .replace(/<[^>]+>/g, "")
@@ -32,7 +20,11 @@ export async function fetchRemoteDefinition(word: string): Promise<string | null
   if (!body || typeof body !== "object" || !("en" in body)) return null;
   const english = (body as { en?: unknown }).en;
   if (!Array.isArray(english)) return null;
-  for (const sense of english) {
+  const labeled = english.filter(
+    (sense) => !!sense && typeof sense === "object" && (sense as { language?: unknown }).language === "English",
+  );
+  const senses = labeled.length > 0 ? labeled : english;
+  for (const sense of senses) {
     if (!sense || typeof sense !== "object" || !("definitions" in sense)) continue;
     const definitions = (sense as { definitions?: unknown }).definitions;
     if (!Array.isArray(definitions)) continue;
