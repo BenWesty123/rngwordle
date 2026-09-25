@@ -21,7 +21,9 @@ export function buildShareText(input: {
     `${input.scored.total.toLocaleString("en-US")} · ${input.tierLabel}`,
     `Beats ${percent} of ${input.wordCount.toLocaleString("en-US")} words`,
     "",
-    ...input.scored.rows.map((row) => `${row.name}: ${formatRowValue(row)}`),
+    ...input.scored.rows.map((row) =>
+      row.match ? `${row.name}: ${row.match} ${formatRowValue(row)}` : `${row.name}: ${formatRowValue(row)}`,
+    ),
   ];
   return lines.join("\n");
 }

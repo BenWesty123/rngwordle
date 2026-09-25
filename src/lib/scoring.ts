@@ -124,6 +124,8 @@ export type LedgerRow = {
    */
   points: number | null;
   scored: boolean;
+  /** Dictionary word that triggered one Inside hit. */
+  match?: string;
 };
 
 export type ScoredWord = {
@@ -404,6 +406,7 @@ export function scoreWord(word: string): ScoredWord {
           detail: `${hit} sits inside. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
+          match: hit,
         });
         running = next;
       }

@@ -80,9 +80,10 @@ test("headlamp pays Inside once per nested dictionary word", () => {
   const scored = scoreWord("headlamp");
   const hits = scored.rows.filter((row) => row.id === "inside" && row.scored);
   assert.deepEqual(
-    hits.map((row) => row.detail.split(" ")[0]),
+    hits.map((row) => row.match),
     ["head", "lamp", "lam", "amp"],
   );
+  assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.match, undefined);
   assert.equal(hits.length, 4);
   assert.ok(hits.every((row) => row.points === FACTOR_MULTIPLIERS.inside));
   assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.points, null);
