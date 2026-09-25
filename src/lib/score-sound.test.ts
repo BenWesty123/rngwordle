@@ -70,7 +70,7 @@ test("echo ends bright and bookkeeper ends low and thin", () => {
   assert.ok(strong.verdict[0]!.frequency > strongEnds.at(-1)!);
   assert.equal(Math.max(...strong.verdict.map((note) => note.frequency)), MULTIPLIER_CAP_HZ);
   assert.ok(strong.verdict.length >= 3);
-  assert.ok(voicesAtEnd(strong.runs[0]!) >= 3);
+  assert.ok(voicesAtEnd(strong.runs[0]!) >= 2);
   assert.equal(voicesAtEnd(weak.runs[0]!), 1);
   assert.equal(weak.verdict.length, 1);
   assert.ok(weak.verdict[0]!.frequency < 200);

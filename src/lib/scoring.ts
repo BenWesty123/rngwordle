@@ -61,6 +61,7 @@ export const FACTOR_MATCHES = {
   mirror: 101,
   contraband: 16286,
   twins: 41209,
+  "no-repeats": 34816,
   "a-cappella": 5,
   "bone-dry": 121,
   "alphabet-soup": 411,
@@ -239,6 +240,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: runs.length > 0,
       hitDetail: `${runs.join(", ")}.`,
       missDetail: "No letter sits next to itself.",
+    },
+    {
+      id: "no-repeats",
+      name: "No repeats",
+      hit: new Set(normalized).size === length,
+      hitDetail: "Every letter appears once.",
+      missDetail: "A letter is used more than once.",
     },
     {
       id: "ditto",

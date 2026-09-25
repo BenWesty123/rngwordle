@@ -52,7 +52,8 @@ test("quiz is scrabble tiles times length times contraband", () => {
   assert.equal(scored.tileSum, 22);
   assert.equal(scored.lengthMultiplier, 32);
   assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 3);
-  assert.equal(scored.total, 22 * 32 * 3);
+  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
+  assert.equal(scored.total, 22 * 32 * 3 * 2);
   assert.equal(product(scored), scored.total);
 });
 
@@ -77,6 +78,7 @@ test("rhythm is bone dry and y is not a vowel", () => {
 test("bookkeeper pays the twins multiplier once", () => {
   const scored = scoreWord("bookkeeper");
   assert.equal(scored.rows.find((row) => row.id === "twins")?.points, 2);
+  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, null);
   assert.deepEqual(
     scored.tiles.map((tile) => tile.twin),
     [false, true, true, true, true, true, true, false, false, false],
@@ -96,7 +98,8 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 4);
   assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 11);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
-  assert.equal(scored.total, 14 * 6 * 4 * 11);
+  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
+  assert.equal(scored.total, 14 * 6 * 4 * 11 * 2);
 });
 
 test("aa can be all vowels without counting as a mirror", () => {
@@ -134,7 +137,8 @@ test("origins come from the 1913 Webster trace, and a silence is a miss", () => 
   assert.equal(echo.rows.find((row) => row.id === "from-greek")?.points, FACTOR_MULTIPLIERS["from-greek"]);
   assert.equal(echo.tileSum, 9);
   assert.equal(echo.lengthMultiplier, 32);
-  assert.equal(echo.total, 9 * 32 * FACTOR_MULTIPLIERS["from-greek"]);
+  assert.equal(echo.rows.find((row) => row.id === "no-repeats")?.points, 2);
+  assert.equal(echo.total, 9 * 32 * FACTOR_MULTIPLIERS["from-greek"] * 2);
 
   assert.equal(scoreWord("piano").rows.find((row) => row.id === "from-italian")?.scored, true);
   assert.equal(scoreWord("they").rows.find((row) => row.id === "from-norse")?.scored, true);
