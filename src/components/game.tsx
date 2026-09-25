@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
-import { armScoreAudio, playLetterPoints, playMultiplier, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
+import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { formatRowValue, scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -378,8 +378,16 @@ function ScoreReveal({
   useEffect(() => {
     if (!baseDone) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || steps.length === 0) return;
-    prepareMultiplierScore(stepsRef.current.map((step) => step.points ?? 0));
+    if (reduce) return;
+    const tier = standingFor(scored.total).tier.id;
+    prepareMultiplierScore(
+      stepsRef.current.map((step) => step.points ?? 0),
+      tier,
+    );
+    if (steps.length === 0) {
+      playVerdict();
+      return;
+    }
     const heard = { current: 0 };
     const id = window.setInterval(() => {
       const pending = stepsRef.current;
@@ -395,7 +403,7 @@ function ScoreReveal({
     }, 1450);
     timer.current = id;
     return () => window.clearInterval(id);
-  }, [baseDone, steps.length]);
+  }, [baseDone, scored.total, steps.length]);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
