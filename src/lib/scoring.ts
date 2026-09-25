@@ -13,7 +13,10 @@
  * the origin is impossible.
  */
 
+import enableWordsText from "@/data/enable-words.json";
 import wordFacts from "@/data/word-facts.json";
+
+const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
 
 const WORD_FACT_TAGS = wordFacts.words as Record<string, string[]>;
 
@@ -62,6 +65,7 @@ export const FACTOR_MATCHES = {
   contraband: 16286,
   twins: 41209,
   "no-repeats": 34816,
+  inside: 167370,
   "a-cappella": 5,
   "bone-dry": 121,
   "alphabet-soup": 411,
@@ -249,6 +253,13 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "A letter is used more than once.",
     },
     {
+      id: "inside",
+      name: "Inside",
+      hit: insideHits(normalized).length > 0,
+      hitDetail: "",
+      missDetail: "No dictionary word of 3 or more letters sits inside.",
+    },
+    {
       id: "ditto",
       name: "Ditto",
       hit: isTautonym(normalized),
@@ -373,6 +384,31 @@ export function scoreWord(word: string): ScoredWord {
 
   for (const factor of factors) {
     const multiplier = FACTOR_MULTIPLIERS[factor.id];
+    if (factor.id === "inside") {
+      const hits = insideHits(normalized);
+      if (hits.length === 0) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      for (const hit of hits) {
+        const next = running * multiplier;
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${multiplier}`,
+          detail: `${hit} sits inside. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          points: multiplier,
+          scored: true,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (!factor.hit) {
       rows.push({
         id: factor.id,
@@ -448,6 +484,18 @@ function originFactors(word: string): Array<{
       missDetail: "No Chinese or Japanese trace in the 1913 Webster etymology on file.",
     },
   ];
+}
+
+export function insideHits(word: string): string[] {
+  const hits: string[] = [];
+  for (let start = 0; start < word.length; start += 1) {
+    for (let end = word.length; end >= start + 3; end -= 1) {
+      if (start === 0 && end === word.length) continue;
+      const slice = word.slice(start, end);
+      if (ENABLE_WORDS.has(slice)) hits.push(slice);
+    }
+  }
+  return hits;
 }
 
 function isTautonym(word: string): boolean {

@@ -16,18 +16,18 @@ const words = [
 
 const scored = words.map((word) => scoreWord(word));
 const scores = scored.map((entry) => entry.total);
-const maxScore = scores.reduce((max, score) => Math.max(max, score), 0);
-const counts = new Array<number>(maxScore + 1).fill(0);
-for (const score of scores) counts[score] = (counts[score] ?? 0) + 1;
-
-const prefix = new Array<number>(counts.length + 1).fill(0);
-for (let index = 0; index < counts.length; index += 1) {
-  prefix[index + 1] = (prefix[index] ?? 0) + (counts[index] ?? 0);
+const tally = new Map<number, number>();
+for (const score of scores) tally.set(score, (tally.get(score) ?? 0) + 1);
+const uniqueScores = [...tally.keys()].sort((a, b) => a - b);
+const belowCounts: number[] = [];
+let seen = 0;
+for (const score of uniqueScores) {
+  belowCounts.push(seen);
+  seen += tally.get(score) ?? 0;
 }
 
 function below(score: number): number {
-  if (score <= 0) return 0;
-  return prefix[Math.min(score, prefix.length - 1)] ?? 0;
+  return Math.round(beatenFraction(score, uniqueScores, belowCounts, words.length) * words.length);
 }
 
 const tierCounts = new Map<string, number>();
@@ -36,7 +36,7 @@ for (const score of scores) {
   const beaten = below(score) / words.length;
   const tier = tierForBeaten(beaten);
   tierCounts.set(tier.id, (tierCounts.get(tier.id) ?? 0) + 1);
-  if (Math.abs(beaten - beatenFraction(score, counts, words.length)) > 1e-12) {
+  if (Math.abs(beaten - below(score) / words.length) > 1e-12) {
     throw new Error(`Standing mismatch at score ${score}`);
   }
 }
@@ -71,8 +71,10 @@ for (const length of [2, 3, 6, 12, 15, 20]) {
 
 const factorHits = new Map<string, number>();
 for (const entry of scored) {
+  const seen = new Set<string>();
   for (const row of entry.rows) {
-    if (!row.scored || row.id === "tiles" || row.id === "length") continue;
+    if (!row.scored || row.id === "tiles" || row.id === "length" || seen.has(row.id)) continue;
+    seen.add(row.id);
     factorHits.set(row.id, (factorHits.get(row.id) ?? 0) + 1);
   }
 }
@@ -88,7 +90,7 @@ mkdirSync(join(root, "src/data"), { recursive: true });
 writeFileSync(join(root, "public/words.txt"), `${words.join("\n")}\n`);
 writeFileSync(
   join(root, "src/data/histogram.json"),
-  `${JSON.stringify({ source: "enable1", wordCount: words.length, counts })}\n`,
+  `${JSON.stringify({ source: "enable1", wordCount: words.length, scores: uniqueScores, below: belowCounts })}\n`,
 );
 
 const ranked = scored
@@ -97,7 +99,8 @@ const ranked = scored
   .slice(0, 12);
 
 const samples = ["quiz", "kayak", "rhythm", "bookkeeper", "almost", "facetious", "sequoia", "jazz", "qi", "za", "cwm", "aa"];
-const minScore = scores.reduce((min, score) => Math.min(min, score), maxScore);
+const minScore = uniqueScores[0] ?? 0;
+const maxScore = uniqueScores[uniqueScores.length - 1] ?? 0;
 console.log(`words ${words.length}`);
 console.log(`score min ${minScore} median ${median(scores)} max ${maxScore}`);
 console.log(

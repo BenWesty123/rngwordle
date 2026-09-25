@@ -392,7 +392,6 @@ function ScoreReveal({
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
   const visibleRows = done ? scored.rows : [scored.rows[0]!, ...steps.slice(0, applied)];
-  const justApplied = applied > 0 ? steps[applied - 1]?.id : null;
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -567,12 +566,12 @@ function ScoreReveal({
       <section className="mt-10" aria-label="Score breakdown">
         <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Breakdown</h2>
         <ul className="mt-2 divide-y divide-border">
-          {visibleRows.map((row) => (
+          {visibleRows.map((row, index) => (
             <li
-              key={row.id}
+              key={`${row.id}-${index}`}
               className={cn(
                 "flex items-baseline justify-between gap-4 py-3",
-                row.id === justApplied && "row-in",
+                !done && index === visibleRows.length - 1 && row.id !== "tiles" && "row-in",
               )}
             >
               <div className="min-w-0">

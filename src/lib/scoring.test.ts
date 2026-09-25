@@ -62,7 +62,8 @@ test("kayak multiplies mirror", () => {
   assert.equal(scored.tileSum, 16);
   assert.equal(scored.lengthMultiplier, 16);
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
-  assert.equal(scored.total, 16 * 16 * 10);
+  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
+  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -73,6 +74,18 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.lengthMultiplier, 8);
   assert.equal(scored.rows.find((row) => row.id === "quiet-letters")?.points, 7);
   assert.equal(scored.total, 17 * 8 * 9 * 7);
+});
+
+test("headlamp pays Inside once per nested dictionary word", () => {
+  const scored = scoreWord("headlamp");
+  const hits = scored.rows.filter((row) => row.id === "inside" && row.scored);
+  assert.deepEqual(
+    hits.map((row) => row.detail.split(" ")[0]),
+    ["head", "lamp", "lam", "amp"],
+  );
+  assert.equal(hits.length, 4);
+  assert.ok(hits.every((row) => row.points === FACTOR_MULTIPLIERS.inside));
+  assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.points, null);
 });
 
 test("bookkeeper pays the twins multiplier once", () => {
@@ -99,7 +112,8 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 11);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(scored.total, 14 * 6 * 4 * 11 * 2);
+  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 3);
+  assert.equal(scored.total, 14 * 6 * 4 * 11 * 2 * 2 * 2 * 2);
 });
 
 test("aa can be all vowels without counting as a mirror", () => {

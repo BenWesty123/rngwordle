@@ -40,12 +40,22 @@ export const TIER_BANDS = [
 export type TierId = (typeof TIER_BANDS)[number]["id"];
 export type TierBand = (typeof TIER_BANDS)[number];
 
-export function beatenFraction(score: number, counts: readonly number[], wordCount: number): number {
-  if (wordCount <= 0) return 0;
-  let below = 0;
-  const end = Math.min(Math.max(score, 0), counts.length);
-  for (let index = 0; index < end; index += 1) below += counts[index] ?? 0;
-  return below / wordCount;
+export function beatenFraction(
+  score: number,
+  scores: readonly number[],
+  below: readonly number[],
+  wordCount: number,
+): number {
+  if (wordCount <= 0 || scores.length === 0) return 0;
+  let lo = 0;
+  let hi = scores.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if ((scores[mid] ?? 0) < score) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo >= below.length) return 1;
+  return (below[lo] ?? 0) / wordCount;
 }
 
 export function tierForBeaten(beaten: number): TierBand {

@@ -53,6 +53,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | --- | --- | --- | --- |
 | Twins | A letter repeated back to back | 41,209 | ×2 |
 | No repeats | Every letter is different | 34,816 | ×2 |
+| Inside | A dictionary word of at least 3 letters sits inside. The whole word does not count. Each match multiplies once, including a word nested in a longer match | 167,370 | ×2 |
 | Next door | First and last letters are neighbours in the alphabet | 16,304 | ×3 |
 | Contraband | Contains J, Q, X, or Z | 16,286 | ×3 |
 | Ing | Ends in -ing, and the word is longer than the ending | 12,564 | ×3 |

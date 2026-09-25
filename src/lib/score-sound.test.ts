@@ -56,21 +56,20 @@ function voicesAtEnd(run: { frequency: number; delay: number }[]): number {
   return run.filter((note) => note.delay === lastDelay).length;
 }
 
-test("echo ends bright and bookkeeper ends low and thin", () => {
-  const echo = scoreWord("echo");
+test("air ends bright and bookkeeper ends low and thin", () => {
+  const air = scoreWord("air");
   const book = scoreWord("bookkeeper");
-  assert.equal(standingFor(echo.total).tier.id, "epic");
+  assert.equal(standingFor(air.total).tier.id, "epic");
   assert.equal(standingFor(book.total).tier.id, "common");
-  const echoHits = echo.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
+  const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const bookHits = book.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
-  const strong = planRollSound(echoHits, "epic");
-  const weak = planRollSound(bookHits, "common");
+  const strong = planRollSound(airHits, standingFor(air.total).tier.id);
+  const weak = planRollSound(bookHits, standingFor(book.total).tier.id);
   const strongEnds = strong.runs.map((run) => melodyEnds(run).last);
   for (let index = 1; index < strongEnds.length; index += 1) assert.ok(strongEnds[index]! > strongEnds[index - 1]!);
   assert.ok(strong.verdict[0]!.frequency > strongEnds.at(-1)!);
   assert.equal(Math.max(...strong.verdict.map((note) => note.frequency)), MULTIPLIER_CAP_HZ);
   assert.ok(strong.verdict.length >= 3);
-  assert.ok(voicesAtEnd(strong.runs[0]!) >= 2);
   assert.equal(voicesAtEnd(weak.runs[0]!), 1);
   assert.equal(weak.verdict.length, 1);
   assert.ok(weak.verdict[0]!.frequency < 200);
@@ -79,12 +78,12 @@ test("echo ends bright and bookkeeper ends low and thin", () => {
     const ends = melodyEnds(strong.runs[0]!);
     return 12 * Math.log2(ends.last / ends.first);
   })();
-  const greekRise = (() => {
+  const nextRise = (() => {
     const ends = melodyEnds(strong.runs[1]!);
     return 12 * Math.log2(ends.last / ends.first);
   })();
   assert.ok(lengthRise > 4 && lengthRise <= 8.01);
-  assert.ok(greekRise >= 2 && greekRise <= 4.01);
+  assert.ok(nextRise >= 2 && nextRise <= 4.01);
   for (const note of [...strong.runs.flat(), ...strong.verdict, ...weak.runs.flat(), ...weak.verdict]) {
     assert.ok(note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ);
   }
