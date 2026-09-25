@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  bundledDefinition,
+  fetchRemoteDefinition,
+  needsRemoteDefinition,
+  readCachedGloss,
+  writeCachedGloss,
+} from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
@@ -292,6 +299,8 @@ function Result({
         </h1>
       )}
 
+      {!spinning ? <WordDefinition word={scored.word} /> : null}
+
       {!spinning ? (
         <>
           <ScoreReveal
@@ -307,6 +316,43 @@ function Result({
         </>
       ) : null}
     </div>
+  );
+}
+
+function WordDefinition({ word }: { word: string }) {
+  const bundled = bundledDefinition(word);
+  const remote = needsRemoteDefinition(word);
+  const [fetched, setFetched] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!remote) return;
+    const cached = readCachedGloss(word);
+    if (cached !== undefined) {
+      const id = window.setTimeout(() => setFetched(cached), 0);
+      return () => window.clearTimeout(id);
+    }
+    let cancel = false;
+    fetchRemoteDefinition(word)
+      .then((gloss) => {
+        if (cancel) return;
+        writeCachedGloss(word, gloss);
+        setFetched(gloss);
+      })
+      .catch(() => {
+        if (cancel) return;
+        setFetched(null);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [remote, word]);
+
+  const gloss = bundled ?? (remote ? fetched : null);
+  if (gloss === undefined) return null;
+  return (
+    <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">
+      {gloss ?? "No definition on file"}
+    </p>
   );
 }
 
