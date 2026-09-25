@@ -86,7 +86,28 @@ test("headlamp pays Inside once per nested dictionary word", () => {
   assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.match, undefined);
   assert.equal(hits.length, 4);
   assert.ok(hits.every((row) => row.points === FACTOR_MULTIPLIERS.inside));
+  assert.deepEqual(
+    hits.map((row) => row.highlight),
+    [
+      [0, 1, 2, 3],
+      [4, 5, 6, 7],
+      [4, 5, 6],
+      [5, 6, 7],
+    ],
+  );
+  const length = scored.rows.find((row) => row.id === "length");
+  assert.deepEqual(length?.highlight, [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.points, null);
+  assert.deepEqual(
+    scoreWord("quiz").rows.find((row) => row.id === "contraband")?.highlight,
+    [0, 3],
+  );
+  assert.deepEqual(
+    scoreWord("bookkeeper").rows.find((row) => row.id === "twins")?.highlight,
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.deepEqual(scoreWord("echo").rows.find((row) => row.id === "no-repeats")?.highlight, [0, 1, 2, 3]);
+  assert.match(scoreWord("echo").rows.find((row) => row.id === "from-greek")?.reason ?? "", /Greek/);
 });
 
 test("bookkeeper pays the twins multiplier once", () => {

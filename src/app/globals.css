@@ -164,9 +164,41 @@
   animation: row-in 0.4s ease-out;
 }
 
+@keyframes card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes card-drop {
+  from {
+    opacity: 0.7;
+    transform: translateY(-1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.card-pop {
+  animation: card-pop 0.45s ease-out;
+}
+
+.card-drop {
+  animation: card-drop 0.45s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .score-rise,
-  .row-in {
+  .row-in,
+  .card-pop,
+  .card-drop {
     animation: none;
   }
 }

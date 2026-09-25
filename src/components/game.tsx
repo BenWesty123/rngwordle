@@ -7,7 +7,7 @@ import { fetchRemoteDefinition } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
-import { formatRowValue, scoreWord, type LedgerRow } from "@/lib/scoring";
+import { scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
 import {
@@ -382,16 +382,18 @@ function ScoreReveal({
   const tilesRef = useRef(scored.tiles);
   const [letters, setLetters] = useState(0);
   const [applied, setApplied] = useState(0);
+  const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
   const timer = useRef<number | null>(null);
   const baseDone = letters >= scored.tiles.length;
-  const done = baseDone && applied >= steps.length;
+  const done = baseDone && settled >= steps.length;
   const tileTarget = scored.tiles.slice(0, letters).reduce((sum, tile) => sum + tile.value, 0);
   const target = baseDone ? runningTotal(scored.tileSum, steps, applied) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
-  const visibleRows = done ? scored.rows : [scored.rows[0]!, ...steps.slice(0, applied)];
+  const activeStep = baseDone && applied > settled ? (steps[applied - 1] ?? null) : null;
+  const stacked = steps.slice(0, settled);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -399,6 +401,7 @@ function ScoreReveal({
       const id = window.setTimeout(() => {
         setLetters(tilesRef.current.length);
         setApplied(steps.length);
+        setSettled(steps.length);
       }, 0);
       return () => window.clearTimeout(id);
     }
@@ -441,14 +444,15 @@ function ScoreReveal({
     const id = window.setInterval(() => {
       const pending = stepsRef.current;
       const current = heard.current;
-      if (current >= pending.length) {
-        window.clearInterval(id);
+      if (current < pending.length) {
+        playMultiplier(current);
+        heard.current = current + 1;
+        setApplied(heard.current);
+        setSettled(current);
         return;
       }
-      playMultiplier(current);
-      heard.current = current + 1;
-      setApplied(heard.current);
-      if (heard.current >= pending.length) window.clearInterval(id);
+      setSettled(pending.length);
+      window.clearInterval(id);
     }, 1450);
     timer.current = id;
     return () => window.clearInterval(id);
@@ -486,10 +490,11 @@ function ScoreReveal({
     stopScoreAudio();
     setLetters(scored.tiles.length);
     setApplied(steps.length);
+    setSettled(steps.length);
   }
 
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, applied - 1));
-  const currentStep = baseDone && applied > 0 ? steps[applied - 1] : null;
+  const currentStep = activeStep;
   const addedTile = applied === 0 && letters > 0 ? scored.tiles[letters - 1] : null;
 
   return (
@@ -528,19 +533,25 @@ function ScoreReveal({
         </p>
         <p className="mt-3 text-sm text-foreground" aria-live="polite">
           {currentStep
-            ? currentStep.match
-              ? `${currentStep.match} · ${currentStep.name}`
-              : currentStep.name
+            ? currentStep.name
             : addedTile
               ? `${addedTile.letter.toUpperCase()} adds ${addedTile.value}`
-              : "Scrabble tiles"}
+              : done
+                ? steps.length > 0
+                  ? "Every multiplier that hit"
+                  : "No multiplier hit"
+                : baseDone
+                  ? "The base, before any multiplier."
+                  : "Scrabble tiles"}
         </p>
         <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
           {currentStep
             ? `${previous.toLocaleString("en-US")} × ${currentStep.points} = ${target.toLocaleString("en-US")}`
-            : baseDone
-              ? "The base, before any multiplier."
-              : "Adding the letter scores."}
+            : done
+              ? ""
+              : baseDone
+                ? "The base, before any multiplier."
+                : "Adding the letter scores."}
         </p>
         <p
           className={cn(
@@ -569,78 +580,22 @@ function ScoreReveal({
         </Button>
       </div>
 
-      <section className="mt-10" aria-label="Score breakdown">
-        <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Breakdown</h2>
-        <ul className="mt-2 divide-y divide-border">
-          {breakdownItems(visibleRows).map((item) =>
-            item.kind === "inside" ? (
-              <li
-                key={`inside-${item.rows[0]?.index}`}
-                className={cn(
-                  "flex items-baseline justify-between gap-4 py-3",
-                  !done && item.rows.at(-1)?.index === visibleRows.length - 1 && "row-in",
-                )}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground">
-                    <span className="mr-2 inline-block size-1.5 translate-y-[-1px] rounded-full bg-amber-200 align-middle" />
-                    {item.rows[0]?.row.name}
-                  </p>
-                  <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Words inside">
-                    {item.rows.map(({ row, index }) => (
-                      <li
-                        key={index}
-                        className={cn(
-                          "rounded-full border border-foreground/15 bg-card px-2 py-0.5 font-mono text-xs text-foreground",
-                          !done && index === visibleRows.length - 1 && "ring-1 ring-amber-200/80",
-                        )}
-                      >
-                        {row.match}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <p className="max-w-[7.5rem] shrink-0 text-right font-mono text-sm leading-relaxed text-foreground tabular-nums">
-                  {item.rows.map(({ row }) => formatPoints(row)).join(" ")}
-                </p>
-              </li>
-            ) : (
-              <li
-                key={`${item.row.id}-${item.index}`}
-                className={cn(
-                  "flex items-baseline justify-between gap-4 py-3",
-                  !done && item.index === visibleRows.length - 1 && item.row.id !== "tiles" && "row-in",
-                )}
-              >
-                <div className="min-w-0">
-                  <p className={cn("text-sm", item.row.scored ? "text-foreground" : "text-muted-foreground")}>
-                    {item.row.scored && item.row.id !== "tiles" ? (
-                      <span className="mr-2 inline-block size-1.5 translate-y-[-1px] rounded-full bg-amber-200 align-middle" />
-                    ) : null}
-                    {item.row.name}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-pretty text-muted-foreground">{item.row.detail}</p>
-                </div>
-                <p
-                  className={cn(
-                    "shrink-0 font-mono text-sm tabular-nums",
-                    item.row.scored ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {item.row.id === "tiles" && !baseDone ? tileTarget.toLocaleString("en-US") : formatPoints(item.row)}
-                </p>
-              </li>
-            ),
-          )}
-        </ul>
-        <div className="flex items-baseline justify-between border-t border-foreground/20 pt-3">
-          <p className="text-sm">{done ? "Total" : "So far"}</p>
-          <p className="font-mono text-lg tabular-nums">{target.toLocaleString("en-US")}</p>
-        </div>
-        {!done ? (
-          <p className="mt-3 text-xs text-muted-foreground">The misses stay folded until the last multiplier lands.</p>
-        ) : null}
-      </section>
+      {baseDone ? (
+        <section className="mt-10" aria-label="Multipliers">
+          {activeStep ? (
+            <MultiplierCard key={`active-${applied}`} word={scored.word} row={activeStep} featured />
+          ) : null}
+          {stacked.length > 0 ? (
+            <ol className={cn("flex flex-col gap-2", activeStep && "mt-3")}>
+              {stacked.map((row, index) => (
+                <li key={`${row.id}-${index}`} className="card-drop">
+                  <MultiplierCard word={scored.word} row={row} />
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </section>
+      ) : null}
 
       {done ? (
         <section className="row-in mt-10" aria-label="Share">
@@ -665,32 +620,41 @@ function ScoreReveal({
   );
 }
 
-type BreakdownItem =
-  | { kind: "row"; row: LedgerRow; index: number }
-  | { kind: "inside"; rows: { row: LedgerRow; index: number }[] };
-
-function breakdownItems(rows: LedgerRow[]): BreakdownItem[] {
-  const items: BreakdownItem[] = [];
-  rows.forEach((row, index) => {
-    if (row.id === "inside" && row.scored && row.match) {
-      const last = items.at(-1);
-      if (last?.kind === "inside") last.rows.push({ row, index });
-      else items.push({ kind: "inside", rows: [{ row, index }] });
-      return;
-    }
-    items.push({ kind: "row", row, index });
-  });
-  return items;
+function MultiplierCard({ word, row, featured = false }: { word: string; row: LedgerRow; featured?: boolean }) {
+  const lit = new Set(row.highlight ?? []);
+  return (
+    <article
+      className={cn(
+        "rounded-2xl border bg-card px-4 py-4",
+        featured ? "card-pop border-amber-200/40 shadow-lg" : "border-border",
+      )}
+      aria-live={featured ? "polite" : undefined}
+    >
+      <p
+        className={cn(
+          "flex flex-wrap justify-center gap-x-0.5 font-display tracking-tight",
+          featured ? "text-3xl" : "text-xl",
+        )}
+        aria-label={word}
+      >
+        {[...word].map((letter, index) => (
+          <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
+            {letter}
+          </span>
+        ))}
+      </p>
+      <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
+      {row.reason ? (
+        <p className="mt-1 text-center text-xs leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
+      ) : null}
+    </article>
+  );
 }
 
 function runningTotal(tileSum: number, steps: LedgerRow[], count: number): number {
   let total = tileSum;
   for (let index = 0; index < count; index += 1) total *= steps[index]?.points ?? 1;
   return total;
-}
-
-function formatPoints(row: LedgerRow): string {
-  return formatRowValue(row);
 }
 
 function scoreSize(total: number): string {

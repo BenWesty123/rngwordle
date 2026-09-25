@@ -126,6 +126,10 @@ export type LedgerRow = {
   scored: boolean;
   /** Dictionary word that triggered one Inside hit. */
   match?: string;
+  /** Letter indexes that explain this hit. */
+  highlight?: number[];
+  /** Why this card lit up, without the running-total math. */
+  reason?: string;
 };
 
 export type ScoredWord = {
@@ -205,6 +209,8 @@ export function scoreWord(word: string): ScoredWord {
       detail: lengthDetail(length, lengthFactor, running, afterLength),
       points: lengthFactor,
       scored: lengthFactor > 1,
+      highlight: lengthFactor > 1 ? everyIndex(length) : undefined,
+      reason: lengthFactor > 1 ? lengthReason(length) : undefined,
     },
   ];
   running = afterLength;
@@ -387,7 +393,7 @@ export function scoreWord(word: string): ScoredWord {
   for (const factor of factors) {
     const multiplier = FACTOR_MULTIPLIERS[factor.id];
     if (factor.id === "inside") {
-      const hits = insideHits(normalized);
+      const hits = insideSlices(normalized);
       if (hits.length === 0) {
         rows.push({
           id: factor.id,
@@ -403,10 +409,12 @@ export function scoreWord(word: string): ScoredWord {
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
-          detail: `${hit} sits inside. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          detail: `${hit.text} sits inside. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
-          match: hit,
+          match: hit.text,
+          highlight: everyIndex(hit.text.length).map((index) => index + hit.start),
+          reason: `${hit.text} sits inside.`,
         });
         running = next;
       }
@@ -429,6 +437,8 @@ export function scoreWord(word: string): ScoredWord {
       detail: `${factor.hitDetail} ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
       points: multiplier,
       scored: true,
+      highlight: factorHighlight(factor.id, normalized),
+      reason: factor.hitDetail.trim(),
     });
     running = next;
   }
@@ -490,15 +500,79 @@ function originFactors(word: string): Array<{
 }
 
 export function insideHits(word: string): string[] {
-  const hits: string[] = [];
+  return insideSlices(word).map((hit) => hit.text);
+}
+
+function insideSlices(word: string): Array<{ text: string; start: number }> {
+  const hits: Array<{ text: string; start: number }> = [];
   for (let start = 0; start < word.length; start += 1) {
     for (let end = word.length; end >= start + 3; end -= 1) {
       if (start === 0 && end === word.length) continue;
-      const slice = word.slice(start, end);
-      if (ENABLE_WORDS.has(slice)) hits.push(slice);
+      const text = word.slice(start, end);
+      if (ENABLE_WORDS.has(text)) hits.push({ text, start });
     }
   }
   return hits;
+}
+
+function everyIndex(length: number): number[] {
+  return Array.from({ length }, (_, index) => index);
+}
+
+function factorHighlight(id: FactorId, word: string): number[] {
+  if (id === "twins") {
+    return twinPositions(word).flatMap((flag, index) => (flag ? [index] : []));
+  }
+  if (id === "contraband") {
+    return [...word].flatMap((letter, index) => (RARE.has(letter) ? [index] : []));
+  }
+  if (id === "next-door") return word.length < 2 ? [0] : [0, word.length - 1];
+  if (id === "ing" || id === "ish" || id === "ist") return [word.length - 3, word.length - 2, word.length - 1];
+  if (id === "lone-q") {
+    return [...word].flatMap((letter, index) => (letter === "q" && word[index + 1] !== "u" ? [index] : []));
+  }
+  if (id === "quiet-letters") return quietIndices(word);
+  if (id === "i-before-e") return iBeforeEIndices(word);
+  if (id === "vowel-sweep") {
+    return [...word].flatMap((letter, index) => (VOWELS.has(letter) ? [index] : []));
+  }
+  if (id === "a-to-u") return aToUIndices(word);
+  return everyIndex(word.length);
+}
+
+function quietIndices(word: string): number[] {
+  const marks = new Set<number>();
+  for (const prefix of QUIET_PREFIXES) {
+    if (!word.startsWith(prefix)) continue;
+    for (let index = 0; index < prefix.length; index += 1) marks.add(index);
+  }
+  if (word.endsWith("mb")) {
+    marks.add(word.length - 2);
+    marks.add(word.length - 1);
+  }
+  return [...marks].sort((left, right) => left - right);
+}
+
+function iBeforeEIndices(word: string): number[] {
+  for (let index = 0; index < word.length - 1; index += 1) {
+    const pair = word.slice(index, index + 2);
+    const previous = index > 0 ? word[index - 1] : "";
+    if (pair === "ei" && previous !== "c") return [index, index + 1];
+    if (pair === "ie" && previous === "c") return [index - 1, index, index + 1];
+  }
+  return everyIndex(word.length);
+}
+
+function aToUIndices(word: string): number[] {
+  const marks: number[] = [];
+  let cursor = 0;
+  for (let index = 0; index < word.length; index += 1) {
+    if (word[index] !== VOWEL_ORDER[cursor]) continue;
+    marks.push(index);
+    cursor += 1;
+    if (cursor === VOWEL_ORDER.length) break;
+  }
+  return marks;
 }
 
 function isTautonym(word: string): boolean {
@@ -507,15 +581,19 @@ function isTautonym(word: string): boolean {
   return word.slice(0, half) === word.slice(half);
 }
 
-function lengthDetail(length: number, multiplier: number, before: number, after: number): string {
-  const math = `${before.toLocaleString("en-US")} × ${multiplier} = ${after.toLocaleString("en-US")}.`;
+function lengthReason(length: number): string {
   if (length === LENGTH_CENTER) {
-    return `${length} letters is the average in this dictionary, so length stays at ×1. ${math}`;
+    return `${length} letters is the average in this dictionary, so length stays at ×1.`;
   }
   const distance = Math.abs(length - LENGTH_CENTER);
   const direction = length < LENGTH_CENTER ? "shorter" : "longer";
   const step = distance === 1 ? "step" : "steps";
-  return `${length} letters, ${distance} ${step} ${direction} than ${LENGTH_CENTER}. ${math}`;
+  return `${length} letters, ${distance} ${step} ${direction} than ${LENGTH_CENTER}.`;
+}
+
+function lengthDetail(length: number, multiplier: number, before: number, after: number): string {
+  const math = `${before.toLocaleString("en-US")} × ${multiplier} = ${after.toLocaleString("en-US")}.`;
+  return `${lengthReason(length)} ${math}`;
 }
 
 function twinRuns(word: string): string[] {
