@@ -1,43 +1,13 @@
 import definitions from "@/data/definitions.json";
-import gaps from "@/data/definition-gaps.json";
 
 const GLOSS = definitions as Record<string, string>;
-const GAPS = new Set(gaps);
-
-const CACHE_KEY = "rngworlde.gloss.v1";
 
 export function bundledDefinition(word: string): string | null {
   return GLOSS[word] ?? null;
 }
 
 export function needsRemoteDefinition(word: string): boolean {
-  return GAPS.has(word);
-}
-
-export function readCachedGloss(word: string): string | null | undefined {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return undefined;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !(word in parsed)) return undefined;
-    const value = (parsed as Record<string, unknown>)[word];
-    if (value === "") return null;
-    return typeof value === "string" ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function writeCachedGloss(word: string, gloss: string | null): void {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
-    const cache = parsed && typeof parsed === "object" ? { ...(parsed as Record<string, string>) } : {};
-    cache[word] = gloss ?? "";
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch {
-    // The line can still show for this visit.
-  }
+  return bundledDefinition(word) === null;
 }
 
 export function plainDefinition(html: string): string {

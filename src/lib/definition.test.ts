@@ -8,10 +8,10 @@ test("echo keeps the first Webster sense and bookkeeper is absent", () => {
   assert.equal(bundledDefinition("quiz"), null);
 });
 
-test("broken 1913 fragments are the only remote lookups", () => {
+test("any word without a Webster gloss is looked up", () => {
   assert.equal(needsRemoteDefinition("misogamy"), true);
+  assert.equal(needsRemoteDefinition("bookkeeper"), true);
   assert.equal(needsRemoteDefinition("echo"), false);
-  assert.equal(needsRemoteDefinition("bookkeeper"), false);
 });
 
 test("wiktionary markup collapses to one plain sentence", () => {

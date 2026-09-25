@@ -3,13 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  bundledDefinition,
-  fetchRemoteDefinition,
-  needsRemoteDefinition,
-  readCachedGloss,
-  writeCachedGloss,
-} from "@/lib/definition";
+import { bundledDefinition, fetchRemoteDefinition, needsRemoteDefinition } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
@@ -299,7 +293,16 @@ function Result({
         </h1>
       )}
 
-      {!spinning ? <WordDefinition word={scored.word} /> : null}
+      {!spinning ? (
+        <WordDefinition
+          word={scored.word}
+          saved={roll.definition}
+          onSave={(definition) => {
+            if (roll.word !== scored.word || roll.definition !== undefined) return;
+            writeRoll({ ...roll, definition });
+          }}
+        />
+      ) : null}
 
       {!spinning ? (
         <>
@@ -319,35 +322,38 @@ function Result({
   );
 }
 
-function WordDefinition({ word }: { word: string }) {
+function WordDefinition({
+  word,
+  saved,
+  onSave,
+}: {
+  word: string;
+  saved: string | null | undefined;
+  onSave: (definition: string | null) => void;
+}) {
   const bundled = bundledDefinition(word);
   const remote = needsRemoteDefinition(word);
-  const [fetched, setFetched] = useState<string | null | undefined>(undefined);
+  const onSaveRef = useRef(onSave);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  });
 
   useEffect(() => {
-    if (!remote) return;
-    const cached = readCachedGloss(word);
-    if (cached !== undefined) {
-      const id = window.setTimeout(() => setFetched(cached), 0);
-      return () => window.clearTimeout(id);
-    }
+    if (!remote || saved !== undefined) return;
     let cancel = false;
     fetchRemoteDefinition(word)
       .then((gloss) => {
-        if (cancel) return;
-        writeCachedGloss(word, gloss);
-        setFetched(gloss);
+        if (!cancel) onSaveRef.current(gloss);
       })
       .catch(() => {
-        if (cancel) return;
-        setFetched(null);
+        if (!cancel) onSaveRef.current(null);
       });
     return () => {
       cancel = true;
     };
-  }, [remote, word]);
+  }, [remote, saved, word]);
 
-  const gloss = bundled ?? (remote ? fetched : null);
+  const gloss = bundled ?? (remote ? saved : null);
   if (gloss === undefined) return null;
   return (
     <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">

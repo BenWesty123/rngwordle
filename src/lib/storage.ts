@@ -6,6 +6,7 @@ const listeners = new Set<() => void>();
 export type StoredRoll = {
   date: string;
   word: string;
+  definition?: string | null;
 };
 
 function emit(): void {
@@ -46,7 +47,11 @@ export function parseRoll(snapshot: string): StoredRoll | null {
     if (typeof record.date !== "string" || typeof record.word !== "string") return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date)) return null;
     if (!/^[a-z]+$/.test(record.word)) return null;
-    return { date: record.date, word: record.word };
+    const extra = parsed as { definition?: unknown };
+    const roll: StoredRoll = { date: record.date, word: record.word };
+    if (extra.definition === null) roll.definition = null;
+    else if (typeof extra.definition === "string") roll.definition = extra.definition;
+    return roll;
   } catch {
     return null;
   }
