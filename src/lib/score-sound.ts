@@ -6,7 +6,6 @@ export type ScoreNote = {
 
 const BASE_HZ = 220;
 const MAX_SEMITONES = 36;
-export const MULTIPLIER_START_HZ = BASE_HZ;
 export const MULTIPLIER_CAP_HZ = 880;
 export const MULTIPLIER_FLOOR_HZ = 110;
 export const MULTIPLIER_BLIP_CAP = 12;
@@ -16,27 +15,42 @@ export function multiplierBlipCount(multiplier: number): number {
   return Math.min(MULTIPLIER_BLIP_CAP, Math.max(3, Math.round(multiplier)));
 }
 
-export function multiplierNotes(multiplier: number, startHz: number): ScoreNote[] {
+function hzAboveFloor(semitones: number): number {
+  return MULTIPLIER_FLOOR_HZ * 2 ** (semitones / 12);
+}
+
+export function planMultiplierRuns(multipliers: number[]): ScoreNote[][] {
+  const hits = multipliers.filter((multiplier) => multiplier > 1);
+  const count = hits.length;
+  if (count === 0) return [];
+  const firstEnd = 12;
+  const lastEnd = 36;
+  const step = count === 1 ? 0 : (lastEnd - firstEnd) / (count - 1);
+  let previousEnd: number | null = null;
+  return hits.map((multiplier, index) => {
+    const endHz = hzAboveFloor(count === 1 ? lastEnd : firstEnd + step * index);
+    const notes = multiplierClimb(multiplier, endHz, previousEnd);
+    previousEnd = notes[notes.length - 1]?.frequency ?? endHz;
+    return notes;
+  });
+}
+
+function multiplierClimb(multiplier: number, endHz: number, previousEnd: number | null): ScoreNote[] {
   const count = multiplierBlipCount(multiplier);
+  const dipped =
+    previousEnd === null ? endHz / 2 : Math.min(previousEnd * 2 ** (-2 / 12), endHz * 2 ** (-4 / 12));
+  let startHz = Math.max(MULTIPLIER_FLOOR_HZ, dipped);
+  if (startHz >= endHz) startHz = Math.max(MULTIPLIER_FLOOR_HZ, endHz * 2 ** (-1 / 12));
   const gap = Math.min(0.048, 0.55 / Math.max(count, 1));
   const notes: ScoreNote[] = [];
   for (let index = 0; index < count; index += 1) {
-    const raw = startHz * 2 ** ((index * 3) / 12);
-    notes.push({
-      frequency: Math.min(MULTIPLIER_CAP_HZ, raw),
-      delay: index * gap,
-      duration: 0.055,
-    });
+    const t = count === 1 ? 1 : index / (count - 1);
+    const frequency = Math.min(MULTIPLIER_CAP_HZ, startHz * (endHz / startHz) ** t);
+    notes.push({ frequency, delay: index * gap, duration: 0.055 });
   }
+  const last = notes[notes.length - 1];
+  if (last) last.frequency = Math.min(MULTIPLIER_CAP_HZ, endHz);
   return notes;
-}
-
-export function nextMultiplierStart(startHz: number, notes: ScoreNote[]): number {
-  const end = notes[notes.length - 1]?.frequency ?? startHz;
-  const hitCap = notes.some((note) => note.frequency >= MULTIPLIER_CAP_HZ - 0.01);
-  const drop = hitCap ? 5 : 2;
-  const lowered = startHz * 2 ** (-drop / 12);
-  return Math.max(MULTIPLIER_FLOOR_HZ, Math.min(lowered, end * 2 ** (-1 / 12)));
 }
 
 export function letterNotes(points: number, runningBefore: number): ScoreNote[] {
@@ -58,7 +72,7 @@ type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 let context: AudioContext | null = null;
 let active: OscillatorNode[] = [];
-let multiplierStartHz = MULTIPLIER_START_HZ;
+let plannedRuns: ScoreNote[][] = [];
 
 function schedule(notes: ScoreNote[], start: number): void {
   if (!context) return;
@@ -99,8 +113,8 @@ export function stopScoreAudio(): void {
   active = [];
 }
 
-export function resetMultiplierPitch(): void {
-  multiplierStartHz = MULTIPLIER_START_HZ;
+export function prepareMultiplierScore(multipliers: number[]): void {
+  plannedRuns = planMultiplierRuns(multipliers);
 }
 
 export function playLetterPoints(points: number, runningBefore: number): void {
@@ -108,9 +122,9 @@ export function playLetterPoints(points: number, runningBefore: number): void {
   schedule(letterNotes(points, runningBefore), context.currentTime + 0.02);
 }
 
-export function playMultiplier(multiplier: number): void {
+export function playMultiplier(index: number): void {
   if (!context || context.state !== "running") return;
-  const notes = multiplierNotes(multiplier, multiplierStartHz);
-  multiplierStartHz = nextMultiplierStart(multiplierStartHz, notes);
+  const notes = plannedRuns[index];
+  if (!notes) return;
   schedule(notes, context.currentTime + 0.02);
 }

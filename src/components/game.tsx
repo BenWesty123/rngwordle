@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
-import { armScoreAudio, playLetterPoints, playMultiplier, resetMultiplierPitch, stopScoreAudio } from "@/lib/score-sound";
+import { armScoreAudio, playLetterPoints, playMultiplier, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { formatRowValue, scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -379,7 +379,7 @@ function ScoreReveal({
     if (!baseDone) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce || steps.length === 0) return;
-    resetMultiplierPitch();
+    prepareMultiplierScore(stepsRef.current.map((step) => step.points ?? 0));
     const heard = { current: 0 };
     const id = window.setInterval(() => {
       const pending = stepsRef.current;
@@ -388,8 +388,7 @@ function ScoreReveal({
         window.clearInterval(id);
         return;
       }
-      const step = pending[current];
-      if (step?.points) playMultiplier(step.points);
+      playMultiplier(current);
       heard.current = current + 1;
       setApplied(heard.current);
       if (heard.current >= pending.length) window.clearInterval(id);

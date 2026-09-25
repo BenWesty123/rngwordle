@@ -5,10 +5,8 @@ import {
   MULTIPLIER_BLIP_CAP,
   MULTIPLIER_CAP_HZ,
   MULTIPLIER_FLOOR_HZ,
-  MULTIPLIER_START_HZ,
   multiplierBlipCount,
-  multiplierNotes,
-  nextMultiplierStart,
+  planMultiplierRuns,
 } from "./score-sound";
 
 test("one-point letters are a single note", () => {
@@ -36,33 +34,42 @@ test("later letters start higher than the running total so far", () => {
 
 test("a small multiplier is a short run and a large one is longer, then capped", () => {
   assert.equal(multiplierBlipCount(2), 3);
-  assert.equal(multiplierNotes(2, MULTIPLIER_START_HZ).length, 3);
+  assert.equal(planMultiplierRuns([2])[0]?.length, 3);
   assert.equal(multiplierBlipCount(32), MULTIPLIER_BLIP_CAP);
   assert.equal(multiplierBlipCount(128), MULTIPLIER_BLIP_CAP);
   assert.ok(multiplierBlipCount(32) > multiplierBlipCount(2));
 });
 
-test("each multiplier run climbs from a low restart and never goes past the cap", () => {
-  const first = multiplierNotes(32, MULTIPLIER_START_HZ);
-  assert.equal(first[0]?.frequency, MULTIPLIER_START_HZ);
-  assert.ok(first[1]!.frequency > first[0]!.frequency);
-  assert.ok(first.every((note) => note.frequency <= MULTIPLIER_CAP_HZ));
-  assert.ok(first.some((note) => note.frequency === MULTIPLIER_CAP_HZ));
-  const next = nextMultiplierStart(MULTIPLIER_START_HZ, first);
-  assert.ok(next < MULTIPLIER_START_HZ);
-  assert.ok(next < first[first.length - 1]!.frequency);
-  const second = multiplierNotes(32, next);
-  assert.equal(second[0]?.frequency, next);
-  assert.ok(second.every((note) => note.frequency <= MULTIPLIER_CAP_HZ));
+function lastNote(run: { frequency: number }[]): number {
+  return run[run.length - 1]!.frequency;
+}
+
+test("echo's later multiplier ends higher than the earlier one", () => {
+  const [length, greek] = planMultiplierRuns([32, 6]);
+  assert.equal(length!.length, 12);
+  assert.equal(greek!.length, 6);
+  assert.ok(lastNote(greek!) > lastNote(length!));
+  assert.ok(greek![0]!.frequency < lastNote(length!));
+  assert.ok(greek![0]!.frequency < lastNote(greek!));
+  assert.equal(lastNote(greek!), MULTIPLIER_CAP_HZ);
+  for (const run of [length!, greek!]) {
+    assert.ok(run.every((note) => note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ));
+    assert.ok(run.every((note, index) => index === 0 || note.frequency >= run[index - 1]!.frequency));
+  }
 });
 
-test("an uncapped run still restarts lower than where it finished", () => {
-  const run = multiplierNotes(2, MULTIPLIER_START_HZ);
-  assert.ok(run.every((note) => note.frequency < MULTIPLIER_CAP_HZ));
-  const next = nextMultiplierStart(MULTIPLIER_START_HZ, run);
-  assert.ok(next < run[run.length - 1]!.frequency);
-  assert.ok(next < MULTIPLIER_START_HZ);
-  assert.ok(next >= MULTIPLIER_FLOOR_HZ);
+test("many multipliers compress the ending steps and still climb under the cap", () => {
+  const runs = planMultiplierRuns(Array.from({ length: 13 }, () => 2));
+  const endings = runs.map((run) => lastNote(run));
+  for (let index = 1; index < endings.length; index += 1) {
+    assert.ok(endings[index]! > endings[index - 1]!);
+  }
+  assert.equal(endings.at(-1), MULTIPLIER_CAP_HZ);
+  const wide = planMultiplierRuns([2, 2]).map((run) => lastNote(run));
+  const wideGap = wide[1]! - wide[0]!;
+  const tightGap = endings[1]! - endings[0]!;
+  assert.ok(tightGap < wideGap);
+  assert.ok(runs.every((run) => run.every((note) => note.frequency <= MULTIPLIER_CAP_HZ)));
 });
 
 test("notes inside a letter keep climbing from the points already counted", () => {
