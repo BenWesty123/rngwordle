@@ -18,6 +18,14 @@ import wordFacts from "@/data/word-facts.json";
 
 const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
 
+const ANAGRAM_GROUPS = new Map<string, string[]>();
+for (const word of ENABLE_WORDS) {
+  const key = [...word].sort().join("");
+  const group = ANAGRAM_GROUPS.get(key);
+  if (group) group.push(word);
+  else ANAGRAM_GROUPS.set(key, [word]);
+}
+
 const WORD_FACT_TAGS = wordFacts.words as Record<string, string[]>;
 
 export const LENGTH_CENTER = 9;
@@ -66,6 +74,7 @@ export const FACTOR_MATCHES = {
   twins: 41209,
   "no-repeats": 34816,
   inside: 167370,
+  anagram: 28648,
   "a-cappella": 5,
   "bone-dry": 121,
   "alphabet-soup": 411,
@@ -103,7 +112,10 @@ export function rarityMultiplier(matches: number, wordCount = LIST_SIZE): number
 }
 
 export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
-  (Object.keys(FACTOR_MATCHES) as FactorId[]).map((id) => [id, rarityMultiplier(FACTOR_MATCHES[id])]),
+  (Object.keys(FACTOR_MATCHES) as FactorId[]).map((id) => [
+    id,
+    id === "anagram" ? 4 : rarityMultiplier(FACTOR_MATCHES[id]),
+  ]),
 ) as Record<FactorId, number>;
 
 export type Tile = {
@@ -268,6 +280,13 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "No dictionary word of 3 or more letters sits inside.",
     },
     {
+      id: "anagram",
+      name: "Anagram",
+      hit: anagramsOf(normalized).length > 0,
+      hitDetail: "",
+      missDetail: "No other dictionary word uses these exact letters.",
+    },
+    {
       id: "ditto",
       name: "Ditto",
       hit: isTautonym(normalized),
@@ -420,6 +439,34 @@ export function scoreWord(word: string): ScoredWord {
       }
       continue;
     }
+    if (factor.id === "anagram") {
+      const hits = anagramsOf(normalized);
+      if (hits.length === 0) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      for (const hit of hits) {
+        const next = running * multiplier;
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${multiplier}`,
+          detail: `${hit}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          points: multiplier,
+          scored: true,
+          match: hit,
+          highlight: everyIndex(normalized.length),
+          reason: hit,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (!factor.hit) {
       rows.push({
         id: factor.id,
@@ -497,6 +544,11 @@ function originFactors(word: string): Array<{
       missDetail: "No Chinese or Japanese trace in the 1913 Webster etymology on file.",
     },
   ];
+}
+
+export function anagramsOf(word: string): string[] {
+  const group = ANAGRAM_GROUPS.get([...word].sort().join("")) ?? [];
+  return group.filter((other) => other !== word);
 }
 
 export function insideHits(word: string): string[] {

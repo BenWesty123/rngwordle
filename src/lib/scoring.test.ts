@@ -76,6 +76,19 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.total, 17 * 8 * 9 * 7);
 });
 
+test("stop pays Anagram once per other word with the same letters", () => {
+  const scored = scoreWord("stop");
+  const hits = scored.rows.filter((row) => row.id === "anagram" && row.scored);
+  assert.deepEqual(
+    hits.map((row) => row.match),
+    ["opts", "post", "pots", "spot", "tops"],
+  );
+  assert.ok(hits.every((row) => row.points === 4));
+  assert.ok(hits.every((row) => row.highlight?.length === scored.word.length));
+  assert.equal(scoreWord("echo").rows.find((row) => row.id === "anagram")?.points, null);
+  assert.equal(FACTOR_MULTIPLIERS.anagram, 4);
+});
+
 test("headlamp pays Inside once per nested dictionary word", () => {
   const scored = scoreWord("headlamp");
   const hits = scored.rows.filter((row) => row.id === "inside" && row.scored);
