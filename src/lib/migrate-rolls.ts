@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { AppDatabase } from "@/lib/sql"
+import { sqlStatements } from "@/lib/sql-statements"
 
 /** Fresh tables. Anonymous rolls leave account_id null. A real account still has one row per UTC day. */
 export const FRESH_SCHEMA = `CREATE TABLE IF NOT EXISTS accounts (
@@ -62,11 +63,34 @@ CREATE INDEX IF NOT EXISTS rolls_utc_day ON rolls (utc_day);
 
 /** Create missing tables, then rebuild an older rolls table that required an account. */
 export async function migrateRolls(db: AppDatabase): Promise<void> {
-  await db.exec(FRESH_SCHEMA)
+  const fresh = sqlStatements(FRESH_SCHEMA)
+  const rollsAt = fresh.findIndex((statement) => /^CREATE TABLE IF NOT EXISTS rolls\b/i.test(statement))
+  if (rollsAt < 0) throw new Error("The rolls table is missing from the schema")
+  await db.exec(fresh.slice(0, rollsAt).join(";\n"))
+
+  // A rebuild that stopped after DROP TABLE rolls left the copy in rolls_next.
+  // Create the empty rolls table only after that copy is renamed back.
+  if ((await tableExists(db, "rolls_next")) && !(await tableExists(db, "rolls"))) {
+    await db.exec(`ALTER TABLE rolls_next RENAME TO rolls;
+CREATE INDEX IF NOT EXISTS rolls_played_at ON rolls (played_at);
+CREATE INDEX IF NOT EXISTS rolls_utc_day ON rolls (utc_day);`)
+    return
+  }
+
+  await db.exec(fresh.slice(rollsAt).join(";\n"))
+  if (!(await rollsRequireAccount(db))) return
+  await db.exec(REBUILD_ROLLS)
+}
+
+async function tableExists(db: AppDatabase, name: string): Promise<boolean> {
+  const row = await db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", name)
+  return row != null
+}
+
+async function rollsRequireAccount(db: AppDatabase): Promise<boolean> {
   const columns = await db.all<{ name: string; notnull: number | string }>("PRAGMA table_info(rolls)")
   const accountId = columns.find((column) => column.name === "account_id")
-  if (!accountId || Number(accountId.notnull) === 0) return
-  await db.exec(REBUILD_ROLLS)
+  return accountId != null && Number(accountId.notnull) === 1
 }
 
 export function freshSchemaFile(): string {

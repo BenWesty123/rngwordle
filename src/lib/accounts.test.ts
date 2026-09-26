@@ -13,8 +13,10 @@ import {
   setUsername,
 } from "./accounts"
 import { databaseFromSqlite, openDatabase } from "./db"
+import { databaseFromD1, type D1Binding } from "./d1"
 import { freshSchemaFile, FRESH_SCHEMA, migrateRolls } from "./migrate-rolls"
 import { publicOrigin } from "./request-origin"
+import { sqlStatements } from "./sql-statements"
 
 function sqlBody(sql: string): string {
   return sql
@@ -246,3 +248,103 @@ test("an older rolls table that required an account can store anonymous rolls", 
     [null, null],
   )
 })
+
+test("a formatted CREATE TABLE is not a finished statement on its first line", () => {
+  const firstLine = FRESH_SCHEMA.split("\n").map((line) => line.trim()).find(Boolean)
+  assert.equal(firstLine, "CREATE TABLE IF NOT EXISTS accounts (")
+  const raw = new DatabaseSync(":memory:")
+  assert.throws(() => raw.exec(firstLine ?? ""))
+  for (const statement of sqlStatements(FRESH_SCHEMA)) raw.exec(statement)
+  const columns = raw.prepare("PRAGMA table_info(rolls)").all() as Array<{ name: string; notnull: number }>
+  assert.equal(columns.find((column) => column.name === "account_id")?.notnull, 0)
+})
+
+test("D1 migration prepares each statement because exec splits on newlines", async () => {
+  const raw = new DatabaseSync(":memory:")
+  raw.exec(`CREATE TABLE accounts (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    username TEXT UNIQUE,
+    username_key TEXT UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+  INSERT INTO accounts (id, email, username, username_key, created_at)
+  VALUES ('acct', 'ada@example.com', 'ada', 'ada', 1);
+  CREATE TABLE rolls (
+    id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    word TEXT NOT NULL,
+    score TEXT NOT NULL,
+    played_at INTEGER NOT NULL,
+    utc_day TEXT NOT NULL,
+    UNIQUE (account_id, utc_day)
+  );
+  INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day)
+  VALUES ('old', 'acct', 'ada', 'quiz', '10', 1, '2026-09-26');`)
+  const db = databaseFromD1(d1ThatRejectsScriptExec(raw))
+  await migrateRolls(db)
+  const kept = await db.get<{ word: string }>("SELECT word FROM rolls WHERE id = 'old'")
+  assert.equal(kept?.word, "quiz")
+  const saved = await saveAnonymousRoll(db, Date.parse("2026-09-26T12:00:00.000Z"), () => ({ word: "cat", score: "3" }))
+  assert.ok(!("error" in saved))
+  const columns = await db.all<{ name: string; notnull: number }>("PRAGMA table_info(rolls)")
+  assert.equal(Number(columns.find((column) => column.name === "account_id")?.notnull), 0)
+})
+
+test("a rebuild that already dropped rolls keeps the copied rows", async () => {
+  const raw = new DatabaseSync(":memory:")
+  raw.exec(`CREATE TABLE rolls_next (
+    id TEXT PRIMARY KEY,
+    account_id TEXT,
+    username TEXT NOT NULL,
+    word TEXT NOT NULL,
+    score TEXT NOT NULL,
+    played_at INTEGER NOT NULL,
+    utc_day TEXT NOT NULL,
+    UNIQUE (account_id, utc_day)
+  );
+  INSERT INTO rolls_next (id, account_id, username, word, score, played_at, utc_day)
+  VALUES ('kept', NULL, 'Anonymous', 'quiz', '10', 1, '2026-09-26');`)
+  const db = databaseFromSqlite(raw)
+  await migrateRolls(db)
+  const kept = await db.get<{ word: string; account_id: string | null }>(
+    "SELECT word, account_id FROM rolls WHERE id = 'kept'",
+  )
+  assert.equal(kept?.word, "quiz")
+  assert.equal(kept?.account_id, null)
+  const leftover = await db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE name = 'rolls_next'")
+  assert.equal(leftover, null)
+})
+
+function d1ThatRejectsScriptExec(raw: DatabaseSync): D1Binding {
+  return {
+    prepare(query: string) {
+      let params: unknown[] = []
+      const statement = {
+        bind(...values: unknown[]) {
+          params = values
+          return statement
+        },
+        async first<T>() {
+          const row = raw.prepare(query).get(...params) as T | undefined
+          return row ?? null
+        },
+        async all<T>() {
+          return { results: raw.prepare(query).all(...params) as T[] }
+        },
+        async run() {
+          const result = raw.prepare(query).run(...params)
+          return { meta: { changes: Number(result.changes) } }
+        },
+      }
+      return statement
+    },
+    async batch() {
+      throw new Error("batch is unused")
+    },
+    async exec(query: string) {
+      throw new Error(`D1 exec splits on newlines: ${query.split("\n")[0]}`)
+    },
+  }
+}

@@ -1,4 +1,5 @@
 import type { AppDatabase, SqlParam, SqlStatement } from "@/lib/sql"
+import { sqlStatements } from "@/lib/sql-statements"
 
 type D1Statement = {
   bind(...values: unknown[]): D1Statement
@@ -38,7 +39,11 @@ export function databaseFromD1(db: D1Binding): AppDatabase {
       return results.map((result) => ({ changes: changesOf(result.meta) }))
     },
     async exec(sql: string): Promise<void> {
-      await db.exec(sql)
+      // D1's exec() treats each line as a separate query, so a formatted
+      // CREATE TABLE fails with "incomplete input". One prepare() per statement.
+      for (const statement of sqlStatements(sql)) {
+        await db.prepare(statement).run()
+      }
     },
   }
 }
