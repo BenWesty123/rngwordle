@@ -82,6 +82,7 @@ export const FACTOR_MATCHES = {
   inside: 167370,
   "letter-sandwich": 7298,
   "shrinking-word": 9924,
+  "inside-out": 1061,
   "front-or-back": 5031,
   anagram: 28648,
   "a-cappella": 5,
@@ -258,6 +259,7 @@ export function scoreWord(word: string): ScoredWord {
   const sandwich = letterSandwich(normalized);
   const trimmedEnds = frontOrBack(normalized);
   const shrinking = SHRINKING_CHAINS[normalized] ?? null;
+  const rotated = insideOut(normalized);
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -395,6 +397,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: shrinking !== null,
       hitDetail: shrinking ?? "",
       missDetail: "No chain of 5 dictionary words by deleting one letter at a time.",
+    },
+    {
+      id: "inside-out",
+      name: "Inside out",
+      hit: rotated !== null,
+      hitDetail: rotated ? `${rotated}.` : "",
+      missDetail: "Moving the first letter to the end is not a different dictionary word.",
     },
     {
       id: "anagram",
@@ -790,6 +799,13 @@ export function anagramsOf(word: string): string[] {
 
 export function insideHits(word: string): string[] {
   return insideSlices(word).map((hit) => hit.text);
+}
+
+function insideOut(word: string): string | null {
+  if (word.length < 2) return null;
+  const rotated = word.slice(1) + word[0];
+  if (rotated === word || !ENABLE_WORDS.has(rotated)) return null;
+  return rotated;
 }
 
 function frontOrBack(word: string): { withoutFirst: string; withoutLast: string } | null {

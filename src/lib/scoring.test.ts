@@ -147,6 +147,19 @@ test("bookends matches the first two letters to the last two", () => {
   assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
 });
 
+test("inside out moves the first letter to the end", () => {
+  const stable = scoreWord("stable");
+  const row = stable.rows.find((entry) => entry.id === "inside-out");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 7);
+  assert.equal(row?.name, "Inside out ×7");
+  assert.equal(row?.reason, "tables.");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
+
+  assert.equal(scoreWord("book").rows.find((entry) => entry.id === "inside-out")?.scored, false);
+  assert.equal(scoreWord("aa").rows.find((entry) => entry.id === "inside-out")?.scored, false);
+});
+
 test("shrinking word follows a deletion chain of at least 5", () => {
   const scored = scoreWord("startling");
   const row = scored.rows.find((entry) => entry.id === "shrinking-word");
