@@ -4,6 +4,8 @@ import { utcDateKey } from "@/lib/day"
 
 export const ANONYMOUS_NAME = "Anonymous"
 export const LOGIN_LINK_MS = 30 * 60 * 1000
+/** Skip another login email to the same address inside this window. */
+export const LOGIN_RESEND_MS = 3 * 60 * 1000
 export const SESSION_MS = 30 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE = "rngworlde_session"
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/
@@ -110,6 +112,26 @@ export async function createLoginLink(
     now + LOGIN_LINK_MS,
   )
   return { token }
+}
+
+export async function loginLinkSentRecently(db: AppDatabase, email: string, now = Date.now()): Promise<boolean> {
+  const normalized = normalizeEmail(email)
+  if (!normalized) return false
+  const row = await db.get<{ created_at: number }>(
+    `SELECT login_links.created_at AS created_at
+     FROM login_links
+     JOIN accounts ON accounts.id = login_links.account_id
+     WHERE accounts.email = ?
+     ORDER BY login_links.created_at DESC
+     LIMIT 1`,
+    normalized,
+  )
+  if (!row) return false
+  return now - row.created_at < LOGIN_RESEND_MS
+}
+
+export async function deleteLoginLink(db: AppDatabase, token: string): Promise<void> {
+  await db.run("DELETE FROM login_links WHERE token = ?", token)
 }
 
 export async function consumeLoginLink(

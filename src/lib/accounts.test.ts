@@ -5,7 +5,9 @@ import {
   ANONYMOUS_NAME,
   consumeLoginLink,
   createLoginLink,
+  deleteLoginLink,
   listBoard,
+  loginLinkSentRecently,
   normalizeUsername,
   periodStart,
   saveAnonymousRoll,
@@ -35,6 +37,19 @@ test("login links use the browser host, not the bind address", () => {
   assert.equal(publicOrigin(forwarded), "https://play.example")
   const bound = new Request("http://0.0.0.0:4721/api/auth/request", { headers: { host: "0.0.0.0:4721" } })
   assert.equal(publicOrigin(bound), "http://0.0.0.0:4721")
+})
+
+test("the same address does not get another login email for a few minutes", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  assert.equal(await loginLinkSentRecently(db, "ada@example.com", now), false)
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  assert.equal(await loginLinkSentRecently(db, "Ada@Example.com", now + 60_000), true)
+  assert.equal(await loginLinkSentRecently(db, "ada@example.com", now + 3 * 60 * 1000), false)
+  await deleteLoginLink(db, created.token)
+  assert.equal(await loginLinkSentRecently(db, "ada@example.com", now + 60_000), false)
 })
 
 test("usernames are 3 to 20 letters, numbers, or underscores", () => {

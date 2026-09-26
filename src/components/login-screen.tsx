@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, type FormEvent } from "react"
-import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +13,7 @@ const ERRORS: Record<string, string> = {
 
 export function LoginScreen({ errorCode }: { errorCode?: string }) {
   const [email, setEmail] = useState("")
-  const [link, setLink] = useState<string | null>(null)
+  const [sent, setSent] = useState<"email" | "dev" | null>(null)
   const [error, setError] = useState<string | null>(errorCode ? (ERRORS[errorCode] ?? "That link did not work.") : null)
   const [pending, setPending] = useState(false)
 
@@ -22,21 +21,21 @@ export function LoginScreen({ errorCode }: { errorCode?: string }) {
     event.preventDefault()
     setPending(true)
     setError(null)
-    setLink(null)
+    setSent(null)
     try {
       const response = await fetch("/api/auth/request", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       })
-      const body = (await response.json()) as { link?: string; error?: string }
-      if (!response.ok || !body.link) {
-        setError(body.error ?? "Could not start login.")
+      const body = (await response.json()) as { ok?: boolean; dev?: boolean; error?: string }
+      if (!response.ok || !body.ok) {
+        setError(body.error ?? "Could not send the login email.")
         return
       }
-      setLink(body.link)
+      setSent(body.dev ? "dev" : "email")
     } catch {
-      setError("Could not start login.")
+      setError("Could not send the login email.")
     } finally {
       setPending(false)
     }
@@ -50,7 +49,7 @@ export function LoginScreen({ errorCode }: { errorCode?: string }) {
           Log in with a link.
         </h1>
         <p className="mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-          No password. Enter an email and the game makes a one-time link. Mail is not sent yet, so the link shows up here.
+          No password. Enter an email and RWGdle sends a one-time link. It logs you in, works once, then expires.
         </p>
         <form className="mt-8 max-w-md" onSubmit={(event) => void onSubmit(event)}>
           <label className="block text-sm text-foreground" htmlFor="email">
@@ -67,7 +66,7 @@ export function LoginScreen({ errorCode }: { errorCode?: string }) {
             placeholder="you@example.com"
           />
           <Button type="submit" className="mt-4 h-12 w-full text-base" disabled={pending}>
-            {pending ? "Making the link…" : "Make a login link"}
+            {pending ? "Sending…" : "Email me a link"}
           </Button>
         </form>
         {error ? (
@@ -75,19 +74,14 @@ export function LoginScreen({ errorCode }: { errorCode?: string }) {
             {error}
           </p>
         ) : null}
-        {link ? (
-          <div className="mt-6 max-w-md rounded-2xl border border-border bg-card px-4 py-4">
-            <p className="text-sm text-foreground">Open this link to log in. It works once, for 30 minutes.</p>
-            <a className="mt-3 block text-sm break-all text-amber-100 underline-offset-4 hover:underline" href={link}>
-              {link}
-            </a>
-            <p className="mt-3 text-sm text-muted-foreground">
-              After it logs you in, pick a username. One saved roll per UTC day goes on the{" "}
-              <Link href="/leaderboard" className="underline-offset-4 hover:underline">
-                board
-              </Link>
-              .
+        {sent ? (
+          <div className="mt-6 max-w-md rounded-2xl border border-border bg-card px-4 py-4" role="status">
+            <p className="text-sm text-foreground">
+              {sent === "dev"
+                ? "This dev server does not send mail. The login link is in the server log, not on this page."
+                : "Check your inbox for a login link. It works once, then expires. If you did not get it, wait a few minutes before asking again."}
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">After it logs you in, pick a username.</p>
           </div>
         ) : null}
       </div>

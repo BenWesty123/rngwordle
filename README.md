@@ -19,7 +19,7 @@ Open [http://127.0.0.1:4721](http://127.0.0.1:4721). The dev server listens on `
 
 ## Cloudflare
 
-The Worker config is `wrangler.jsonc` and `open-next.config.ts`. D1 binding name: `DB`. Database name: `rngwordle`. Schema: `migrations/0001_accounts.sql`. `npm run dev` does not use that database. It keeps using `data/local.sqlite`. `npm run deploy` builds with OpenNext and deploys the Worker.
+The Worker config is `wrangler.jsonc` and `open-next.config.ts`. D1 binding name: `DB`. Database name: `rngwordle`. Email binding name: `EMAIL`, from `login@rwgdle.app`. Schema: `migrations/0001_accounts.sql`. `npm run dev` does not use that database or send mail. It keeps using `data/local.sqlite` and prints the login link in the server log. `npm run deploy` builds with OpenNext and deploys the Worker, including the `EMAIL` binding.
 
 ## Word list
 
@@ -145,9 +145,9 @@ Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tauto
 
 ## Accounts
 
-There is no password. Open Log in, enter an email, and the game shows a one-time link on the page. Mail is not sent. The link lasts 30 minutes and works once. After it logs you in, pick a username: 3–20 characters, letters, numbers, and underscores, unique ignoring case.
+There is no password. Open Log in, enter an email, and the game emails a one-time link from `login@rwgdle.app`. The page does not show the link. The link lasts 30 minutes and works once. Another request for the same address within 3 minutes does not send again. After it logs you in, pick a username: 3–20 characters, letters, numbers, and underscores, unique ignoring case.
 
-Accounts, login links, sessions, and saved rolls use the same tables in two places. `next dev` writes `data/local.sqlite` (gitignored) when the Cloudflare D1 binding is absent. The Worker uses the D1 binding `DB` (`database_name` `rngwordle`). The schema is `migrations/0001_accounts.sql`: text ids, integer unix milliseconds, a digit-string score, and `UNIQUE (account_id, utc_day)`. A roll with no account leaves `account_id` null, which SQLite does not treat as one shared key, so each anonymous generate adds a row. The app rebuilds an older rolls table that required an account the first time it opens the database. Each statement is prepared on its own: D1's exec() treats every line as a separate query, so a formatted CREATE TABLE stops there with incomplete input. No API keys and no email service. The one-time login link still appears on the page.
+Accounts, login links, sessions, and saved rolls use the same tables in two places. `next dev` writes `data/local.sqlite` (gitignored) when the Cloudflare D1 binding is absent. The Worker uses the D1 binding `DB` (`database_name` `rngwordle`). The schema is `migrations/0001_accounts.sql`: text ids, integer unix milliseconds, a digit-string score, and `UNIQUE (account_id, utc_day)`. A roll with no account leaves `account_id` null, which SQLite does not treat as one shared key, so each anonymous generate adds a row. The app rebuilds an older rolls table that required an account the first time it opens the database. Each statement is prepared on its own: D1's exec() treats every line as a separate query, so a formatted CREATE TABLE stops there with incomplete input. No API keys. The Worker sends the login link with the `EMAIL` binding. `npm run dev` prints that link in the server log instead.
 
 ## Leaderboard
 
