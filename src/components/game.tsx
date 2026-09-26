@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
-import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
+import { flickerWord, loadDictionary } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
@@ -65,14 +65,17 @@ export function Game() {
   const snapshot = useSyncExternalStore(subscribeRoll, readRollSnapshot, serverRollSnapshot);
   const guestRoll = snapshot ? parseRoll(snapshot) : null;
   const roll =
-    account.status === "player"
+    account.status === "player" || account.status === "needs-name"
       ? account.today
         ? { date: utcDateKey(), word: account.today.word }
         : null
       : account.status === "guest"
         ? guestRoll
         : null;
-  const daily = account.status === "player" && account.today != null && roll?.word === account.today.word;
+  const daily =
+    (account.status === "player" || account.status === "needs-name") &&
+    account.today != null &&
+    roll?.word === account.today.word;
 
   useEffect(() => {
     let cancelled = false;
@@ -121,41 +124,32 @@ export function Game() {
   async function onGenerate() {
     armScoreAudio();
     if (spinTimer.current !== null || dealing) return;
-    if (account.status === "player") {
-      setDealing(true);
-      setRollError(null);
-      try {
-        const response = await fetch("/api/rolls", { method: "POST" });
-        const body = (await response.json()) as {
-          word?: string;
-          score?: string;
-          playedAt?: number;
-          error?: string;
-        };
-        if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
-          setRollError(body.error ?? "Today's roll didn't save.");
-          return;
-        }
-        rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
-        setReplayKey((key) => key + 1);
-        setCopied(false);
-        setCopyError(false);
-        startSpin(body.word);
-      } catch {
-        setRollError("Today's roll didn't save.");
-      } finally {
-        setDealing(false);
-      }
-      return;
-    }
-    if (account.status !== "guest" || !dictionary) return;
-    const word = randomWord(dictionary);
-    const next = { date: utcDateKey(), word };
-    writeRoll(next);
-    setCopied(false);
-    setCopyError(false);
+    if (account.status !== "guest" && account.status !== "player" && account.status !== "needs-name") return;
+    setDealing(true);
     setRollError(null);
-    startSpin(word);
+    try {
+      const response = await fetch("/api/rolls", { method: "POST" });
+      const body = (await response.json()) as {
+        word?: string;
+        score?: string;
+        playedAt?: number;
+        error?: string;
+      };
+      if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
+        setRollError(body.error ?? "That roll didn't save.");
+        return;
+      }
+      if (account.status === "guest") writeRoll({ date: utcDateKey(), word: body.word });
+      else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
+      setReplayKey((key) => key + 1);
+      setCopied(false);
+      setCopyError(false);
+      startSpin(body.word);
+    } catch {
+      setRollError("That roll didn't save.");
+    } finally {
+      setDealing(false);
+    }
   }
 
   async function onCopy(text: string) {
@@ -203,7 +197,7 @@ export function Game() {
               <Button
                 type="button"
                 className="h-9 shrink-0"
-                disabled={dealing || spinWord !== null || (account.status === "guest" && !dictionary)}
+                disabled={dealing || spinWord !== null}
                 onClick={() => void onGenerate()}
               >
                 {dealing ? "Dealing…" : "Generate again"}
@@ -221,26 +215,29 @@ export function Game() {
               Try again
             </Button>
           </div>
-        ) : account.status === "needs-name" ? (
-          <UsernameForm />
         ) : roll && scored && standing ? (
-          <Result
-            roll={roll}
-            scored={scored}
-            standing={standing}
-            spinWord={spinWord}
-            copied={copied}
-            copyError={copyError}
-            onCopy={onCopy}
-            daily={daily}
-            replayKey={replayKey}
-            rollError={rollError}
-          />
+          <>
+            {account.status === "needs-name" ? <UsernameForm compact /> : null}
+            <Result
+              roll={roll}
+              scored={scored}
+              standing={standing}
+              spinWord={spinWord}
+              copied={copied}
+              copyError={copyError}
+              onCopy={onCopy}
+              daily={daily}
+              replayKey={replayKey}
+              rollError={rollError}
+            />
+          </>
         ) : (
-          <EmptyState
+          <>
+            {account.status === "needs-name" ? <UsernameForm compact /> : null}
+            <EmptyState
             dictionary={dictionary}
             dictionaryError={dictionaryError}
-            account={account.status}
+            account={account.status === "needs-name" ? "needs-name" : account.status}
             dealing={dealing}
             rollError={rollError}
             onGenerate={() => void onGenerate()}
@@ -249,6 +246,7 @@ export function Game() {
               setDictionaryAttempt((attempt) => attempt + 1);
             }}
           />
+          </>
         )}
       </div>
     </div>
@@ -268,7 +266,7 @@ function EmptyState({
 }: {
   dictionary: string[] | null;
   dictionaryError: string | null;
-  account: "guest" | "player";
+  account: "guest" | "player" | "needs-name";
   dealing: boolean;
   rollError: string | null;
   onGenerate: () => void;
@@ -282,8 +280,10 @@ function EmptyState({
       </h1>
       <p className="mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
         {account === "player"
-          ? "Generate deals today’s word and saves it under your name. One roll per UTC day. Come back tomorrow for another."
-          : "Generate deals this browser a random English word. Guest rolls are unlimited and stay off the board. Log in to save one roll each UTC day."}
+          ? "Generate saves one roll under your name for this UTC day. Generating again shows that same word."
+          : account === "needs-name"
+            ? "Generate saves one roll today as Anonymous until you pick a username."
+            : "Generate saves a roll on the board as Anonymous. Log in when you want a username on your daily roll."}
       </p>
       {dictionaryError ? (
         <div className="mt-8 max-w-md" role="alert">
@@ -299,10 +299,10 @@ function EmptyState({
         <Button
           type="button"
           className="mt-8 h-12 w-full text-base sm:h-14"
-          disabled={dealing || (account === "guest" && !dictionary)}
+          disabled={dealing}
           onClick={onGenerate}
         >
-          {dealing ? "Dealing…" : account === "player" || dictionary ? "Generate" : "Opening the dictionary…"}
+          {dealing ? "Dealing…" : "Generate"}
         </Button>
       )}
       {rollError ? (
@@ -314,9 +314,9 @@ function EmptyState({
         {wordCount
           ? `${wordCount.toLocaleString("en-US")} words in the pot. `
           : "A full dictionary is in the pot. "}
-        {account === "player"
-          ? "Logged-out play stays unlimited, and those rolls are not on the board."
-          : "The latest guest word stays in this browser until you roll again."}
+        {account === "guest"
+          ? "The latest word stays in this browser until you roll again. Each one is on the board."
+          : "Logged-out rolls are on the board as Anonymous."}
       </p>
     </div>
   );

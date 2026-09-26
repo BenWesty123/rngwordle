@@ -20,7 +20,7 @@ export type AccountState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "guest" }
-  | { status: "needs-name"; email: string }
+  | { status: "needs-name"; email: string; today: TodayRoll | null }
   | { status: "player"; email: string; username: string; today: TodayRoll | null }
 
 type AccountContextValue = {
@@ -34,7 +34,7 @@ const AccountContext = createContext<AccountContextValue | null>(null)
 
 function fromResponse(body: AccountResponse): AccountState {
   if (!body.account) return { status: "guest" }
-  if (!body.account.username) return { status: "needs-name", email: body.account.email }
+  if (!body.account.username) return { status: "needs-name", email: body.account.email, today: body.account.today }
   return {
     status: "player",
     email: body.account.email,
@@ -67,7 +67,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const rememberToday = useCallback((roll: TodayRoll) => {
-    setAccount((current) => (current.status === "player" ? { ...current, today: roll } : current))
+    setAccount((current) =>
+      current.status === "player" || current.status === "needs-name" ? { ...current, today: roll } : current,
+    )
   }, [])
 
   const value = useMemo(

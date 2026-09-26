@@ -11,6 +11,7 @@ type D1Statement = {
 export type D1Binding = {
   prepare(query: string): D1Statement
   batch(statements: D1Statement[]): Promise<Array<{ meta?: { changes?: number } }>>
+  exec(query: string): Promise<unknown>
 }
 
 function changesOf(meta: { changes?: number } | undefined): number {
@@ -35,6 +36,9 @@ export function databaseFromD1(db: D1Binding): AppDatabase {
       const prepared = statements.map((statement) => db.prepare(statement.sql).bind(...statement.params))
       const results = await db.batch(prepared)
       return results.map((result) => ({ changes: changesOf(result.meta) }))
+    },
+    async exec(sql: string): Promise<void> {
+      await db.exec(sql)
     },
   }
 }

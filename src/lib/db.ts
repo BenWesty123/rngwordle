@@ -1,15 +1,15 @@
-import { readFileSync } from "node:fs"
 import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
+import { FRESH_SCHEMA } from "@/lib/migrate-rolls"
 import type { AppDatabase, SqlParam, SqlStatement } from "@/lib/sql"
 
 /**
  * Local SQLite for `next dev`, used when the Cloudflare D1 binding is absent.
- * Production uses the `DB` binding and migrations/0001_accounts.sql.
+ * Production uses the D1 binding `DB`. Both run migrateRolls on first use.
  */
 
-const SCHEMA = readFileSync(join(process.cwd(), "migrations", "0001_accounts.sql"), "utf8")
+const SCHEMA = FRESH_SCHEMA
 
 const globalForDb = globalThis as unknown as { rngworldeDb?: DatabaseSync }
 
@@ -59,6 +59,9 @@ export function databaseFromSqlite(db: DatabaseSync): AppDatabase {
         db.exec("ROLLBACK")
         throw error
       }
+    },
+    async exec(sql: string): Promise<void> {
+      db.exec(sql)
     },
   }
 }

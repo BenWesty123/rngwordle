@@ -53,8 +53,8 @@ export default async function LeaderboardPage({
           {current.empty}{" "}
           <Link href="/" className="text-foreground underline-offset-4 hover:underline">
             Generate a saved roll
-          </Link>{" "}
-          after you log in.
+          </Link>
+          .
         </p>
       ) : (
         <ol className="mt-8" aria-label={`${current.label} leaderboard`}>

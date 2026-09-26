@@ -1,11 +1,24 @@
 import { databaseFromD1, type D1Binding } from "@/lib/d1"
+import { migrateRolls } from "@/lib/migrate-rolls"
 import { inCloudflareWorker } from "@/lib/runtime"
 import type { AppDatabase } from "@/lib/sql"
 
-const slot = globalThis as unknown as { rngworldeAppDb?: AppDatabase }
+const slot = globalThis as unknown as { rngworldeAppDb?: AppDatabase; rngworldeReady?: Promise<void> }
 
 /** D1 on the Worker. The local SQLite file everywhere else, including `next dev`. */
 export async function appDb(): Promise<AppDatabase> {
+  const db = await connect()
+  if (!slot.rngworldeReady) {
+    slot.rngworldeReady = migrateRolls(db).catch((error: unknown) => {
+      slot.rngworldeReady = undefined
+      throw error
+    })
+  }
+  await slot.rngworldeReady
+  return db
+}
+
+async function connect(): Promise<AppDatabase> {
   if (inCloudflareWorker()) {
     const binding = await d1Binding()
     if (!binding) throw new Error("D1 binding DB is not configured")

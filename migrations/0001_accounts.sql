@@ -1,4 +1,6 @@
--- Accounts, one-time login links, sessions, and one saved roll per account per UTC day.
+-- Accounts, one-time login links, sessions, and saved rolls.
+-- A roll with no account is anonymous. SQLite treats those null account ids as distinct,
+-- so each anonymous generate can add a row. A real account stays unique per UTC day.
 -- Score is a digit string so rank can use length(score), then the digits.
 
 CREATE TABLE IF NOT EXISTS accounts (
@@ -26,7 +28,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE TABLE IF NOT EXISTS rolls (
   id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL REFERENCES accounts(id),
+  account_id TEXT REFERENCES accounts(id),
   username TEXT NOT NULL,
   word TEXT NOT NULL,
   score TEXT NOT NULL,

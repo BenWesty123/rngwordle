@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAccount } from "@/components/account-provider"
 
-export function UsernameForm() {
+export function UsernameForm({ compact = false }: { compact?: boolean }) {
   const { account, refresh } = useAccount()
   const [username, setUsername] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -35,11 +35,15 @@ export function UsernameForm() {
   }
 
   return (
-    <div className="flex flex-1 flex-col justify-center py-16">
-      <h1 className="max-w-md font-display text-5xl leading-[0.95] tracking-tight text-balance italic sm:text-6xl">
-        Pick a username.
-      </h1>
-      <p className="mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
+    <div className={compact ? "mt-10 max-w-md" : "flex flex-1 flex-col justify-center py-16"}>
+      {compact ? (
+        <h2 className="font-display text-3xl tracking-tight italic">Pick a username.</h2>
+      ) : (
+        <h1 className="max-w-md font-display text-5xl leading-[0.95] tracking-tight text-balance italic sm:text-6xl">
+          Pick a username.
+        </h1>
+      )}
+      <p className={compact ? "mt-3 text-sm leading-relaxed text-muted-foreground" : "mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg"}>
         {account.status === "needs-name" ? `${account.email} is logged in. ` : null}
         Three to twenty characters: letters, numbers, and underscores. The name shows on the board.
       </p>

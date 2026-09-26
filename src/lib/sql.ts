@@ -12,4 +12,5 @@ export type AppDatabase = {
   run(sql: string, ...params: SqlParam[]): Promise<{ changes: number }>
   /** Later statements see earlier writes. The whole list commits or rolls back together. */
   batch(statements: SqlStatement[]): Promise<Array<{ changes: number }>>
+  exec(sql: string): Promise<void>
 }

@@ -2,7 +2,7 @@
 
 Press Generate and the dictionary deals you a random English word. The score — with every factor that made it — is the game.
 
-Logged-out rolls are unlimited and stay in this browser. They are not on the board. Log in to save one roll per account per UTC day.
+Every generate is saved on the board. Logged-out rows are named Anonymous. Log in to put a username on your one roll per UTC day.
 
 ## Run
 
@@ -147,14 +147,12 @@ Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tauto
 
 There is no password. Open Log in, enter an email, and the game shows a one-time link on the page. Mail is not sent. The link lasts 30 minutes and works once. After it logs you in, pick a username: 3–20 characters, letters, numbers, and underscores, unique ignoring case.
 
-Accounts, login links, sessions, and saved rolls use the same tables in two places. `next dev` writes `data/local.sqlite` (gitignored) when the Cloudflare D1 binding is absent. The Worker uses the D1 binding `DB` (`database_name` `rngwordle`). The schema is `migrations/0001_accounts.sql`: text ids, integer unix milliseconds, `UNIQUE (account_id, utc_day)`, and a digit-string score. No API keys and no email service. The one-time login link still appears on the page.
+Accounts, login links, sessions, and saved rolls use the same tables in two places. `next dev` writes `data/local.sqlite` (gitignored) when the Cloudflare D1 binding is absent. The Worker uses the D1 binding `DB` (`database_name` `rngwordle`). The schema is `migrations/0001_accounts.sql`: text ids, integer unix milliseconds, a digit-string score, and `UNIQUE (account_id, utc_day)`. A roll with no account leaves `account_id` null, which SQLite does not treat as one shared key, so each anonymous generate adds a row. The app rebuilds an older rolls table that required an account the first time it opens the database. No API keys and no email service. The one-time login link still appears on the page.
 
 ## Leaderboard
 
-The board is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. A tie goes to the earlier roll. An empty period says so.
+The board is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
 
 ## Rolls
 
-Guest generate picks uniformly from the list (rejection sampling on `crypto.getRandomValues`) and stores the latest `{ date, word }` under `rngworlde.roll.v1`, so a refresh keeps that word on screen.
-
-A logged-in generate asks the server to deal. The server uses the same list and the same scorer. If that account has no roll for the current UTC day, it saves username, word, score, and time. If it already has one, Generate shows that saved word and does not replace it.
+Generate asks the server to deal. The server uses the same list and the same scorer. A logged-out roll is saved with no account and the name Anonymous, and the latest `{ date, word }` stays in this browser under `rngworlde.roll.v1`. A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.

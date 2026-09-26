@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto"
 import type { AppDatabase } from "@/lib/sql"
 import { utcDateKey } from "@/lib/day"
 
+export const ANONYMOUS_NAME = "Anonymous"
 export const LOGIN_LINK_MS = 30 * 60 * 1000
 export const SESSION_MS = 30 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE = "rngworlde_session"
@@ -201,6 +202,29 @@ export async function rollForDay(db: AppDatabase, accountId: string, utcDay: str
   return { username: row.username, word: row.word, score: row.score, playedAt: row.played_at, utcDay: row.utc_day }
 }
 
+export async function saveAnonymousRoll(
+  db: AppDatabase,
+  now: number,
+  draw: () => { word: string; score: string },
+): Promise<{ roll: SavedRoll; created: boolean } | { error: string }> {
+  const drawn = draw()
+  if (!/^[a-z]+$/.test(drawn.word) || !/^\d+$/.test(drawn.score)) return { error: "That roll could not be saved." }
+  const utcDay = utcDateKey(new Date(now))
+  await db.run(
+    "INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+    randomUUID(),
+    ANONYMOUS_NAME,
+    drawn.word,
+    drawn.score,
+    now,
+    utcDay,
+  )
+  return {
+    roll: { username: ANONYMOUS_NAME, word: drawn.word, score: drawn.score, playedAt: now, utcDay },
+    created: true,
+  }
+}
+
 export async function saveDailyRoll(
   db: AppDatabase,
   accountId: string,
@@ -208,18 +232,19 @@ export async function saveDailyRoll(
   draw: () => { word: string; score: string },
 ): Promise<{ roll: SavedRoll; created: boolean } | { error: string }> {
   const account = await db.get<{ username: string | null }>("SELECT username FROM accounts WHERE id = ?", accountId)
-  if (!account?.username) return { error: "Choose a username first." }
+  if (!account) return { error: "That account is gone." }
   const utcDay = utcDateKey(new Date(now))
   const existing = await rollForDay(db, accountId, utcDay)
   if (existing) return { roll: existing, created: false }
   const drawn = draw()
   if (!/^[a-z]+$/.test(drawn.word) || !/^\d+$/.test(drawn.score)) return { error: "That roll could not be saved." }
+  const username = account.username ?? ANONYMOUS_NAME
   try {
     await db.run(
       "INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day) VALUES (?, ?, ?, ?, ?, ?, ?)",
       randomUUID(),
       accountId,
-      account.username,
+      username,
       drawn.word,
       drawn.score,
       now,

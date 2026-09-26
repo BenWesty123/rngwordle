@@ -17,7 +17,7 @@ export async function currentAccount(): Promise<CurrentAccount | null> {
   const db = await appDb()
   const account = await accountForSession(db, token)
   if (!account) return null
-  const today = account.username ? await rollForDay(db, account.id, utcDateKey()) : null
+  const today = await rollForDay(db, account.id, utcDateKey())
   return { id: account.id, email: account.email, username: account.username, today }
 }
 
