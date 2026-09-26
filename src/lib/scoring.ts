@@ -91,6 +91,7 @@ export const FACTOR_MATCHES = {
   "vowel-chain": 63104,
   "a-to-u": 28,
   "next-door": 16304,
+  bookends: 415,
   ing: 12564,
   ish: 554,
   ist: 1197,
@@ -476,6 +477,16 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "The first and last letters are not neighbours.",
     },
     {
+      id: "bookends",
+      name: "Bookends",
+      hit: bookends(normalized),
+      hitDetail: `Starts and ends with ${normalized.slice(0, 2)}.`,
+      missDetail:
+        length < 4
+          ? "Needs at least 4 letters, so the two ends do not overlap."
+          : "The first two letters are not the same as the last two.",
+    },
+    {
       id: "ing",
       name: "Ing",
       hit: ing,
@@ -764,6 +775,7 @@ function factorHighlight(id: FactorId, word: string): number[] {
     return [...word].flatMap((letter, index) => (RARE.has(letter) ? [index] : []));
   }
   if (id === "next-door") return word.length < 2 ? [0] : [0, word.length - 1];
+  if (id === "bookends") return [0, 1, word.length - 2, word.length - 1];
   if (id === "ing" || id === "ish" || id === "ist") return [word.length - 3, word.length - 2, word.length - 1];
   if (id === "lone-q") {
     return [...word].flatMap((letter, index) => (letter === "q" && word[index + 1] !== "u" ? [index] : []));
@@ -882,6 +894,10 @@ function pairedTwins(
     Array.from({ length: stretch.end - stretch.start }, (_, offset) => stretch.start + offset),
   );
   return { detail: `${detail}.`, indexes };
+}
+
+function bookends(word: string): boolean {
+  return word.length >= 4 && word.slice(0, 2) === word.slice(-2);
 }
 
 function evenCompany(word: string): boolean {

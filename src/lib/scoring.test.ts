@@ -126,6 +126,27 @@ test("headlamp pays Inside once per nested dictionary word", () => {
   assert.match(scoreWord("echo").rows.find((row) => row.id === "from-greek")?.reason ?? "", /Greek/);
 });
 
+test("bookends matches the first two letters to the last two", () => {
+  const church = scoreWord("church");
+  const row = church.rows.find((entry) => entry.id === "bookends");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 8);
+  assert.equal(row?.name, "Bookends ×8");
+  assert.deepEqual(row?.highlight, [0, 1, 4, 5]);
+  assert.match(row?.reason ?? "", /ch/);
+
+  const sense = scoreWord("sense");
+  assert.equal(sense.rows.find((entry) => entry.id === "bookends")?.scored, true);
+  assert.deepEqual(sense.rows.find((entry) => entry.id === "bookends")?.highlight, [0, 1, 3, 4]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "bookends")?.scored, false);
+
+  const short = scoreWord("cat");
+  assert.equal(short.rows.find((entry) => entry.id === "bookends")?.scored, false);
+  assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
+});
+
 test("even company needs every letter exactly twice", () => {
   const scored = scoreWord("reappear");
   const row = scored.rows.find((entry) => entry.id === "even-company");
