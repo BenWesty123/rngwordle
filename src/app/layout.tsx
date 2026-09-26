@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "RNGWorlde",
+  title: "RWGdle",
   description:
     "A random English word, scored from Scrabble tiles, a length multiplier, and a handful of bonuses. Your roll, not a shared puzzle.",
 };

@@ -1,4 +1,4 @@
-# RNGWorlde
+# RWGdle
 
 Press Generate and the dictionary deals you a random English word. The score — with every factor that made it — is the game.
 

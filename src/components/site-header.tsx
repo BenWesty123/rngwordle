@@ -9,8 +9,8 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
   const { account, logout } = useAccount()
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-      <Link href="/" className="text-[11px] tracking-[0.32em] text-muted-foreground uppercase">
-        RNGWorlde
+      <Link href="/" className="text-sm tracking-[0.14em] text-muted-foreground">
+        RWGdle
       </Link>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/leaderboard" />}>

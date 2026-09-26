@@ -16,7 +16,7 @@ export function buildShareText(input: {
 }): string {
   const percent = formatBeaten(input.beaten);
   const lines = [
-    `RNGWorlde · ${input.date}`,
+    `RWGdle · ${input.date}`,
     input.scored.word.toUpperCase(),
     `${input.scored.total.toLocaleString("en-US")} · ${input.tierLabel}`,
     `Beats ${percent} of ${input.wordCount.toLocaleString("en-US")} words`,

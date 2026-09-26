@@ -1,5 +1,5 @@
 /**
- * RNGWorlde scoring is a product of multipliers.
+ * RWGdle scoring is a product of multipliers.
  *
  * Tile pile: standard English Scrabble values. That is the base.
  * Length: ×1 at 9 letters, the average (and median) length in the bundled list.
