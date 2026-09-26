@@ -15,9 +15,11 @@
  */
 
 import enableWordsText from "@/data/enable-words.json";
+import shrinkingChains from "@/data/shrinking-chains.json";
 import wordFacts from "@/data/word-facts.json";
 
 const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
+const SHRINKING_CHAINS = Object.assign(Object.create(null), shrinkingChains) as Record<string, string>;
 
 const ANAGRAM_GROUPS = new Map<string, string[]>();
 for (const word of ENABLE_WORDS) {
@@ -79,6 +81,7 @@ export const FACTOR_MATCHES = {
   "even-company": 92,
   inside: 167370,
   "letter-sandwich": 7298,
+  "shrinking-word": 9924,
   "front-or-back": 5031,
   anagram: 28648,
   "a-cappella": 5,
@@ -254,6 +257,7 @@ export function scoreWord(word: string): ScoredWord {
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
   const sandwich = letterSandwich(normalized);
   const trimmedEnds = frontOrBack(normalized);
+  const shrinking = SHRINKING_CHAINS[normalized] ?? null;
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -384,6 +388,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: trimmedEnds !== null,
       hitDetail: trimmedEnds ? `${trimmedEnds.withoutFirst} and ${trimmedEnds.withoutLast}.` : "",
       missDetail: "Removing the first letter, or the last, does not leave a dictionary word.",
+    },
+    {
+      id: "shrinking-word",
+      name: "Shrinking word",
+      hit: shrinking !== null,
+      hitDetail: shrinking ?? "",
+      missDetail: "No chain of 5 dictionary words by deleting one letter at a time.",
     },
     {
       id: "anagram",

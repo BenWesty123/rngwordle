@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { FACTOR_MATCHES, LENGTH_CENTER, scoreWord } from "../src/lib/scoring";
+import { buildShrinkingChains } from "../src/lib/build-shrinking-chains";
 import { TIER_BANDS, beatenFraction, tierForBeaten } from "../src/lib/tiers";
 
 const root = process.cwd();
@@ -13,6 +13,11 @@ const words = [
       .filter((word) => /^[a-z]{2,}$/.test(word)),
   ),
 ].sort();
+
+writeFileSync(join(root, "src/data/shrinking-chains.json"), `${JSON.stringify(buildShrinkingChains(words))}\n`);
+
+async function main(): Promise<void> {
+const { FACTOR_MATCHES, LENGTH_CENTER, scoreWord } = await import("../src/lib/scoring");
 
 const scored = words.map((word) => scoreWord(word));
 const scores = scored.map((entry) => entry.total);
@@ -126,3 +131,6 @@ console.log(
     })
     .join(" · "),
 );
+}
+
+void main();

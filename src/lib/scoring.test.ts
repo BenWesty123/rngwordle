@@ -147,6 +147,38 @@ test("bookends matches the first two letters to the last two", () => {
   assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
 });
 
+test("shrinking word follows a deletion chain of at least 5", () => {
+  const scored = scoreWord("startling");
+  const row = scored.rows.find((entry) => entry.id === "shrinking-word");
+  const chain = "startling → starling → staring → string → sting → ting → tin → in";
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 4);
+  assert.equal(row?.name, "Shrinking word ×4");
+  assert.equal(row?.reason, chain);
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  const steps = chain.split(" → ");
+  assert.ok(steps.length >= 5);
+  for (let index = 1; index < steps.length; index += 1) {
+    assert.equal(deletesOneLetter(steps[index - 1]!, steps[index]!), true);
+  }
+  assert.equal(deletesOneLetter("staring", "string"), true);
+
+  assert.equal(scoreWord("book").rows.find((entry) => entry.id === "shrinking-word")?.scored, false);
+  assert.equal(scoreWord("start").rows.find((entry) => entry.id === "shrinking-word")?.scored, false);
+});
+
+function deletesOneLetter(longer: string, shorter: string): boolean {
+  if (shorter.length !== longer.length - 1) return false;
+  let skipped = false;
+  let cursor = 0;
+  for (const letter of longer) {
+    if (cursor < shorter.length && letter === shorter[cursor]) cursor += 1;
+    else if (!skipped) skipped = true;
+    else return false;
+  }
+  return skipped && cursor === shorter.length;
+}
+
 test("front or back needs both trimmed words", () => {
   const start = scoreWord("start");
   const row = start.rows.find((entry) => entry.id === "front-or-back");

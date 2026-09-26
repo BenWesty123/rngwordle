@@ -59,6 +59,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Inside | A dictionary word of at least 3 letters sits inside. The whole word does not count. Each match multiplies once, including a word nested in a longer match | 167,370 | ×2 |
 | Letter sandwich | Removing the first and last letters leaves an ENABLE word of at least 3 letters. Shorter words miss. The card lights that middle and names it | 7,298 | ×4 |
 | Front or back | The word with its first letter removed and the word with its last letter removed are both ENABLE words. If only one is a word, it misses. The card names both and lights the whole word | 5,031 | ×5 |
+| Shrinking word | A chain of at least 5 ENABLE words, counting this word, each made by deleting one letter from anywhere in the previous word. The card names the chain and lights the whole word | 9,924 | ×4 |
 | Anagram | A different dictionary word uses exactly the same letters. The word itself does not count. Each anagram multiplies once. This one is ×4 per anagram, not the rarity formula | 28,648 | ×4 |
 | Next door | First and last letters are neighbours in the alphabet | 16,304 | ×3 |
 | Bookends | The first two letters match the last two, in the same order. At least 4 letters, so the two spans do not overlap. The card lights those four letters | 415 | ×8 |
