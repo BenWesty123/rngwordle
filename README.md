@@ -153,6 +153,12 @@ Accounts, login links, sessions, and saved rolls use the same tables in two plac
 
 The board is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
 
+A logged-in player with a username can switch that board to Friends. It ranks their rolls plus accepted friends, for the same four periods. Anonymous players have no friends list.
+
+## Friends
+
+Open Friends, type the other player's exact username, and send a request. They accept on their own Friends page. Until then it stays pending. The requester can cancel. The other player can decline. Either player can remove an accepted friend. No email is sent. You need a username first, and you cannot add yourself. An unknown username, a request to yourself, and a duplicate request each show an error. The `friendships` table is created the first time the app opens the database, the same way an older rolls table is rebuilt, so an existing D1 database grows it without pasted SQL.
+
 ## Rolls
 
 Generate asks the server to deal. The server uses the same list and the same scorer. On the Worker that list is the `/words.txt` asset, because the Worker does not keep the app directory as its working directory. A logged-out roll is saved with no account and the name Anonymous, and the latest `{ date, word }` stays in this browser under `rngworlde.roll.v1`. A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.

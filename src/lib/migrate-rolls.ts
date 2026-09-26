@@ -27,6 +27,20 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS friendships (
+  id TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL REFERENCES accounts(id),
+  addressee_id TEXT NOT NULL REFERENCES accounts(id),
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  pair_lo TEXT NOT NULL,
+  pair_hi TEXT NOT NULL,
+  UNIQUE (pair_lo, pair_hi)
+);
+
+CREATE INDEX IF NOT EXISTS friendships_requester ON friendships (requester_id);
+CREATE INDEX IF NOT EXISTS friendships_addressee ON friendships (addressee_id);
+
 CREATE TABLE IF NOT EXISTS rolls (
   id TEXT PRIMARY KEY,
   account_id TEXT REFERENCES accounts(id),
