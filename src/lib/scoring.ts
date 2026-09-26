@@ -14,12 +14,14 @@
  * Sound-word tags still come from Webster's 1913 dictionary.
  */
 
+import alphabetTwinGroups from "@/data/alphabet-twins.json";
 import enableWordsText from "@/data/enable-words.json";
 import shrinkingChains from "@/data/shrinking-chains.json";
 import wordFacts from "@/data/word-facts.json";
 
 const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
 const SHRINKING_CHAINS = Object.assign(Object.create(null), shrinkingChains) as Record<string, string>;
+const ALPHABET_TWINS = nullPrototypeGroups(alphabetTwinGroups as Record<string, Record<string, string[]>>);
 
 const ANAGRAM_GROUPS = new Map<string, string[]>();
 for (const word of ENABLE_WORDS) {
@@ -83,6 +85,7 @@ export const FACTOR_MATCHES = {
   "letter-sandwich": 7298,
   "shrinking-word": 9924,
   "inside-out": 1061,
+  "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
   "a-cappella": 5,
@@ -260,6 +263,7 @@ export function scoreWord(word: string): ScoredWord {
   const trimmedEnds = frontOrBack(normalized);
   const shrinking = SHRINKING_CHAINS[normalized] ?? null;
   const rotated = insideOut(normalized);
+  const alphabetTwins = alphabetTwinPartners(normalized);
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -404,6 +408,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: rotated !== null,
       hitDetail: rotated ? `${rotated}.` : "",
       missDetail: "Moving the first letter to the end is not a different dictionary word.",
+    },
+    {
+      id: "alphabet-twins",
+      name: "Alphabet twins",
+      hit: alphabetTwins !== null,
+      hitDetail: alphabetTwins ? formatAlphabetTwins(alphabetTwins) : "",
+      missDetail: "No other word uses these letters with different counts.",
     },
     {
       id: "anagram",
@@ -799,6 +810,38 @@ export function anagramsOf(word: string): string[] {
 
 export function insideHits(word: string): string[] {
   return insideSlices(word).map((hit) => hit.text);
+}
+
+function nullPrototypeGroups(
+  groups: Record<string, Record<string, string[]>>,
+): Record<string, Record<string, string[]>> {
+  const outer = Object.create(null) as Record<string, Record<string, string[]>>;
+  for (const setKey of Object.keys(groups)) {
+    outer[setKey] = Object.assign(Object.create(null), groups[setKey]) as Record<string, string[]>;
+  }
+  return outer;
+}
+
+function alphabetTwinPartners(word: string): string[] | null {
+  const letters = [...word];
+  const setKey = [...new Set(letters)].sort().join("");
+  const countKey = letters.slice().sort().join("");
+  const group = ALPHABET_TWINS[setKey];
+  if (!group) return null;
+  const partners: string[] = [];
+  for (const key of Object.keys(group)) {
+    if (key === countKey) continue;
+    partners.push(...(group[key] ?? []));
+  }
+  if (partners.length === 0) return null;
+  partners.sort();
+  return partners;
+}
+
+function formatAlphabetTwins(partners: string[]): string {
+  if (partners.length <= 8) return `${partners.join(", ")}.`;
+  const more = partners.length - 8;
+  return `${partners.slice(0, 8).join(", ")}, and ${more} more.`;
 }
 
 function insideOut(word: string): string | null {

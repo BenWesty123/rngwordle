@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildAlphabetTwins } from "../src/lib/build-alphabet-twins";
 import { buildShrinkingChains } from "../src/lib/build-shrinking-chains";
 import { TIER_BANDS, beatenFraction, tierForBeaten } from "../src/lib/tiers";
 
@@ -15,6 +16,7 @@ const words = [
 ].sort();
 
 writeFileSync(join(root, "src/data/shrinking-chains.json"), `${JSON.stringify(buildShrinkingChains(words))}\n`);
+writeFileSync(join(root, "src/data/alphabet-twins.json"), `${JSON.stringify(buildAlphabetTwins(words))}\n`);
 
 async function main(): Promise<void> {
 const { FACTOR_MATCHES, LENGTH_CENTER, scoreWord } = await import("../src/lib/scoring");

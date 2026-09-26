@@ -66,7 +66,8 @@ test("kayak multiplies mirror", () => {
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
   assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
   assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 4);
-  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2 * 4);
+  assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, 2);
+  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2 * 4 * 2);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -145,6 +146,30 @@ test("bookends matches the first two letters to the last two", () => {
   const short = scoreWord("cat");
   assert.equal(short.rows.find((entry) => entry.id === "bookends")?.scored, false);
   assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
+});
+
+test("alphabet twins share a letter set with different counts", () => {
+  const banana = scoreWord("banana");
+  const row = banana.rows.find((entry) => entry.id === "alphabet-twins");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 2);
+  assert.equal(row?.name, "Alphabet twins ×2");
+  assert.equal(row?.reason, "ban, nab.");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
+
+  const tone = scoreWord("tone");
+  const toneRow = tone.rows.find((entry) => entry.id === "alphabet-twins");
+  const tonePartners = (toneRow?.reason ?? "").replace(/\.$/, "").split(", ");
+  assert.equal(toneRow?.scored, true);
+  assert.ok(tonePartners.includes("nonet"));
+  assert.equal(tonePartners.includes("note"), false);
+  assert.equal(tonePartners.includes("ten"), false);
+
+  const start = scoreWord("start");
+  const startRow = start.rows.find((entry) => entry.id === "alphabet-twins");
+  assert.match(startRow?.reason ?? "", /^arts, attars, ratatats, rats, satara, sataras, star, stars, and 10 more\.$/);
+
+  assert.equal(scoreWord("quiz").rows.find((entry) => entry.id === "alphabet-twins")?.scored, false);
 });
 
 test("inside out moves the first letter to the end", () => {
