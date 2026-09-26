@@ -147,6 +147,23 @@ test("bookends matches the first two letters to the last two", () => {
   assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
 });
 
+test("letter sandwich scores the exact middle word", () => {
+  const there = scoreWord("there");
+  const row = there.rows.find((entry) => entry.id === "letter-sandwich");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 4);
+  assert.equal(row?.name, "Letter sandwich ×4");
+  assert.equal(row?.reason, "her sits inside.");
+  assert.deepEqual(row?.highlight, [1, 2, 3]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "letter-sandwich")?.scored, false);
+
+  const short = scoreWord("cat");
+  assert.equal(short.rows.find((entry) => entry.id === "letter-sandwich")?.scored, false);
+  assert.match(short.rows.find((entry) => entry.id === "letter-sandwich")?.detail ?? "", /5 letters/);
+});
+
 test("even company needs every letter exactly twice", () => {
   const scored = scoreWord("reappear");
   const row = scored.rows.find((entry) => entry.id === "even-company");

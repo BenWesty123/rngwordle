@@ -78,6 +78,7 @@ export const FACTOR_MATCHES = {
   "no-repeats": 34816,
   "even-company": 92,
   inside: 167370,
+  "letter-sandwich": 7298,
   anagram: 28648,
   "a-cappella": 5,
   "bone-dry": 121,
@@ -250,6 +251,7 @@ export function scoreWord(word: string): ScoredWord {
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
+  const sandwich = letterSandwich(normalized);
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -363,6 +365,16 @@ export function scoreWord(word: string): ScoredWord {
       hit: insideHits(normalized).length > 0,
       hitDetail: "",
       missDetail: "No dictionary word of 3 or more letters sits inside.",
+    },
+    {
+      id: "letter-sandwich",
+      name: "Letter sandwich",
+      hit: sandwich !== null,
+      hitDetail: sandwich ? `${sandwich} sits inside.` : "",
+      missDetail:
+        length < 5
+          ? "Needs at least 5 letters, so the inside can be a word of 3 or more."
+          : "The inside, with the first and last letters removed, is not a dictionary word.",
     },
     {
       id: "anagram",
@@ -760,6 +772,13 @@ export function insideHits(word: string): string[] {
   return insideSlices(word).map((hit) => hit.text);
 }
 
+function letterSandwich(word: string): string | null {
+  if (word.length < 5) return null;
+  const middle = word.slice(1, -1);
+  if (middle.length < 3 || !ENABLE_WORDS.has(middle)) return null;
+  return middle;
+}
+
 function insideSlices(word: string): Array<{ text: string; start: number }> {
   const hits: Array<{ text: string; start: number }> = [];
   for (let start = 0; start < word.length; start += 1) {
@@ -777,6 +796,9 @@ function everyIndex(length: number): number[] {
 }
 
 function factorHighlight(id: FactorId, word: string): number[] {
+  if (id === "letter-sandwich") {
+    return Array.from({ length: Math.max(0, word.length - 2) }, (_, index) => index + 1);
+  }
   if (id === "twins") {
     return twinPositions(word).flatMap((flag, index) => (flag ? [index] : []));
   }
