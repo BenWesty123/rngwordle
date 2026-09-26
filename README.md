@@ -155,4 +155,4 @@ The board is at `/leaderboard`. Four views, top 100 each, highest score first: t
 
 ## Rolls
 
-Generate asks the server to deal. The server uses the same list and the same scorer. A logged-out roll is saved with no account and the name Anonymous, and the latest `{ date, word }` stays in this browser under `rngworlde.roll.v1`. A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.
+Generate asks the server to deal. The server uses the same list and the same scorer. On the Worker that list is the `/words.txt` asset, because the Worker does not keep the app directory as its working directory. A logged-out roll is saved with no account and the name Anonymous, and the latest `{ date, word }` stays in this browser under `rngworlde.roll.v1`. A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.
