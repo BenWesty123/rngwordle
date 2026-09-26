@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { definitionFor, plainDefinition } from "./definition";
 
-test("a roll reads a bundled sentence, or nothing when Wiktionary had no gloss", () => {
+test("a roll reads a shipped sentence, or nothing when Wiktionary had no gloss", async () => {
   assert.equal(
-    definitionFor("book"),
+    await definitionFor("book"),
     "A collection of sheets of paper bound together to hinge at one edge, containing printed or written material, pictures, etc.",
   );
-  assert.equal(definitionFor("BOOK"), definitionFor("book"));
-  assert.equal(definitionFor("ablins"), null);
-  assert.match(definitionFor("constructor") ?? "", /^A person who/);
+  assert.equal(await definitionFor("BOOK"), await definitionFor("book"));
+  assert.equal(await definitionFor("ablins"), null);
+  assert.match((await definitionFor("constructor")) ?? "", /^A person who/);
 });
 
 test("wiktionary markup collapses to one plain sentence", () => {

@@ -9,7 +9,7 @@ import {
   saveDailyRoll,
   setUsername,
 } from "./accounts"
-import { openDatabase } from "./db"
+import { databaseFromSqlite, openDatabase } from "./db"
 import { publicOrigin } from "./request-origin"
 
 test("login links use the browser host, not the bind address", () => {
@@ -44,63 +44,63 @@ test("week starts Monday 00:00 UTC and month starts on the 1st", () => {
   assert.equal(periodStart("week", previousSunday), Date.parse("2026-09-14T00:00:00.000Z"))
 })
 
-test("a login link works once, then a username can be claimed", () => {
-  const db = openDatabase(":memory:")
+test("a login link works once, then a username can be claimed", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
   const now = Date.parse("2026-09-26T12:00:00.000Z")
-  const created = createLoginLink(db, "  Ada@Example.com ", now)
+  const created = await createLoginLink(db, "  Ada@Example.com ", now)
   assert.ok(!("error" in created))
   if ("error" in created) return
-  const first = consumeLoginLink(db, created.token, now)
+  const first = await consumeLoginLink(db, created.token, now)
   assert.ok(!("error" in first))
   if ("error" in first) return
   assert.equal(first.username, null)
-  const reused = consumeLoginLink(db, created.token, now)
+  const reused = await consumeLoginLink(db, created.token, now)
   assert.equal("error" in reused && reused.error, "used")
-  const reusedLater = consumeLoginLink(db, created.token, now + 31 * 60 * 1000)
+  const reusedLater = await consumeLoginLink(db, created.token, now + 31 * 60 * 1000)
   assert.equal("error" in reusedLater && reusedLater.error, "used")
 
-  const expired = createLoginLink(db, "ada@example.com", now)
+  const expired = await createLoginLink(db, "ada@example.com", now)
   assert.ok(!("error" in expired))
   if ("error" in expired) return
-  const expiredResult = consumeLoginLink(db, expired.token, now + 31 * 60 * 1000)
+  const expiredResult = await consumeLoginLink(db, expired.token, now + 31 * 60 * 1000)
   assert.equal("error" in expiredResult && expiredResult.error, "expired")
 
-  const invalidName = setUsername(db, first.accountId, "ab")
+  const invalidName = await setUsername(db, first.accountId, "ab")
   assert.equal("error" in invalidName && invalidName.error, "Use 3 to 20 letters, numbers, or underscores.")
-  const named = setUsername(db, first.accountId, "Ada_1")
+  const named = await setUsername(db, first.accountId, "Ada_1")
   assert.deepEqual(named, { username: "Ada_1" })
 
-  const other = createLoginLink(db, "bea@example.com", now)
+  const other = await createLoginLink(db, "bea@example.com", now)
   assert.ok(!("error" in other))
   if ("error" in other) return
-  const second = consumeLoginLink(db, other.token, now)
+  const second = await consumeLoginLink(db, other.token, now)
   assert.ok(!("error" in second))
   if ("error" in second) return
-  const taken = setUsername(db, second.accountId, "ada_1")
+  const taken = await setUsername(db, second.accountId, "ada_1")
   assert.equal("error" in taken && taken.error, "That name is taken.")
 })
 
-test("a logged-in account keeps one roll per UTC day and the board ranks by score", () => {
-  const db = openDatabase(":memory:")
+test("a logged-in account keeps one roll per UTC day and the board ranks by score", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
   const now = Date.parse("2026-09-26T18:00:00.000Z")
-  const created = createLoginLink(db, "ada@example.com", now)
+  const created = await createLoginLink(db, "ada@example.com", now)
   assert.ok(!("error" in created))
   if ("error" in created) return
-  const session = consumeLoginLink(db, created.token, now)
+  const session = await consumeLoginLink(db, created.token, now)
   assert.ok(!("error" in session))
   if ("error" in session) return
-  const blocked = saveDailyRoll(db, session.accountId, now, () => ({ word: "quiz", score: "10" }))
+  const blocked = await saveDailyRoll(db, session.accountId, now, () => ({ word: "quiz", score: "10" }))
   assert.equal("error" in blocked && blocked.error, "Choose a username first.")
-  setUsername(db, session.accountId, "ada")
+  await setUsername(db, session.accountId, "ada")
 
-  const first = saveDailyRoll(db, session.accountId, now, () => ({ word: "quiz", score: "25344" }))
+  const first = await saveDailyRoll(db, session.accountId, now, () => ({ word: "quiz", score: "25344" }))
   assert.ok(!("error" in first))
   if ("error" in first) return
   assert.equal(first.created, true)
   assert.equal(first.roll.word, "quiz")
   assert.equal(first.roll.username, "ada")
 
-  const again = saveDailyRoll(db, session.accountId, now + 60_000, () => ({ word: "banana", score: "999999" }))
+  const again = await saveDailyRoll(db, session.accountId, now + 60_000, () => ({ word: "banana", score: "999999" }))
   assert.ok(!("error" in again))
   if ("error" in again) return
   assert.equal(again.created, false)
@@ -109,23 +109,23 @@ test("a logged-in account keeps one roll per UTC day and the board ranks by scor
 
   const monday = Date.parse("2026-09-21T00:00:00.000Z")
   const sundayBefore = Date.parse("2026-09-20T23:00:00.000Z")
-  const other = createLoginLink(db, "bea@example.com", now)
+  const other = await createLoginLink(db, "bea@example.com", now)
   assert.ok(!("error" in other))
   if ("error" in other) return
-  const bea = consumeLoginLink(db, other.token, now)
+  const bea = await consumeLoginLink(db, other.token, now)
   assert.ok(!("error" in bea))
   if ("error" in bea) return
-  setUsername(db, bea.accountId, "bea")
-  saveDailyRoll(db, bea.accountId, monday, () => ({ word: "aa", score: "1000" }))
-  saveDailyRoll(db, bea.accountId, sundayBefore, () => ({ word: "cat", score: "5000" }))
-  saveDailyRoll(db, session.accountId, Date.parse("2026-09-22T12:00:00.000Z"), () => ({ word: "tone", score: "1000" }))
+  await setUsername(db, bea.accountId, "bea")
+  await saveDailyRoll(db, bea.accountId, monday, () => ({ word: "aa", score: "1000" }))
+  await saveDailyRoll(db, bea.accountId, sundayBefore, () => ({ word: "cat", score: "5000" }))
+  await saveDailyRoll(db, session.accountId, Date.parse("2026-09-22T12:00:00.000Z"), () => ({ word: "tone", score: "1000" }))
 
-  const today = listBoard(db, "today", now)
+  const today = await listBoard(db, "today", now)
   assert.deepEqual(
     today.map((row) => row.word),
     ["quiz"],
   )
-  const week = listBoard(db, "week", now)
+  const week = await listBoard(db, "week", now)
   assert.deepEqual(
     week.map((row) => [row.rank, row.username, row.word, row.score]),
     [
@@ -134,7 +134,7 @@ test("a logged-in account keeps one roll per UTC day and the board ranks by scor
       [3, "ada", "tone", "1000"],
     ],
   )
-  const all = listBoard(db, "all", now)
+  const all = await listBoard(db, "all", now)
   assert.deepEqual(
     all.map((row) => row.word),
     ["quiz", "cat", "aa", "tone"],

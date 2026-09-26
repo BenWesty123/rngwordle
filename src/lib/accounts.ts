@@ -1,6 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto"
-import type { DatabaseSync } from "node:sqlite"
-import { getDb } from "@/lib/db"
+import type { AppDatabase } from "@/lib/sql"
 import { utcDateKey } from "@/lib/day"
 
 export const LOGIN_LINK_MS = 30 * 60 * 1000
@@ -72,193 +71,198 @@ export function parseBoardView(value: string | undefined): BoardView {
   return "today"
 }
 
-function withTransaction<T>(db: DatabaseSync, run: () => T): T {
-  db.exec("BEGIN IMMEDIATE")
-  try {
-    const value = run()
-    db.exec("COMMIT")
-    return value
-  } catch (error) {
-    db.exec("ROLLBACK")
-    throw error
-  }
+function isConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : ""
+  return message.includes("UNIQUE") || message.includes("constraint")
 }
 
-export function createLoginLink(db: DatabaseSync, email: string, now = Date.now()): { token: string } | { error: string } {
+export async function createLoginLink(
+  db: AppDatabase,
+  email: string,
+  now = Date.now(),
+): Promise<{ token: string } | { error: string }> {
   const normalized = normalizeEmail(email)
   if (!normalized) return { error: "Enter an email address." }
   const token = randomBytes(32).toString("base64url")
-  withTransaction(db, () => {
-    const existing = db.prepare("SELECT id FROM accounts WHERE email = ?").get(normalized) as { id: string } | undefined
-    const accountId = existing?.id ?? randomUUID()
-    if (!existing) {
-      db.prepare("INSERT INTO accounts (id, email, username, username_key, created_at) VALUES (?, ?, NULL, NULL, ?)").run(
+  let account = await db.get<{ id: string }>("SELECT id FROM accounts WHERE email = ?", normalized)
+  if (!account) {
+    const accountId = randomUUID()
+    try {
+      await db.run(
+        "INSERT INTO accounts (id, email, username, username_key, created_at) VALUES (?, ?, NULL, NULL, ?)",
         accountId,
         normalized,
         now,
       )
+      account = { id: accountId }
+    } catch (error) {
+      if (!isConstraintError(error)) throw error
+      account = await db.get<{ id: string }>("SELECT id FROM accounts WHERE email = ?", normalized)
+      if (!account) throw error
     }
-    db.prepare("INSERT INTO login_links (token, account_id, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)").run(
-      token,
-      accountId,
-      now,
-      now + LOGIN_LINK_MS,
-    )
-  })
+  }
+  await db.run(
+    "INSERT INTO login_links (token, account_id, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)",
+    token,
+    account.id,
+    now,
+    now + LOGIN_LINK_MS,
+  )
   return { token }
 }
 
-export function consumeLoginLink(
-  db: DatabaseSync,
+export async function consumeLoginLink(
+  db: AppDatabase,
   token: string,
   now = Date.now(),
-): { accountId: string; username: string | null; sessionToken: string } | { error: "missing" | "used" | "expired" } {
-  const link = db.prepare(
+): Promise<{ accountId: string; username: string | null; sessionToken: string } | { error: "missing" | "used" | "expired" }> {
+  const link = await db.get<{ account_id: string; expires_at: number; used_at: number | null }>(
     "SELECT account_id, expires_at, used_at FROM login_links WHERE token = ?",
-  ).get(token) as { account_id: string; expires_at: number; used_at: number | null } | undefined
+    token,
+  )
   if (!link) return { error: "missing" }
   if (link.used_at != null) return { error: "used" }
   if (link.expires_at < now) return { error: "expired" }
   const sessionToken = randomBytes(32).toString("base64url")
-  try {
-    withTransaction(db, () => {
-      const current = db.prepare("SELECT used_at FROM login_links WHERE token = ?").get(token) as
-        | { used_at: number | null }
-        | undefined
-      if (!current || current.used_at != null) throw new Error("used")
-      db.prepare("UPDATE login_links SET used_at = ? WHERE token = ?").run(now, token)
-      db.prepare("INSERT INTO sessions (token, account_id, created_at, expires_at) VALUES (?, ?, ?, ?)").run(
-        sessionToken,
-        link.account_id,
-        now,
-        now + SESSION_MS,
-      )
-    })
-  } catch (error) {
-    if (error instanceof Error && error.message === "used") return { error: "used" }
-    throw error
+  const [updated] = await db.batch([
+    {
+      sql: "UPDATE login_links SET used_at = ? WHERE token = ? AND used_at IS NULL AND expires_at >= ?",
+      params: [now, token, now],
+    },
+    {
+      sql: `INSERT INTO sessions (token, account_id, created_at, expires_at)
+            SELECT ?, account_id, ?, ? FROM login_links WHERE token = ? AND used_at = ?`,
+      params: [sessionToken, now, now + SESSION_MS, token, now],
+    },
+  ])
+  if (!updated || updated.changes !== 1) {
+    const again = await db.get<{ used_at: number | null; expires_at: number }>(
+      "SELECT used_at, expires_at FROM login_links WHERE token = ?",
+      token,
+    )
+    if (!again) return { error: "missing" }
+    if (again.used_at != null) return { error: "used" }
+    return { error: "expired" }
   }
-  const account = db.prepare("SELECT username FROM accounts WHERE id = ?").get(link.account_id) as { username: string | null }
-  return { accountId: link.account_id, username: account.username, sessionToken }
+  const account = await db.get<{ username: string | null }>("SELECT username FROM accounts WHERE id = ?", link.account_id)
+  return { accountId: link.account_id, username: account?.username ?? null, sessionToken }
 }
 
-export function accountForSession(db: DatabaseSync, token: string, now = Date.now()): AccountRow | null {
-  const row = db.prepare(
+export async function accountForSession(db: AppDatabase, token: string, now = Date.now()): Promise<AccountRow | null> {
+  return db.get<AccountRow>(
     `SELECT accounts.id, accounts.email, accounts.username
      FROM sessions
      JOIN accounts ON accounts.id = sessions.account_id
      WHERE sessions.token = ? AND sessions.expires_at >= ?`,
-  ).get(token, now) as AccountRow | undefined
-  return row ?? null
+    token,
+    now,
+  )
 }
 
-export function deleteSession(db: DatabaseSync, token: string): void {
-  db.prepare("DELETE FROM sessions WHERE token = ?").run(token)
+export async function deleteSession(db: AppDatabase, token: string): Promise<void> {
+  await db.run("DELETE FROM sessions WHERE token = ?", token)
 }
 
-export function setUsername(
-  db: DatabaseSync,
+export async function setUsername(
+  db: AppDatabase,
   accountId: string,
   raw: string,
-): { username: string } | { error: string } {
+): Promise<{ username: string } | { error: string }> {
   const username = normalizeUsername(raw)
   if (!username) return { error: "Use 3 to 20 letters, numbers, or underscores." }
   const key = username.toLowerCase()
   try {
-    const changed = db.prepare(
+    const changed = await db.run(
       "UPDATE accounts SET username = ?, username_key = ? WHERE id = ? AND username IS NULL",
-    ).run(username, key, accountId)
-    if (Number(changed.changes) === 0) {
-      const current = db.prepare("SELECT username FROM accounts WHERE id = ?").get(accountId) as
-        | { username: string | null }
-        | undefined
+      username,
+      key,
+      accountId,
+    )
+    if (changed.changes === 0) {
+      const current = await db.get<{ username: string | null }>("SELECT username FROM accounts WHERE id = ?", accountId)
       if (!current) return { error: "That account is gone." }
       if (current.username) return { error: "This account already has a username." }
       return { error: "That name is taken." }
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : ""
-    if (message.includes("UNIQUE") || message.includes("constraint")) return { error: "That name is taken." }
+    if (isConstraintError(error)) return { error: "That name is taken." }
     throw error
   }
   return { username }
 }
 
-export function rollForDay(db: DatabaseSync, accountId: string, utcDay: string): SavedRoll | null {
-  const row = db.prepare(
+export async function rollForDay(db: AppDatabase, accountId: string, utcDay: string): Promise<SavedRoll | null> {
+  const row = await db.get<{ username: string; word: string; score: string; played_at: number; utc_day: string }>(
     "SELECT username, word, score, played_at, utc_day FROM rolls WHERE account_id = ? AND utc_day = ?",
-  ).get(accountId, utcDay) as
-    | { username: string; word: string; score: string; played_at: number; utc_day: string }
-    | undefined
+    accountId,
+    utcDay,
+  )
   if (!row) return null
   return { username: row.username, word: row.word, score: row.score, playedAt: row.played_at, utcDay: row.utc_day }
 }
 
-export function saveDailyRoll(
-  db: DatabaseSync,
+export async function saveDailyRoll(
+  db: AppDatabase,
   accountId: string,
   now: number,
   draw: () => { word: string; score: string },
-): { roll: SavedRoll; created: boolean } | { error: string } {
-  const account = db.prepare("SELECT username FROM accounts WHERE id = ?").get(accountId) as
-    | { username: string | null }
-    | undefined
+): Promise<{ roll: SavedRoll; created: boolean } | { error: string }> {
+  const account = await db.get<{ username: string | null }>("SELECT username FROM accounts WHERE id = ?", accountId)
   if (!account?.username) return { error: "Choose a username first." }
   const utcDay = utcDateKey(new Date(now))
-  const existing = rollForDay(db, accountId, utcDay)
+  const existing = await rollForDay(db, accountId, utcDay)
   if (existing) return { roll: existing, created: false }
   const drawn = draw()
   if (!/^[a-z]+$/.test(drawn.word) || !/^\d+$/.test(drawn.score)) return { error: "That roll could not be saved." }
   try {
-    withTransaction(db, () => {
-      const again = rollForDay(db, accountId, utcDay)
-      if (again) throw new Error("exists")
-      db.prepare(
-        "INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run(randomUUID(), accountId, account.username, drawn.word, drawn.score, now, utcDay)
-    })
+    await db.run(
+      "INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      randomUUID(),
+      accountId,
+      account.username,
+      drawn.word,
+      drawn.score,
+      now,
+      utcDay,
+    )
   } catch (error) {
-    const saved = rollForDay(db, accountId, utcDay)
+    const saved = await rollForDay(db, accountId, utcDay)
+    if (saved && isConstraintError(error)) return { roll: saved, created: false }
     if (saved) return { roll: saved, created: false }
-    const message = error instanceof Error ? error.message : ""
-    if (message === "exists") {
-      const raced = rollForDay(db, accountId, utcDay)
-      if (raced) return { roll: raced, created: false }
-    }
     throw error
   }
-  const saved = rollForDay(db, accountId, utcDay)
+  const saved = await rollForDay(db, accountId, utcDay)
   if (!saved) return { error: "That roll could not be saved." }
   return { roll: saved, created: true }
 }
 
-export function listBoard(db: DatabaseSync, view: BoardView, now = Date.now(), limit = 100): BoardRow[] {
+export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now(), limit = 100): Promise<BoardRow[]> {
   const start = periodStart(view, new Date(now))
-  const rows = (
+  const rows =
     start == null
-      ? db.prepare(
+      ? await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score
            FROM rolls
            WHERE played_at <= ?
            ORDER BY length(score) DESC, score DESC, played_at ASC
            LIMIT ?`,
-        ).all(now, limit)
-      : db.prepare(
+          now,
+          limit,
+        )
+      : await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score
            FROM rolls
            WHERE played_at >= ? AND played_at <= ?
            ORDER BY length(score) DESC, score DESC, played_at ASC
            LIMIT ?`,
-        ).all(start, now, limit)
-  ) as Array<{ username: string; word: string; score: string }>
+          start,
+          now,
+          limit,
+        )
   return rows.map((row, index) => ({
     rank: index + 1,
     username: row.username,
     word: row.word,
     score: row.score,
   }))
-}
-
-export function appDb(): DatabaseSync {
-  return getDb()
 }

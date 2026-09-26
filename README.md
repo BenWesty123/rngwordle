@@ -17,6 +17,10 @@ Open [http://127.0.0.1:4721](http://127.0.0.1:4721). The dev server listens on `
 
 `npm run precompute` rebuilds `public/words.txt` and `src/data/histogram.json` from `data/enable1.txt`. Commit those generated files with any scoring change so the tiers stay honest. You only need to rerun it after editing the scorer or the word list.
 
+## Cloudflare
+
+The Worker config is `wrangler.jsonc` and `open-next.config.ts`. D1 binding name: `DB`. Database name: `rngwordle`. Schema: `migrations/0001_accounts.sql`. `npm run dev` does not use that database. It keeps using `data/local.sqlite`. `npm run deploy` builds with OpenNext and deploys the Worker.
+
 ## Word list
 
 The list is **ENABLE1** (Enhanced North American Benchmark Lexicon), a public-domain word list compiled by Alan Beale for word games. It is vendored as `data/enable1.txt` from the public-domain `enable1.txt` in [dolph/dictionary](https://github.com/dolph/dictionary).
@@ -122,7 +126,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Sound word | Webster 1913 marks the word as imitative | 49 | ×11 |
 | From Afrikaans | Wiktionary traces it to Afrikaans | 100 | ×10 |
 
-Definitions are the first plain English sentence from the [kaikki.org](https://kaikki.org/dictionary/English/index.html) English Wiktionary dump, cut to one sentence and 180 characters, and shipped in `src/data/definitions.json`. Wiktionary text is available under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). A roll reads that sentence from the file. A word with no gloss says “No definition on file.” 167,356 of the 172,823 ENABLE words have one. Rebuild with `curl -fsL https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl | python3 scripts/build-definitions.py`. The dump itself is not vendored.
+Definitions are the first plain English sentence from the [kaikki.org](https://kaikki.org/dictionary/English/index.html) English Wiktionary dump, cut to one sentence and 180 characters, and shipped in `src/data/definitions.json`. Wiktionary text is available under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). A roll asks `/api/definition` for that one sentence. The gloss file is a static asset, not part of the Worker script, and the page does not call Wiktionary. A word with no gloss says “No definition on file.” 167,356 of the 172,823 ENABLE words have one. Rebuild with `curl -fsL https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl | python3 scripts/build-definitions.py`. The dump itself is not vendored.
 
 Origin tags are built offline from English Wiktionary, using the [kaikki.org](https://kaikki.org/dictionary/English/index.html) wiktextract dump, and shipped with the game. Wiktionary text is available under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). Only borrowed-from, inherited-from, and derived-from templates count. A cognate mentioned as “akin to” does not. A hop through Middle English, or through another modern English stage, is followed to that word’s own borrowed, inherited, or derived templates. There is no From Middle English card. An inflected form inherits the lemma’s origin languages. That copy uses Wiktionary’s form-of link when the entry says this word is a form of another English word. A regular stem is used only when that link is missing and exactly one ENABLE stem is unambiguous. Compounds such as computer and email stay without an origin from this pass. 57,920 of the 172,823 ENABLE words have at least one of these origins. A miss means Wiktionary has no usable origin for that language. The sound-word row is still the public-domain note in Webster’s Revised Unabridged Dictionary (1913).
 
@@ -143,7 +147,7 @@ Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tauto
 
 There is no password. Open Log in, enter an email, and the game shows a one-time link on the page. Mail is not sent. The link lasts 30 minutes and works once. After it logs you in, pick a username: 3–20 characters, letters, numbers, and underscores, unique ignoring case.
 
-Accounts, login links, sessions, and saved rolls live in `data/local.sqlite` (gitignored). The tables use text ids, integer unix milliseconds, and a digit-string score so they can move to Postgres later without a redesign. No API keys and no email service.
+Accounts, login links, sessions, and saved rolls use the same tables in two places. `next dev` writes `data/local.sqlite` (gitignored) when the Cloudflare D1 binding is absent. The Worker uses the D1 binding `DB` (`database_name` `rngwordle`). The schema is `migrations/0001_accounts.sql`: text ids, integer unix milliseconds, `UNIQUE (account_id, utc_day)`, and a digit-string score. No API keys and no email service. The one-time login link still appears on the page.
 
 ## Leaderboard
 

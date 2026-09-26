@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
-import { accountForSession, appDb, rollForDay, SESSION_COOKIE, type SavedRoll } from "@/lib/accounts"
+import { appDb } from "@/lib/app-db"
+import { accountForSession, rollForDay, SESSION_COOKIE, type SavedRoll } from "@/lib/accounts"
 import { utcDateKey } from "@/lib/day"
 
 export type CurrentAccount = {
@@ -13,9 +14,10 @@ export async function currentAccount(): Promise<CurrentAccount | null> {
   const jar = await cookies()
   const token = jar.get(SESSION_COOKIE)?.value
   if (!token) return null
-  const account = accountForSession(appDb(), token)
+  const db = await appDb()
+  const account = await accountForSession(db, token)
   if (!account) return null
-  const today = account.username ? rollForDay(appDb(), account.id, utcDateKey()) : null
+  const today = account.username ? await rollForDay(db, account.id, utcDateKey()) : null
   return { id: account.id, email: account.email, username: account.username, today }
 }
 

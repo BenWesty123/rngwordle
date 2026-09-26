@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { SiteHeader } from "@/components/site-header"
+import { appDb } from "@/lib/app-db"
 import { formatScore, listBoard, parseBoardView, type BoardView } from "@/lib/accounts"
-import { getDb } from "@/lib/db"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -20,7 +20,7 @@ export default async function LeaderboardPage({
 }) {
   const { view: raw } = await searchParams
   const view = parseBoardView(raw)
-  const rows = listBoard(getDb(), view)
+  const rows = await listBoard(await appDb(), view)
   const current = VIEWS.find((item) => item.id === view) ?? VIEWS[0]!
 
   return (

@@ -1,4 +1,5 @@
-import { consumeLoginLink, appDb, SESSION_COOKIE } from "@/lib/accounts"
+import { appDb } from "@/lib/app-db"
+import { consumeLoginLink, SESSION_COOKIE } from "@/lib/accounts"
 import { sessionCookieOptions } from "@/lib/current-account"
 import { publicOrigin } from "@/lib/request-origin"
 import { NextResponse } from "next/server"
@@ -7,7 +8,7 @@ export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get("token") ?? ""
-  const result = token ? consumeLoginLink(appDb(), token) : { error: "missing" as const }
+  const result = token ? await consumeLoginLink(await appDb(), token) : { error: "missing" as const }
   const origin = publicOrigin(request)
   const secure = origin.startsWith("https:")
   if ("error" in result) {

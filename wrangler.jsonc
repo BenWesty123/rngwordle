@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rngwordle",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-26",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "rngwordle"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rngwordle",
+      "database_id": "413e067e-82bf-4059-b9ea-e796869cf7bc",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

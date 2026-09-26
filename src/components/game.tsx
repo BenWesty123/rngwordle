@@ -6,7 +6,6 @@ import { useAccount } from "@/components/account-provider";
 import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
-import { definitionFor } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
@@ -406,7 +405,24 @@ function Result({
 }
 
 function WordDefinition({ word }: { word: string }) {
-  const gloss = definitionFor(word);
+  const [gloss, setGloss] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancel = false;
+    setGloss(undefined);
+    fetch(`/api/definition?word=${encodeURIComponent(word)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
+      .then((body: { definition?: unknown }) => {
+        if (cancel) return;
+        setGloss(typeof body.definition === "string" ? body.definition : null);
+      })
+      .catch(() => {
+        if (!cancel) setGloss(null);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [word]);
+  if (gloss === undefined) return null;
   return (
     <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">
       {gloss ?? "No definition on file"}

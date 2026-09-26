@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { appDb, saveDailyRoll, scoreDigits, SESSION_COOKIE, accountForSession } from "@/lib/accounts"
+import { appDb } from "@/lib/app-db"
+import { saveDailyRoll, scoreDigits, SESSION_COOKIE, accountForSession } from "@/lib/accounts"
 import { randomWord } from "@/lib/dictionary"
 import { scoreWord } from "@/lib/scoring"
 import { cookies } from "next/headers"
@@ -26,11 +27,12 @@ function dictionary(): string[] {
 export async function POST() {
   const jar = await cookies()
   const token = jar.get(SESSION_COOKIE)?.value
-  const account = token ? accountForSession(appDb(), token) : null
+  const db = await appDb()
+  const account = token ? await accountForSession(db, token) : null
   if (!account) return NextResponse.json({ error: "Log in first." }, { status: 401 })
-  let result: ReturnType<typeof saveDailyRoll>
+  let result: Awaited<ReturnType<typeof saveDailyRoll>>
   try {
-    result = saveDailyRoll(appDb(), account.id, Date.now(), () => {
+    result = await saveDailyRoll(db, account.id, Date.now(), () => {
       const word = randomWord(dictionary())
       return { word, score: scoreDigits(scoreWord(word).total) }
     })
