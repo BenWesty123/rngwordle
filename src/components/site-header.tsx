@@ -13,14 +13,14 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
         RNGWorlde
       </Link>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="ghost" className="h-9 px-2.5" render={<Link href="/leaderboard" />}>
+        <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/leaderboard" />}>
           Board
         </Button>
         {account.status === "player" ? (
           <span className="max-w-32 truncate text-sm text-foreground">{account.username}</span>
         ) : null}
         {account.status === "guest" || account.status === "error" ? (
-          <Button variant="outline" className="h-9" render={<Link href="/login" />}>
+          <Button variant="outline" className="h-9" nativeButton={false} render={<Link href="/login" />}>
             Log in
           </Button>
         ) : null}

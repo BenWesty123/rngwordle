@@ -10,6 +10,18 @@ import {
   setUsername,
 } from "./accounts"
 import { openDatabase } from "./db"
+import { publicOrigin } from "./request-origin"
+
+test("login links use the browser host, not the bind address", () => {
+  const loopback = new Request("http://0.0.0.0:4721/api/auth/request", { headers: { host: "127.0.0.1:4721" } })
+  assert.equal(publicOrigin(loopback), "http://127.0.0.1:4721")
+  const forwarded = new Request("http://0.0.0.0:4721/api/auth/request", {
+    headers: { "x-forwarded-host": "play.example, internal", "x-forwarded-proto": "https" },
+  })
+  assert.equal(publicOrigin(forwarded), "https://play.example")
+  const bound = new Request("http://0.0.0.0:4721/api/auth/request", { headers: { host: "0.0.0.0:4721" } })
+  assert.equal(publicOrigin(bound), "http://0.0.0.0:4721")
+})
 
 test("usernames are 3 to 20 letters, numbers, or underscores", () => {
   assert.equal(normalizeUsername("ab"), null)
