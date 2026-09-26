@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchRemoteDefinition } from "@/lib/definition";
@@ -383,6 +383,8 @@ function ScoreReveal({
   const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
+  const pileRef = useRef<HTMLOListElement>(null);
+  const pileTops = useRef(new Map<string, number>());
   const baseDone = letters >= scored.tiles.length;
   const done = baseDone && settled >= steps.length;
   const tileTarget = scored.tiles.slice(0, letters).reduce((sum, tile) => sum + tile.value, 0);
@@ -390,7 +392,6 @@ function ScoreReveal({
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
   const activeStep = baseDone && applied > settled ? (steps[applied - 1] ?? null) : null;
-  const stacked = steps.slice(0, settled);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -445,6 +446,29 @@ function ScoreReveal({
     }, 1450);
     return () => window.clearInterval(id);
   }, [baseDone, scored.total, steps.length]);
+
+  useLayoutEffect(() => {
+    const list = pileRef.current;
+    if (!list) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const next = new Map<string, number>();
+    for (const item of [...list.children]) {
+      if (!(item instanceof HTMLElement)) continue;
+      const key = item.dataset.pileKey;
+      if (!key) continue;
+      const top = item.getBoundingClientRect().top;
+      const previous = pileTops.current.get(key);
+      next.set(key, top);
+      if (reduce || previous == null) continue;
+      const delta = previous - top;
+      if (Math.abs(delta) < 0.5) continue;
+      item.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], {
+        duration: 450,
+        easing: "ease-out",
+      });
+    }
+    pileTops.current = next;
+  }, [applied]);
 
   useEffect(() => {
     const from = displayRef.current;
@@ -539,16 +563,24 @@ function ScoreReveal({
 
       {baseDone ? (
         <section className="mt-8" aria-label="Multipliers">
-          {activeStep ? (
-            <MultiplierCard key={`active-${applied}`} word={scored.word} row={activeStep} featured />
-          ) : null}
-          {stacked.length > 0 ? (
-            <ol className={cn("flex flex-col gap-2", activeStep && "mt-3")}>
-              {stacked.map((row, index) => (
-                <li key={`${row.id}-${index}`} className="card-drop">
-                  <MultiplierCard word={scored.word} row={row} />
-                </li>
-              ))}
+          {applied > 0 ? (
+            <ol ref={pileRef} className="card-pile flex flex-col gap-2">
+              {steps
+                .slice(0, applied)
+                .map((row, stepIndex) => ({ row, stepIndex }))
+                .reverse()
+                .map(({ row, stepIndex }) => {
+                  const isNewest = stepIndex === applied - 1;
+                  return (
+                    <li
+                      key={`${row.id}-${stepIndex}`}
+                      data-pile-key={`${row.id}-${stepIndex}`}
+                      className={cn("relative", isNewest && "z-10")}
+                    >
+                      <MultiplierCard word={scored.word} row={row} featured={isNewest} />
+                    </li>
+                  );
+                })}
             </ol>
           ) : null}
         </section>
