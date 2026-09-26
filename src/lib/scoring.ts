@@ -76,6 +76,7 @@ export const FACTOR_MATCHES = {
   "double-twins": 223,
   "triple-twins": 4,
   "no-repeats": 34816,
+  "even-company": 92,
   inside: 167370,
   anagram: 28648,
   "a-cappella": 5,
@@ -345,6 +346,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: new Set(normalized).size === length,
       hitDetail: "Every letter appears once.",
       missDetail: "A letter is used more than once.",
+    },
+    {
+      id: "even-company",
+      name: "Even company",
+      hit: evenCompany(normalized),
+      hitDetail: `${[...new Set(normalized)].join(", ")} each appear twice.`,
+      missDetail: "A letter appears once, or more than twice.",
     },
     {
       id: "inside",
@@ -874,6 +882,14 @@ function pairedTwins(
     Array.from({ length: stretch.end - stretch.start }, (_, offset) => stretch.start + offset),
   );
   return { detail: `${detail}.`, indexes };
+}
+
+function evenCompany(word: string): boolean {
+  const counts = new Map<string, number>();
+  for (const letter of word) counts.set(letter, (counts.get(letter) ?? 0) + 1);
+  if (counts.size === 0) return false;
+  for (const count of counts.values()) if (count !== 2) return false;
+  return true;
 }
 
 function twinRuns(word: string): string[] {

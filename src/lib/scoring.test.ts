@@ -126,6 +126,23 @@ test("headlamp pays Inside once per nested dictionary word", () => {
   assert.match(scoreWord("echo").rows.find((row) => row.id === "from-greek")?.reason ?? "", /Greek/);
 });
 
+test("even company needs every letter exactly twice", () => {
+  const scored = scoreWord("reappear");
+  const row = scored.rows.find((entry) => entry.id === "even-company");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 10);
+  assert.equal(row?.name, "Even company ×10");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.match(row?.reason ?? "", /r, e, a, p each appear twice/);
+
+  const noon = scoreWord("noon");
+  assert.equal(noon.rows.find((entry) => entry.id === "even-company")?.scored, true);
+  assert.deepEqual(noon.rows.find((entry) => entry.id === "even-company")?.highlight, [0, 1, 2, 3]);
+
+  assert.equal(scoreWord("book").rows.find((entry) => entry.id === "even-company")?.scored, false);
+  assert.equal(scoreWord("bookkeeper").rows.find((entry) => entry.id === "even-company")?.scored, false);
+});
+
 test("double twins sit together and a run of three is not a pair", () => {
   const coffee = scoreWord("coffee");
   const doubled = coffee.rows.find((entry) => entry.id === "double-twins");
