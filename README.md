@@ -1,8 +1,8 @@
 # RNGWorlde
 
-Press Generate and the dictionary deals you a random English word. The score — with every factor that made it — is the game. Roll again whenever you want.
+Press Generate and the dictionary deals you a random English word. The score — with every factor that made it — is the game.
 
-There is no shared answer and no account. The latest word is stored in this browser’s `localStorage`.
+Logged-out rolls are unlimited and stay in this browser. They are not on the board. Log in to save one roll per account per UTC day.
 
 ## Run
 
@@ -137,6 +137,18 @@ Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tauto
 | Common | Beats at least 35% |
 | Trash | Beats under 35% |
 
+## Accounts
+
+There is no password. Open Log in, enter an email, and the game shows a one-time link on the page. Mail is not sent. The link lasts 30 minutes and works once. After it logs you in, pick a username: 3–20 characters, letters, numbers, and underscores, unique ignoring case.
+
+Accounts, login links, sessions, and saved rolls live in `data/local.sqlite` (gitignored). The tables use text ids, integer unix milliseconds, and a digit-string score so they can move to Postgres later without a redesign. No API keys and no email service.
+
+## Leaderboard
+
+The board is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. A tie goes to the earlier roll. An empty period says so.
+
 ## Rolls
 
-Generate picks uniformly from the list (rejection sampling on `crypto.getRandomValues`) and stores the latest `{ date, word }` under `rngworlde.roll.v1`, so a refresh keeps the word on screen. There is no daily limit. Nothing is sent to a server.
+Guest generate picks uniformly from the list (rejection sampling on `crypto.getRandomValues`) and stores the latest `{ date, word }` under `rngworlde.roll.v1`, so a refresh keeps that word on screen.
+
+A logged-in generate asks the server to deal. The server uses the same list and the same scorer. If that account has no roll for the current UTC day, it saves username, word, score, and time. If it already has one, Generate shows that saved word and does not replace it.

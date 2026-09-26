@@ -2,6 +2,9 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy } from "lucide-react";
+import { useAccount } from "@/components/account-provider";
+import { SiteHeader } from "@/components/site-header";
+import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { fetchRemoteDefinition } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
@@ -55,9 +58,22 @@ export function Game() {
   const [spinWord, setSpinWord] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [dealing, setDealing] = useState(false);
+  const [rollError, setRollError] = useState<string | null>(null);
+  const [replayKey, setReplayKey] = useState(0);
   const spinTimer = useRef<number | null>(null);
+  const { account, refresh, rememberToday } = useAccount();
   const snapshot = useSyncExternalStore(subscribeRoll, readRollSnapshot, serverRollSnapshot);
-  const roll = snapshot ? parseRoll(snapshot) : null;
+  const guestRoll = snapshot ? parseRoll(snapshot) : null;
+  const roll =
+    account.status === "player"
+      ? account.today
+        ? { date: utcDateKey(), word: account.today.word }
+        : null
+      : account.status === "guest"
+        ? guestRoll
+        : null;
+  const daily = account.status === "player" && account.today != null && roll?.word === account.today.word;
 
   useEffect(() => {
     let cancelled = false;
@@ -86,18 +102,9 @@ export function Game() {
     return () => window.clearTimeout(id);
   }, [copied]);
 
-  function onGenerate() {
-    armScoreAudio();
-    if (!dictionary || spinTimer.current !== null) return;
-    const word = randomWord(dictionary);
-    const next = { date: utcDateKey(), word };
-    writeRoll(next);
-    setCopied(false);
-    setCopyError(false);
-
+  function startSpin(word: string) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
-
     setSpinWord(flickerWord(word.length));
     let frame = 0;
     spinTimer.current = window.setInterval(() => {
@@ -110,6 +117,46 @@ export function Game() {
       }
       setSpinWord(flickerWord(word.length));
     }, 45);
+  }
+
+  async function onGenerate() {
+    armScoreAudio();
+    if (spinTimer.current !== null || dealing) return;
+    if (account.status === "player") {
+      setDealing(true);
+      setRollError(null);
+      try {
+        const response = await fetch("/api/rolls", { method: "POST" });
+        const body = (await response.json()) as {
+          word?: string;
+          score?: string;
+          playedAt?: number;
+          error?: string;
+        };
+        if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
+          setRollError(body.error ?? "Today's roll didn't save.");
+          return;
+        }
+        rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
+        setReplayKey((key) => key + 1);
+        setCopied(false);
+        setCopyError(false);
+        startSpin(body.word);
+      } catch {
+        setRollError("Today's roll didn't save.");
+      } finally {
+        setDealing(false);
+      }
+      return;
+    }
+    if (account.status !== "guest" || !dictionary) return;
+    const word = randomWord(dictionary);
+    const next = { date: utcDateKey(), word };
+    writeRoll(next);
+    setCopied(false);
+    setCopyError(false);
+    setRollError(null);
+    startSpin(word);
   }
 
   async function onCopy(text: string) {
@@ -151,21 +198,33 @@ export function Game() {
     <div className="relative min-h-dvh">
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-10">
-        <header className="flex items-center justify-between gap-4">
-          <p className="text-[11px] tracking-[0.32em] text-muted-foreground uppercase">RNGWorlde</p>
-          {roll && scored && standing ? (
-            <Button
-              type="button"
-              className="h-9 shrink-0"
-              disabled={!dictionary || spinWord !== null}
-              onClick={onGenerate}
-            >
-              {dictionary ? "Generate again" : "Opening the dictionary…"}
-            </Button>
-          ) : null}
-        </header>
+        <SiteHeader
+          trailing={
+            roll && scored && standing ? (
+              <Button
+                type="button"
+                className="h-9 shrink-0"
+                disabled={dealing || spinWord !== null || (account.status === "guest" && !dictionary)}
+                onClick={() => void onGenerate()}
+              >
+                {dealing ? "Dealing…" : "Generate again"}
+              </Button>
+            ) : null
+          }
+        />
 
-        {roll && scored && standing ? (
+        {account.status === "loading" ? (
+          <p className="py-16 text-sm text-muted-foreground">Checking this browser…</p>
+        ) : account.status === "error" ? (
+          <div className="py-16" role="alert">
+            <p className="text-sm text-foreground">Couldn’t check this account.</p>
+            <Button type="button" className="mt-5 h-12" onClick={() => void refresh()}>
+              Try again
+            </Button>
+          </div>
+        ) : account.status === "needs-name" ? (
+          <UsernameForm />
+        ) : roll && scored && standing ? (
           <Result
             roll={roll}
             scored={scored}
@@ -174,12 +233,18 @@ export function Game() {
             copied={copied}
             copyError={copyError}
             onCopy={onCopy}
+            daily={daily}
+            replayKey={replayKey}
+            rollError={rollError}
           />
         ) : (
           <EmptyState
             dictionary={dictionary}
             dictionaryError={dictionaryError}
-            onGenerate={onGenerate}
+            account={account.status}
+            dealing={dealing}
+            rollError={rollError}
+            onGenerate={() => void onGenerate()}
             onRetry={() => {
               setDictionaryError(null);
               setDictionaryAttempt((attempt) => attempt + 1);
@@ -196,11 +261,17 @@ const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,rgba(240,226,200,0.12),tr
 function EmptyState({
   dictionary,
   dictionaryError,
+  account,
+  dealing,
+  rollError,
   onGenerate,
   onRetry,
 }: {
   dictionary: string[] | null;
   dictionaryError: string | null;
+  account: "guest" | "player";
+  dealing: boolean;
+  rollError: string | null;
   onGenerate: () => void;
   onRetry: () => void;
 }) {
@@ -211,8 +282,9 @@ function EmptyState({
         Draw a word.
       </h1>
       <p className="mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-        Generate deals this browser a random English word. It is not the world’s word. It is yours.
-        The score, and the reasons for it, are the whole game. Roll again whenever you want.
+        {account === "player"
+          ? "Generate deals today’s word and saves it under your name. One roll per UTC day. Come back tomorrow for another."
+          : "Generate deals this browser a random English word. Guest rolls are unlimited and stay off the board. Log in to save one roll each UTC day."}
       </p>
       {dictionaryError ? (
         <div className="mt-8 max-w-md" role="alert">
@@ -228,17 +300,24 @@ function EmptyState({
         <Button
           type="button"
           className="mt-8 h-12 w-full text-base sm:h-14"
-          disabled={!dictionary}
+          disabled={dealing || (account === "guest" && !dictionary)}
           onClick={onGenerate}
         >
-          {dictionary ? "Generate" : "Opening the dictionary…"}
+          {dealing ? "Dealing…" : account === "player" || dictionary ? "Generate" : "Opening the dictionary…"}
         </Button>
       )}
+      {rollError ? (
+        <p className="mt-4 max-w-md text-sm text-foreground" role="alert">
+          {rollError}
+        </p>
+      ) : null}
       <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground">
         {wordCount
           ? `${wordCount.toLocaleString("en-US")} words in the pot. `
           : "A full dictionary is in the pot. "}
-        Guest only. The latest word stays in this browser until you roll again.
+        {account === "player"
+          ? "Logged-out play stays unlimited, and those rolls are not on the board."
+          : "The latest guest word stays in this browser until you roll again."}
       </p>
     </div>
   );
@@ -252,6 +331,9 @@ function Result({
   copied,
   copyError,
   onCopy,
+  daily,
+  replayKey,
+  rollError,
 }: {
   roll: StoredRoll;
   scored: ReturnType<typeof scoreWord>;
@@ -260,6 +342,9 @@ function Result({
   copied: boolean;
   copyError: boolean;
   onCopy: (text: string) => void;
+  daily: boolean;
+  replayKey: number;
+  rollError: string | null;
 }) {
   const spinning = spinWord !== null;
   const shown = spinWord ?? scored.word;
@@ -274,7 +359,7 @@ function Result({
   return (
     <div className="flex flex-1 flex-col pt-12 sm:pt-16">
       <p className="text-center text-sm text-muted-foreground">
-        {spinning ? "Shuffling the tiles…" : "Your word"}
+        {spinning ? "Shuffling the tiles…" : daily ? "Today's saved roll" : "Your word"}
       </p>
       {spinning ? (
         <p
@@ -302,16 +387,21 @@ function Result({
           word={scored.word}
           saved={roll.definition}
           onSave={(definition) => {
-            if (roll.word !== scored.word || roll.definition !== undefined) return;
+            if (daily || roll.word !== scored.word || roll.definition !== undefined) return;
             writeRoll({ ...roll, definition });
           }}
         />
+      ) : null}
+      {rollError ? (
+        <p className="mt-4 text-center text-sm text-foreground" role="alert">
+          {rollError}
+        </p>
       ) : null}
 
       {!spinning ? (
         <>
           <ScoreReveal
-            key={scored.word}
+            key={`${scored.word}-${replayKey}`}
             scored={scored}
             share={share}
             copied={copied}
@@ -334,26 +424,33 @@ function WordDefinition({
   onSave: (definition: string | null) => void;
 }) {
   const onSaveRef = useRef(onSave);
+  const [gloss, setGloss] = useState<string | null | undefined>(saved);
   useEffect(() => {
     onSaveRef.current = onSave;
   });
+  useEffect(() => {
+    setGloss(saved);
+  }, [saved]);
 
   useEffect(() => {
     if (saved !== undefined) return;
     let cancel = false;
     fetchRemoteDefinition(word)
-      .then((gloss) => {
-        if (!cancel) onSaveRef.current(gloss);
+      .then((next) => {
+        if (cancel) return;
+        setGloss(next);
+        onSaveRef.current(next);
       })
       .catch(() => {
-        if (!cancel) onSaveRef.current(null);
+        if (cancel) return;
+        setGloss(null);
+        onSaveRef.current(null);
       });
     return () => {
       cancel = true;
     };
   }, [saved, word]);
 
-  const gloss = saved;
   if (gloss === undefined) return null;
   return (
     <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">
