@@ -52,6 +52,8 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Name | When it hits | Matches | Multiplier |
 | --- | --- | --- | --- |
 | Twins | A letter repeated back to back | 41,209 | ×2 |
+| Double twins | Two runs of exactly two identical letters sitting against each other, like ffee in coffee. A run of three or more of the same letter is not a pair. Three pairs in a row also hit | 223 | ×9 |
+| Triple twins | Three runs of exactly two identical letters in a row, like ookkee in bookkeeper. A run of three or more of the same letter is not a pair | 4 | ×14 |
 | No repeats | Every letter is different | 34,816 | ×2 |
 | Inside | A dictionary word of at least 3 letters sits inside. The whole word does not count. Each match multiplies once, including a word nested in a longer match | 167,370 | ×2 |
 | Anagram | A different dictionary word uses exactly the same letters. The word itself does not count. Each anagram multiplies once. This one is ×4 per anagram, not the rarity formula | 28,648 | ×4 |

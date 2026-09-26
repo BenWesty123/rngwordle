@@ -73,6 +73,8 @@ export const FACTOR_MATCHES = {
   mirror: 101,
   contraband: 16286,
   twins: 41209,
+  "double-twins": 223,
+  "triple-twins": 4,
   "no-repeats": 34816,
   inside: 167370,
   anagram: 28648,
@@ -238,6 +240,8 @@ export function scoreWord(word: string): ScoredWord {
 
   const rareTiles = [...normalized].filter((letter) => RARE.has(letter));
   const runs = twinRuns(normalized);
+  const doubleTwins = pairedTwins(normalized, 2);
+  const tripleTwins = pairedTwins(normalized, 3);
   const palindrome = length >= 3 && normalized === [...normalized].reverse().join("");
   const allVowels = [...normalized].every((letter) => VOWELS.has(letter));
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
@@ -320,6 +324,20 @@ export function scoreWord(word: string): ScoredWord {
       hit: runs.length > 0,
       hitDetail: `${runs.join(", ")}.`,
       missDetail: "No letter sits next to itself.",
+    },
+    {
+      id: "double-twins",
+      name: "Double twins",
+      hit: doubleTwins !== null,
+      hitDetail: doubleTwins?.detail ?? "",
+      missDetail: "No two letter pairs sit against each other.",
+    },
+    {
+      id: "triple-twins",
+      name: "Triple twins",
+      hit: tripleTwins !== null,
+      hitDetail: tripleTwins?.detail ?? "",
+      missDetail: "No three letter pairs sit in a row.",
     },
     {
       id: "no-repeats",
@@ -731,6 +749,9 @@ function factorHighlight(id: FactorId, word: string): number[] {
   if (id === "twins") {
     return twinPositions(word).flatMap((flag, index) => (flag ? [index] : []));
   }
+  if (id === "double-twins" || id === "triple-twins") {
+    return pairedTwins(word, id === "triple-twins" ? 3 : 2)?.indexes ?? everyIndex(word.length);
+  }
   if (id === "contraband") {
     return [...word].flatMap((letter, index) => (RARE.has(letter) ? [index] : []));
   }
@@ -807,6 +828,52 @@ function lengthReason(length: number): string {
 function lengthDetail(length: number, multiplier: number, before: number, after: number): string {
   const math = `${before.toLocaleString("en-US")} × ${multiplier} = ${after.toLocaleString("en-US")}.`;
   return `${lengthReason(length)} ${math}`;
+}
+
+type TwinStretch = { start: number; end: number; pairs: number };
+
+/** Runs of exactly two identical letters. A longer run, such as aaa, is not a pair. */
+function exactPairRuns(word: string): { start: number; end: number }[] {
+  const runs: { start: number; end: number }[] = [];
+  let index = 0;
+  while (index < word.length) {
+    let end = index + 1;
+    while (end < word.length && word[end] === word[index]) end += 1;
+    if (end - index === 2) runs.push({ start: index, end });
+    index = end;
+  }
+  return runs;
+}
+
+function adjacentPairStretches(word: string): TwinStretch[] {
+  const stretches: TwinStretch[] = [];
+  let current: TwinStretch | null = null;
+  for (const run of exactPairRuns(word)) {
+    if (current && run.start === current.end) {
+      current.end = run.end;
+      current.pairs += 1;
+      continue;
+    }
+    if (current) stretches.push(current);
+    current = { start: run.start, end: run.end, pairs: 1 };
+  }
+  if (current) stretches.push(current);
+  return stretches;
+}
+
+function pairedTwins(
+  word: string,
+  minimumPairs: number,
+): { detail: string; indexes: number[] } | null {
+  const stretches = adjacentPairStretches(word).filter((stretch) => stretch.pairs >= minimumPairs);
+  if (stretches.length === 0) return null;
+  const detail = stretches
+    .map((stretch) => `${word.slice(stretch.start, stretch.end)} is ${stretch.pairs} pairs in a row`)
+    .join(". ");
+  const indexes = stretches.flatMap((stretch) =>
+    Array.from({ length: stretch.end - stretch.start }, (_, offset) => stretch.start + offset),
+  );
+  return { detail: `${detail}.`, indexes };
 }
 
 function twinRuns(word: string): string[] {

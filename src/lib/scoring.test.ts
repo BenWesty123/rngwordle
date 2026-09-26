@@ -126,6 +126,45 @@ test("headlamp pays Inside once per nested dictionary word", () => {
   assert.match(scoreWord("echo").rows.find((row) => row.id === "from-greek")?.reason ?? "", /Greek/);
 });
 
+test("double twins sit together and a run of three is not a pair", () => {
+  const coffee = scoreWord("coffee");
+  const doubled = coffee.rows.find((entry) => entry.id === "double-twins");
+  assert.equal(doubled?.scored, true);
+  assert.equal(doubled?.points, 9);
+  assert.equal(doubled?.name, "Double twins ×9");
+  assert.deepEqual(doubled?.highlight, [2, 3, 4, 5]);
+  assert.match(doubled?.reason ?? "", /ffee is 2 pairs/);
+  assert.equal(coffee.rows.find((entry) => entry.id === "triple-twins")?.scored, false);
+
+  const balloon = scoreWord("balloon");
+  assert.deepEqual(balloon.rows.find((entry) => entry.id === "double-twins")?.highlight, [2, 3, 4, 5]);
+  assert.match(balloon.rows.find((entry) => entry.id === "double-twins")?.reason ?? "", /lloo/);
+
+  const committee = scoreWord("committee");
+  assert.deepEqual(committee.rows.find((entry) => entry.id === "double-twins")?.highlight, [5, 6, 7, 8]);
+  assert.equal(committee.rows.find((entry) => entry.id === "twins")?.scored, true);
+
+  const bookkeeper = scoreWord("bookkeeper");
+  const triple = bookkeeper.rows.find((entry) => entry.id === "triple-twins");
+  assert.equal(triple?.scored, true);
+  assert.equal(triple?.points, 14);
+  assert.equal(triple?.name, "Triple twins ×14");
+  assert.deepEqual(triple?.highlight, [1, 2, 3, 4, 5, 6]);
+  assert.match(triple?.reason ?? "", /ookkee is 3 pairs/);
+  assert.equal(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.points, 9);
+  assert.deepEqual(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.highlight, [1, 2, 3, 4, 5, 6]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "double-twins")?.scored, false);
+  assert.equal(book.rows.find((entry) => entry.id === "triple-twins")?.scored, false);
+  assert.equal(book.rows.find((entry) => entry.id === "twins")?.scored, true);
+
+  const longRun = scoreWord("aaa");
+  assert.equal(longRun.rows.find((entry) => entry.id === "twins")?.scored, true);
+  assert.equal(longRun.rows.find((entry) => entry.id === "double-twins")?.scored, false);
+  assert.equal(longRun.rows.find((entry) => entry.id === "triple-twins")?.scored, false);
+});
+
 test("bookkeeper pays the twins multiplier once", () => {
   const scored = scoreWord("bookkeeper");
   assert.equal(scored.rows.find((row) => row.id === "twins")?.points, 2);

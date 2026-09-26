@@ -56,15 +56,17 @@ function voicesAtEnd(run: { frequency: number; delay: number }[]): number {
   return run.filter((note) => note.delay === lastDelay).length;
 }
 
-test("air ends in a rare chord and bookkeeper ends low and thin", () => {
+test("air ends in a rare chord and kayak ends low and thin", () => {
   const air = scoreWord("air");
   const book = scoreWord("bookkeeper");
+  const kayak = scoreWord("kayak");
   assert.equal(standingFor(air.total).tier.id, "rare");
-  assert.equal(standingFor(book.total).tier.id, "common");
+  assert.equal(standingFor(book.total).tier.id, "rare");
+  assert.equal(standingFor(kayak.total).tier.id, "common");
   const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
-  const bookHits = book.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
+  const kayakHits = kayak.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const strong = planRollSound(airHits, standingFor(air.total).tier.id);
-  const weak = planRollSound(bookHits, standingFor(book.total).tier.id);
+  const weak = planRollSound(kayakHits, standingFor(kayak.total).tier.id);
   const strongEnds = strong.runs.map((run) => melodyEnds(run).last);
   for (let index = 1; index < strongEnds.length; index += 1) assert.ok(strongEnds[index]! > strongEnds[index - 1]!);
   assert.ok(strong.verdict[0]!.frequency > strongEnds.at(-1)!);
