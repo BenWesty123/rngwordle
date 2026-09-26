@@ -6,7 +6,7 @@ import { useAccount } from "@/components/account-provider";
 import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
-import { fetchRemoteDefinition } from "@/lib/definition";
+import { definitionFor } from "@/lib/definition";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary, randomWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
@@ -382,16 +382,7 @@ function Result({
         </h1>
       )}
 
-      {!spinning ? (
-        <WordDefinition
-          word={scored.word}
-          saved={roll.definition}
-          onSave={(definition) => {
-            if (daily || roll.word !== scored.word || roll.definition !== undefined) return;
-            writeRoll({ ...roll, definition });
-          }}
-        />
-      ) : null}
+      {!spinning ? <WordDefinition word={scored.word} /> : null}
       {rollError ? (
         <p className="mt-4 text-center text-sm text-foreground" role="alert">
           {rollError}
@@ -414,44 +405,8 @@ function Result({
   );
 }
 
-function WordDefinition({
-  word,
-  saved,
-  onSave,
-}: {
-  word: string;
-  saved: string | null | undefined;
-  onSave: (definition: string | null) => void;
-}) {
-  const onSaveRef = useRef(onSave);
-  const [gloss, setGloss] = useState<string | null | undefined>(saved);
-  useEffect(() => {
-    onSaveRef.current = onSave;
-  });
-  useEffect(() => {
-    setGloss(saved);
-  }, [saved]);
-
-  useEffect(() => {
-    if (saved !== undefined) return;
-    let cancel = false;
-    fetchRemoteDefinition(word)
-      .then((next) => {
-        if (cancel) return;
-        setGloss(next);
-        onSaveRef.current(next);
-      })
-      .catch(() => {
-        if (cancel) return;
-        setGloss(null);
-        onSaveRef.current(null);
-      });
-    return () => {
-      cancel = true;
-    };
-  }, [saved, word]);
-
-  if (gloss === undefined) return null;
+function WordDefinition({ word }: { word: string }) {
+  const gloss = definitionFor(word);
   return (
     <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">
       {gloss ?? "No definition on file"}

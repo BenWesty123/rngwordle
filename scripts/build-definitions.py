@@ -1,31 +1,29 @@
-"""Build short Webster 1913 glosses for ENABLE words.
+"""Build one plain English gloss per ENABLE word from English Wiktionary.
 
-The parquet is public-domain EnglishWordOrigins (Webster's Revised Unabridged
-Dictionary, 1913). It is not vendored. Place it at
-/tmp/english_vocabulary_origins.parquet before rerunning.
+Streams the kaikki.org wiktextract JSONL (CC BY-SA). The dump is not vendored.
 
-Each gloss is the first sense, plain text, not the whole entry. Rows whose
-definition is a broken fragment are listed in definition-gaps.json so the app
-can look up that one rolled word elsewhere.
+    curl -fsL https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl \
+      | python3 scripts/build-definitions.py
+
+Keeps the first plain sentence for each ENABLE headword, capped the same way
+as plainDefinition in src/lib/definition.ts. An exact lowercase headword wins
+over a capitalized page with the same letters.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
-import pandas as pd
-
 ROOT = Path(__file__).resolve().parents[1]
-PARQUET = Path("/tmp/english_vocabulary_origins.parquet")
 ENABLE = ROOT / "data" / "enable1.txt"
 OUT = ROOT / "src" / "data" / "definitions.json"
-GAPS = ROOT / "src" / "data" / "definition-gaps.json"
 
 
 def enable_words() -> set[str]:
-    words = set()
+    words: set[str] = set()
     for line in ENABLE.read_text().splitlines():
         word = line.strip().lower()
         if re.fullmatch(r"[a-z]{2,}", word):
@@ -33,58 +31,87 @@ def enable_words() -> set[str]:
     return words
 
 
-def norm_key(head: str, words: set[str]) -> str | None:
-    key = head.lower().strip()
-    if re.fullmatch(r"[a-z]+", key) and key in words:
-        return key
-    if re.fullmatch(r"[a-z]+(-[a-z]+)+", key):
-        flat = key.replace("-", "")
-        if flat in words:
-            return flat
+def plain_definition(html: str) -> str:
+    text = re.sub(r"<[^>]+>", "", html)
+    text = (
+        text.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", '"')
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+    )
+    text = re.sub(r"\s+", " ", text).strip()
+    match = re.search(r"[.!?](?:\s|$)", text)
+    sentence = text if match is None else text[: match.start() + 1]
+    if len(sentence) > 180:
+        return sentence[:177].rstrip() + "…"
+    return sentence
+
+
+def first_gloss(obj: dict) -> str | None:
+    for sense in obj.get("senses") or []:
+        glosses = sense.get("glosses") if isinstance(sense, dict) else None
+        if not isinstance(glosses, list):
+            continue
+        for gloss in glosses:
+            if not isinstance(gloss, str):
+                continue
+            plain = plain_definition(gloss)
+            if len(plain) >= 4:
+                return plain
     return None
-
-
-def gloss(raw: str) -> str | None:
-    text = re.sub(r"\s+", " ", str(raw).replace("\n", " ")).strip()
-    if not text or text.lower() == "nan":
-        return None
-    text = text.split(" / ")[0].strip()
-    text = re.sub(r"^\d+\.\s*", "", text)
-    stop = re.search(r"[.!?](?:\s|$)", text)
-    if stop:
-        text = text[: stop.end()].strip()
-    if len(text) > 180:
-        cut = text[:180]
-        space = cut.rfind(" ")
-        text = (cut[:space] if space > 40 else cut).rstrip(" ,;") + "…"
-    if len(text) < 4 or not re.search(r"[A-Za-z]", text):
-        return None
-    if len(text) < 12 and not re.search(r"[.!?]$", text):
-        return None
-    return text
 
 
 def main() -> None:
     words = enable_words()
-    frame = pd.read_parquet(PARQUET, columns=["headword", "etymology", "definition"])
-    definitions: dict[str, str] = {}
-    seen_ety: set[str] = set()
-    for head, etymology, definition in zip(
-        frame.headword, frame.etymology.fillna(""), frame.definition.fillna(""), strict=False
-    ):
-        key = norm_key(str(head), words)
-        if key is None or key in definitions:
-            continue
-        if str(etymology).strip():
-            seen_ety.add(key)
-        short = gloss(str(definition))
-        if short:
-            definitions[key] = short
-    gaps = sorted(seen_ety - definitions.keys())
-    OUT.write_text(json.dumps(definitions, ensure_ascii=False, separators=(",", ":")))
-    GAPS.write_text(json.dumps(gaps, indent=2) + "\n")
-    print(f"definitions {len(definitions)} gaps {len(gaps)} enable {len(words)}")
-    print("gaps", ", ".join(gaps))
+    exact: dict[str, str] = {}
+    fallback: dict[str, str] = {}
+    lines = 0
+    source = open(sys.argv[1], encoding="utf-8") if len(sys.argv) > 1 else sys.stdin
+    out = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
+    try:
+        for line in source:
+            lines += 1
+            if lines % 20000 == 0:
+                print(f"lines {lines} exact {len(exact)} fallback {len(fallback)}", file=sys.stderr)
+            if '"lang_code": "en"' not in line or '"glosses"' not in line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("lang_code") != "en":
+                continue
+            head = str(obj.get("word") or "").strip()
+            key = head.lower()
+            if key not in words:
+                continue
+            if head == key and key in exact:
+                continue
+            if head != key and (key in exact or key in fallback):
+                continue
+            gloss = first_gloss(obj)
+            if gloss is None:
+                continue
+            if head == key:
+                exact[key] = gloss
+            else:
+                fallback[key] = gloss
+            if len(exact) == len(words):
+                break
+    finally:
+        if source is not sys.stdin:
+            source.close()
+
+    merged = dict(fallback)
+    merged.update(exact)
+    out.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+    missing = len(words) - len(merged)
+    print(
+        f"definitions {len(merged)} exact {len(exact)} fallback {len(fallback)} "
+        f"missing {missing} enable {len(words)} lines {lines}"
+    )
 
 
 if __name__ == "__main__":
