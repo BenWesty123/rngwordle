@@ -79,6 +79,7 @@ export const FACTOR_MATCHES = {
   "even-company": 92,
   inside: 167370,
   "letter-sandwich": 7298,
+  "front-or-back": 5031,
   anagram: 28648,
   "a-cappella": 5,
   "bone-dry": 121,
@@ -252,6 +253,7 @@ export function scoreWord(word: string): ScoredWord {
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
   const sandwich = letterSandwich(normalized);
+  const trimmedEnds = frontOrBack(normalized);
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -375,6 +377,13 @@ export function scoreWord(word: string): ScoredWord {
         length < 5
           ? "Needs at least 5 letters, so the inside can be a word of 3 or more."
           : "The inside, with the first and last letters removed, is not a dictionary word.",
+    },
+    {
+      id: "front-or-back",
+      name: "Front or back",
+      hit: trimmedEnds !== null,
+      hitDetail: trimmedEnds ? `${trimmedEnds.withoutFirst} and ${trimmedEnds.withoutLast}.` : "",
+      missDetail: "Removing the first letter, or the last, does not leave a dictionary word.",
     },
     {
       id: "anagram",
@@ -770,6 +779,14 @@ export function anagramsOf(word: string): string[] {
 
 export function insideHits(word: string): string[] {
   return insideSlices(word).map((hit) => hit.text);
+}
+
+function frontOrBack(word: string): { withoutFirst: string; withoutLast: string } | null {
+  if (word.length < 2) return null;
+  const withoutFirst = word.slice(1);
+  const withoutLast = word.slice(0, -1);
+  if (!ENABLE_WORDS.has(withoutFirst) || !ENABLE_WORDS.has(withoutLast)) return null;
+  return { withoutFirst, withoutLast };
 }
 
 function letterSandwich(word: string): string | null {

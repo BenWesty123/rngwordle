@@ -147,6 +147,19 @@ test("bookends matches the first two letters to the last two", () => {
   assert.match(short.rows.find((entry) => entry.id === "bookends")?.detail ?? "", /4 letters/);
 });
 
+test("front or back needs both trimmed words", () => {
+  const start = scoreWord("start");
+  const row = start.rows.find((entry) => entry.id === "front-or-back");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 5);
+  assert.equal(row?.name, "Front or back ×5");
+  assert.equal(row?.reason, "tart and star.");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "front-or-back")?.scored, false);
+});
+
 test("letter sandwich scores the exact middle word", () => {
   const there = scoreWord("there");
   const row = there.rows.find((entry) => entry.id === "letter-sandwich");
