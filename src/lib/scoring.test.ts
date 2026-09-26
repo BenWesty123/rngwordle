@@ -213,6 +213,28 @@ test("bookkeeper pays the twins multiplier once", () => {
   );
 });
 
+test("backwards alphabet runs down the whole word", () => {
+  const pool = scoreWord("pool");
+  const row = pool.rows.find((entry) => entry.id === "backwards-alphabet");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 8);
+  assert.equal(row?.name, "Backwards alphabet ×8");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3]);
+  assert.equal(pool.rows.find((entry) => entry.id === "alphabet-soup")?.scored, false);
+
+  const fed = scoreWord("fed");
+  assert.equal(fed.rows.find((entry) => entry.id === "backwards-alphabet")?.scored, true);
+  assert.deepEqual(fed.rows.find((entry) => entry.id === "backwards-alphabet")?.highlight, [0, 1, 2]);
+
+  const spoon = scoreWord("spoon");
+  assert.equal(spoon.rows.find((entry) => entry.id === "backwards-alphabet")?.scored, true);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.find((entry) => entry.id === "backwards-alphabet")?.scored, false);
+  assert.equal(scoreWord("a").rows.find((entry) => entry.id === "backwards-alphabet")?.scored, false);
+  assert.match(scoreWord("a").rows.find((entry) => entry.id === "backwards-alphabet")?.detail ?? "", /one-letter/);
+});
+
 test("almost is alphabet soup", () => {
   const scored = scoreWord("almost");
   assert.equal(scored.rows.find((row) => row.id === "alphabet-soup")?.points, 8);

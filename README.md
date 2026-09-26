@@ -75,6 +75,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Quiet letters | Starts with kn, gn, wr, ps, or rh, or ends in mb | 1,088 | ×7 |
 | Ish | Ends in -ish, and the word is longer than the ending | 554 | ×7 |
 | Alphabet soup | At least 4 letters, each the same as or later than the last | 411 | ×8 |
+| Backwards alphabet | The whole word runs in non-increasing alphabetical order. Each letter is the same as or earlier than the one before it. Repeats are allowed. One-letter words miss. The card lights the whole word | 432 | ×8 |
 | Bone dry | No A, E, I, O, or U | 121 | ×9 |
 | Mirror | Palindrome, at least 3 letters | 101 | ×10 |
 | Lone Q | A Q that is not followed by U | 29 | ×11 |

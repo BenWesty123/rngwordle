@@ -82,6 +82,7 @@ export const FACTOR_MATCHES = {
   "a-cappella": 5,
   "bone-dry": 121,
   "alphabet-soup": 411,
+  "backwards-alphabet": 432,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
@@ -248,6 +249,7 @@ export function scoreWord(word: string): ScoredWord {
   const allVowels = [...normalized].every((letter) => VOWELS.has(letter));
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
+  const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
   const vowelSweep = VOWEL_ORDER.split("").every((vowel) => normalized.includes(vowel));
   const vowels = vowelCount(normalized);
   const consonants = length - vowels;
@@ -399,6 +401,16 @@ export function scoreWord(word: string): ScoredWord {
         length < 4
           ? "Needs at least 4 letters, in non-decreasing order."
           : "The letters step backwards somewhere.",
+    },
+    {
+      id: "backwards-alphabet",
+      name: "Backwards alphabet",
+      hit: backwardsAlphabet,
+      hitDetail: "Each letter is the same as or earlier than the one before it.",
+      missDetail:
+        length < 2
+          ? "A one-letter word cannot run backwards through the alphabet."
+          : "A letter comes later in the alphabet than the one before it.",
     },
     {
       id: "vowel-sweep",
@@ -1054,6 +1066,13 @@ function isFlat(word: string): boolean {
 function isNonDecreasing(word: string): boolean {
   for (let index = 1; index < word.length; index += 1) {
     if (word[index]! < word[index - 1]!) return false;
+  }
+  return true;
+}
+
+function isNonIncreasing(word: string): boolean {
+  for (let index = 1; index < word.length; index += 1) {
+    if (word[index]! > word[index - 1]!) return false;
   }
   return true;
 }
