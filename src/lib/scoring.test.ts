@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  ELEMENT_SYMBOLS,
   FACTOR_MATCHES,
   FACTOR_MULTIPLIERS,
   alphabetStaircaseRuns,
+  formatPeriodicSpelling,
   isRomanWord,
   lengthMultiplier,
   letterCollector,
+  periodicSpelling,
   rarityMultiplier,
   scoreWord,
 } from "./scoring";
@@ -58,6 +61,12 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MATCHES["roman-word"], 28);
   assert.equal(FACTOR_MULTIPLIERS["roman-word"], 11);
   assert.equal(FACTOR_MULTIPLIERS["roman-word"], rarityMultiplier(FACTOR_MATCHES["roman-word"]));
+  assert.equal(FACTOR_MATCHES["periodic-spelling"], 28923);
+  assert.equal(FACTOR_MULTIPLIERS["periodic-spelling"], 2);
+  assert.equal(
+    FACTOR_MULTIPLIERS["periodic-spelling"],
+    rarityMultiplier(FACTOR_MATCHES["periodic-spelling"]),
+  );
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
@@ -327,6 +336,49 @@ test("civic, mix, and dim are Roman words, and a letter outside that set misses"
   assert.equal(scoreWord("i").rows.find((entry) => entry.id === "roman-word")?.scored, true);
   assert.deepEqual(scoreWord("i").rows.find((entry) => entry.id === "roman-word")?.highlight, [0]);
   assert.equal(scoreWord("a").rows.find((entry) => entry.id === "roman-word")?.scored, false);
+});
+
+test("banana and silicon split into element symbols, and jazz does not", () => {
+  assert.equal(ELEMENT_SYMBOLS.length, 118);
+  assert.equal(new Set(ELEMENT_SYMBOLS.map((symbol) => symbol.toLowerCase())).size, 118);
+  assert.ok(ELEMENT_SYMBOLS.every((symbol) => /^[A-Z][a-z]?$/.test(symbol)));
+
+  for (const [word, partition] of [
+    ["banana", "Ba–Na–Na"],
+    ["silicon", "Si–Li–Co–N"],
+    ["cat", "C–At"],
+  ] as const) {
+    const symbols = partition.split("–");
+    assert.deepEqual(periodicSpelling(word)?.symbols, symbols);
+    assert.equal(formatPeriodicSpelling(symbols), partition);
+    const scored = scoreWord(word);
+    const rows = scored.rows.filter((entry) => entry.id === "periodic-spelling");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.scored, true);
+    assert.equal(rows[0]?.points, 2);
+    assert.equal(rows[0]?.points, FACTOR_MULTIPLIERS["periodic-spelling"]);
+    assert.equal(rows[0]?.name, "Periodic spelling ×2");
+    assert.equal(rows[0]?.reason, `Segmented into ${partition}.`);
+    assert.deepEqual(
+      rows[0]?.highlight,
+      Array.from({ length: word.length }, (_, index) => index),
+    );
+    assert.equal(scored.total, product(scored));
+  }
+
+  assert.deepEqual(periodicSpelling("BANANA")?.symbols, ["Ba", "Na", "Na"]);
+  assert.deepEqual(periodicSpelling("SiLiCoN")?.symbols, ["Si", "Li", "Co", "N"]);
+  assert.equal(periodicSpelling("jazz"), null);
+  assert.equal(periodicSpelling(""), null);
+  assert.deepEqual(periodicSpelling("coin")?.symbols, ["Co", "In"]);
+  assert.deepEqual(periodicSpelling("sinc")?.symbols, ["S", "In", "C"]);
+  assert.deepEqual(periodicSpelling("uun")?.symbols, ["U", "U", "N"]);
+
+  const jazz = scoreWord("jazz");
+  assert.equal(jazz.rows.filter((entry) => entry.id === "periodic-spelling").length, 1);
+  assert.equal(jazz.rows.find((entry) => entry.id === "periodic-spelling")?.scored, false);
+  assert.equal(jazz.rows.find((entry) => entry.id === "periodic-spelling")?.points, null);
+  assert.equal(jazz.rows.find((entry) => entry.id === "periodic-spelling")?.highlight, undefined);
 });
 
 test("a lonely word has no insert, delete, or substitute neighbour", () => {

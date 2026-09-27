@@ -103,6 +103,7 @@ export const FACTOR_MATCHES = {
   "letter-collector": 145,
   "alphabet-staircase": 1502,
   "roman-word": 28,
+  "periodic-spelling": 28923,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
@@ -269,6 +270,7 @@ export function scoreWord(word: string): ScoredWord {
   const hiddenMirror = hiddenMirrorRun(normalized);
   const allVowels = [...normalized].every((letter) => VOWELS.has(letter));
   const roman = isRomanWord(normalized);
+  const periodic = periodicSpelling(normalized);
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
@@ -562,6 +564,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: roman,
       hitDetail: "Every letter is a Roman-numeral symbol: I, V, X, L, C, D, or M.",
       missDetail: "A letter is not I, V, X, L, C, D, or M.",
+    },
+    {
+      id: "periodic-spelling",
+      name: "Periodic spelling",
+      hit: periodic !== null,
+      hitDetail: periodic ? `Segmented into ${formatPeriodicSpelling(periodic.symbols)}.` : "",
+      missDetail: "The letters do not split entirely into element symbols.",
     },
     {
       id: "vowel-sweep",
@@ -1108,6 +1117,84 @@ export function isRomanWord(word: string): boolean {
     if (!ROMAN_LETTERS.has(letter)) return false;
   }
   return true;
+}
+
+/**
+ * Official IUPAC symbols for elements 1–118.
+ * Every symbol is 1 or 2 letters. Temporary systematic 3-letter names are omitted.
+ */
+export const ELEMENT_SYMBOLS = [
+  "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+  "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+  "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+  "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+  "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+  "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+  "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+  "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+  "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+  "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
+  "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
+  "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
+] as const;
+
+const ELEMENT_SYMBOL_SET = new Set(ELEMENT_SYMBOLS.map((symbol) => symbol.toLowerCase()));
+
+export type PeriodicSpelling = {
+  /** Title-cased symbols. Fewest symbols, then the lexicographically earliest sequence. */
+  symbols: string[];
+};
+
+/**
+ * Partition the whole word into official element symbols, or null when any letter is left over.
+ * Any complete partition is a hit. The word does not need a unique partition.
+ * Among complete partitions, the fewest symbols wins, then the lexicographically earliest
+ * sequence of title-cased symbols. Matching is case-insensitive. The empty string is not a word.
+ * A hit covers every letter, so the card lights the whole word and the detail shows the breaks.
+ */
+export function periodicSpelling(word: string): PeriodicSpelling | null {
+  const text = word.toLowerCase();
+  if (text.length === 0) return null;
+  const best: Array<string[] | undefined> = Array.from({ length: text.length + 1 }, () => undefined);
+  best[0] = [];
+  for (let index = 0; index < text.length; index += 1) {
+    const current = best[index];
+    if (!current) continue;
+    for (const size of [1, 2]) {
+      const end = index + size;
+      if (end > text.length) continue;
+      const raw = text.slice(index, end);
+      if (!ELEMENT_SYMBOL_SET.has(raw)) continue;
+      const next = current.concat(titleCaseSymbol(raw));
+      const existing = best[end];
+      if (existing && !isEarlierPartition(next, existing)) continue;
+      best[end] = next;
+    }
+  }
+  const symbols = best[text.length];
+  if (!symbols || symbols.length === 0) return null;
+  return { symbols };
+}
+
+/** En dashes, title-cased the way element symbols are written: Ba–Na–Na. */
+export function formatPeriodicSpelling(symbols: readonly string[]): string {
+  return symbols.join("–");
+}
+
+function titleCaseSymbol(raw: string): string {
+  if (raw.length === 1) return raw.toUpperCase();
+  return `${raw[0]!.toUpperCase()}${raw.slice(1)}`;
+}
+
+function isEarlierPartition(candidate: readonly string[], existing: readonly string[]): boolean {
+  if (candidate.length !== existing.length) return candidate.length < existing.length;
+  for (let index = 0; index < candidate.length; index += 1) {
+    const left = candidate[index]!;
+    const right = existing[index]!;
+    if (left === right) continue;
+    return left < right;
+  }
+  return false;
 }
 
 /**
