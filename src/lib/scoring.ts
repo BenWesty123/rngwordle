@@ -69,6 +69,7 @@ const VOWELS = new Set(["a", "e", "i", "o", "u"]);
 const RARE = new Set(["j", "q", "x", "z"]);
 const ASCENDERS = new Set(["b", "d", "f", "h", "k", "l", "t"]);
 const DESCENDERS = new Set(["g", "j", "p", "q", "y"]);
+const ROMAN_LETTERS = new Set(["i", "v", "x", "l", "c", "d", "m"]);
 const VOWEL_ORDER = "aeiou";
 const QUIET_PREFIXES = ["kn", "gn", "wr", "ps", "rh"] as const;
 
@@ -101,6 +102,7 @@ export const FACTOR_MATCHES = {
   "backwards-alphabet": 432,
   "letter-collector": 145,
   "alphabet-staircase": 1502,
+  "roman-word": 28,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
@@ -266,6 +268,7 @@ export function scoreWord(word: string): ScoredWord {
   const palindrome = isMirror(normalized);
   const hiddenMirror = hiddenMirrorRun(normalized);
   const allVowels = [...normalized].every((letter) => VOWELS.has(letter));
+  const roman = isRomanWord(normalized);
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
@@ -552,6 +555,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: staircase.length > 0,
       hitDetail: staircase.length > 0 ? alphabetStaircaseDetail(normalized, staircase) : "",
       missDetail: "No three letters in a row step up the alphabet.",
+    },
+    {
+      id: "roman-word",
+      name: "Roman word",
+      hit: roman,
+      hitDetail: "Every letter is a Roman-numeral symbol: I, V, X, L, C, D, or M.",
+      missDetail: "A letter is not I, V, X, L, C, D, or M.",
     },
     {
       id: "vowel-sweep",
@@ -1086,6 +1096,19 @@ export function swapShopHits(word: string): SwapShopHit[] {
 }
 
 const EDIT_ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+
+/**
+ * Every letter is a Roman-numeral symbol: I, V, X, L, C, D, or M.
+ * This tests the letters, not whether the word is a valid numeral.
+ * The empty string is not a word.
+ */
+export function isRomanWord(word: string): boolean {
+  if (word.length === 0) return false;
+  for (const letter of word.toLowerCase()) {
+    if (!ROMAN_LETTERS.has(letter)) return false;
+  }
+  return true;
+}
 
 /**
  * No other ENABLE word is one insertion, deletion, or substitution away.

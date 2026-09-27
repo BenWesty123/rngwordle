@@ -4,6 +4,7 @@ import {
   FACTOR_MATCHES,
   FACTOR_MULTIPLIERS,
   alphabetStaircaseRuns,
+  isRomanWord,
   lengthMultiplier,
   letterCollector,
   rarityMultiplier,
@@ -54,6 +55,9 @@ test("rarer factors get larger multipliers", () => {
     FACTOR_MULTIPLIERS["alphabet-staircase"],
     rarityMultiplier(FACTOR_MATCHES["alphabet-staircase"]),
   );
+  assert.equal(FACTOR_MATCHES["roman-word"], 28);
+  assert.equal(FACTOR_MULTIPLIERS["roman-word"], 11);
+  assert.equal(FACTOR_MULTIPLIERS["roman-word"], rarityMultiplier(FACTOR_MATCHES["roman-word"]));
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
@@ -282,6 +286,47 @@ test("hijack and first step up the alphabet, and a short or descending run misse
     both.rows.find((entry) => entry.id === "alphabet-staircase")?.reason,
     "HIJ and XYZ step up the alphabet.",
   );
+});
+
+test("civic, mix, and dim are Roman words, and a letter outside that set misses", () => {
+  for (const word of ["civic", "mix", "dim", "did", "id"]) {
+    const scored = scoreWord(word);
+    const rows = scored.rows.filter((entry) => entry.id === "roman-word");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.scored, true);
+    assert.equal(rows[0]?.points, 11);
+    assert.equal(rows[0]?.points, FACTOR_MULTIPLIERS["roman-word"]);
+    assert.equal(rows[0]?.name, "Roman word ×11");
+    assert.deepEqual(
+      rows[0]?.highlight,
+      Array.from({ length: word.length }, (_, index) => index),
+    );
+    assert.equal(rows[0]?.reason, "Every letter is a Roman-numeral symbol: I, V, X, L, C, D, or M.");
+    assert.equal(scored.total, product(scored));
+  }
+
+  const cat = scoreWord("cat");
+  assert.equal(cat.rows.find((entry) => entry.id === "roman-word")?.scored, false);
+  assert.equal(cat.rows.find((entry) => entry.id === "roman-word")?.points, null);
+
+  const mixes = scoreWord("mixes");
+  assert.equal(mixes.rows.find((entry) => entry.id === "roman-word")?.scored, false);
+  assert.equal(mixes.rows.find((entry) => entry.id === "roman-word")?.points, null);
+
+  assert.equal(isRomanWord("civic"), true);
+  assert.equal(isRomanWord("CIVIC"), true);
+  assert.equal(isRomanWord("mix"), true);
+  assert.equal(isRomanWord("dim"), true);
+  assert.equal(isRomanWord("did"), true);
+  assert.equal(isRomanWord("viii"), true);
+  assert.equal(isRomanWord("i"), true);
+  assert.equal(isRomanWord(""), false);
+  assert.equal(isRomanWord("cat"), false);
+  assert.equal(isRomanWord("mixes"), false);
+
+  assert.equal(scoreWord("i").rows.find((entry) => entry.id === "roman-word")?.scored, true);
+  assert.deepEqual(scoreWord("i").rows.find((entry) => entry.id === "roman-word")?.highlight, [0]);
+  assert.equal(scoreWord("a").rows.find((entry) => entry.id === "roman-word")?.scored, false);
 });
 
 test("a lonely word has no insert, delete, or substitute neighbour", () => {
