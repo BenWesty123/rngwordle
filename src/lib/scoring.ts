@@ -88,6 +88,7 @@ export const FACTOR_MATCHES = {
   "inside-out": 1061,
   "swap-shop": 2815,
   "alphabet-step": 16735,
+  "double-or-nothing": 5429,
   "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
@@ -439,6 +440,13 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "No one-letter step to an alphabetical neighbour is another dictionary word.",
     },
     {
+      id: "double-or-nothing",
+      name: "Double or nothing",
+      hit: doubleOrNothingHits(normalized).length > 0,
+      hitDetail: "",
+      missDetail: "No single letter doubles into another dictionary word, and no doubled pair comes from one.",
+    },
+    {
       id: "alphabet-twins",
       name: "Alphabet twins",
       hit: alphabetTwins !== null,
@@ -696,6 +704,38 @@ export function scoreWord(word: string): ScoredWord {
       }
       continue;
     }
+    if (factor.id === "double-or-nothing") {
+      const hits = doubleOrNothingHits(normalized);
+      if (hits.length === 0) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      for (const hit of hits) {
+        const next = running * multiplier;
+        const reason =
+          hit.highlight.length === 1
+            ? `Doubling that letter spells ${hit.word}.`
+            : `That pair comes from ${hit.word}.`;
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${multiplier}`,
+          detail: `${reason} ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          points: multiplier,
+          scored: true,
+          match: hit.word,
+          highlight: hit.highlight,
+          reason,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (factor.id === "swap-shop") {
       const hits = swapShopHits(normalized);
       if (hits.length === 0) {
@@ -886,6 +926,32 @@ function originFactors(word: string): Array<{
       missDetail: "Wiktionary has no usable Chinese or Japanese origin for this word.",
     },
   ];
+}
+
+export type DoubleOrNothingHit = { highlight: number[]; word: string };
+
+/**
+ * A single letter doubled into an adjacent pair, or an exact pair reduced to one letter,
+ * when the other spelling is an ENABLE word. A run of three or more is skipped.
+ */
+export function doubleOrNothingHits(word: string): DoubleOrNothingHit[] {
+  const hits: DoubleOrNothingHit[] = [];
+  let index = 0;
+  while (index < word.length) {
+    let end = index + 1;
+    while (end < word.length && word[end] === word[index]) end += 1;
+    const run = end - index;
+    if (run === 1) {
+      const letter = word[index] ?? "";
+      const longer = word.slice(0, index) + letter + letter + word.slice(end);
+      if (ENABLE_WORDS.has(longer)) hits.push({ highlight: [index], word: longer });
+    } else if (run === 2) {
+      const shorter = word.slice(0, index) + word[index] + word.slice(end);
+      if (ENABLE_WORDS.has(shorter)) hits.push({ highlight: [index, index + 1], word: shorter });
+    }
+    index = end;
+  }
+  return hits;
 }
 
 export type AlphabetStepHit = { index: number; word: string };

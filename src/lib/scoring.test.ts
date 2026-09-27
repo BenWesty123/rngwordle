@@ -36,6 +36,8 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 3);
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], rarityMultiplier(16735));
+  assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
   assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
   assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
@@ -91,6 +93,25 @@ test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () =
   const wrapped = scoreWord("abcbaqabcba");
   assert.equal(wrapped.rows.find((row) => row.id === "mirror")?.scored, true);
   assert.equal(wrapped.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+});
+
+test("hoping and hopping each name the other, and a word with no pair misses", () => {
+  const hoping = scoreWord("hoping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
+  const toHopping = hoping.find((row) => row.match === "hopping");
+  assert.equal(toHopping?.points, 5);
+  assert.deepEqual(toHopping?.highlight, [2]);
+  assert.match(toHopping?.reason ?? "", /hopping/);
+
+  const hopping = scoreWord("hopping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
+  assert.equal(hopping.length, 1);
+  assert.equal(hopping[0]?.points, 5);
+  assert.equal(hopping[0]?.match, "hoping");
+  assert.deepEqual(hopping[0]?.highlight, [2, 3]);
+  assert.match(hopping[0]?.reason ?? "", /hoping/);
+
+  const quiz = scoreWord("quiz");
+  assert.equal(quiz.rows.find((row) => row.id === "double-or-nothing")?.scored, false);
+  assert.equal(quiz.rows.find((row) => row.id === "double-or-nothing")?.points, null);
 });
 
 test("cat steps C to bat, and A does not wrap around to Z", () => {
