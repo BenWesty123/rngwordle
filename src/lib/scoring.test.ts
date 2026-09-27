@@ -34,6 +34,8 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], 5);
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], 5);
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 3);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], rarityMultiplier(16735));
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
   assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
   assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
@@ -89,6 +91,28 @@ test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () =
   const wrapped = scoreWord("abcbaqabcba");
   assert.equal(wrapped.rows.find((row) => row.id === "mirror")?.scored, true);
   assert.equal(wrapped.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+});
+
+test("cat steps C to bat, and A does not wrap around to Z", () => {
+  const cat = scoreWord("cat");
+  const steps = cat.rows.filter((row) => row.id === "alphabet-step");
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0]?.scored, true);
+  assert.equal(steps[0]?.points, 3);
+  assert.equal(steps[0]?.match, "bat");
+  assert.deepEqual(steps[0]?.highlight, [0]);
+  assert.match(steps[0]?.reason ?? "", /bat/);
+
+  const quiz = scoreWord("quiz");
+  assert.equal(quiz.rows.find((row) => row.id === "alphabet-step")?.scored, false);
+  assert.equal(quiz.rows.find((row) => row.id === "alphabet-step")?.points, null);
+
+  const aero = scoreWord("aero");
+  assert.equal(aero.rows.find((row) => row.id === "alphabet-step")?.scored, false);
+  assert.equal(
+    aero.rows.some((row) => row.match === "zero"),
+    false,
+  );
 });
 
 test("salt swaps into slat, and identical neighbours do not", () => {

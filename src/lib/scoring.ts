@@ -87,6 +87,7 @@ export const FACTOR_MATCHES = {
   "shrinking-word": 9924,
   "inside-out": 1061,
   "swap-shop": 2815,
+  "alphabet-step": 16735,
   "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
@@ -431,6 +432,13 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "No adjacent swap of two different letters is another dictionary word.",
     },
     {
+      id: "alphabet-step",
+      name: "Alphabet step",
+      hit: alphabetStepHits(normalized).length > 0,
+      hitDetail: "",
+      missDetail: "No one-letter step to an alphabetical neighbour is another dictionary word.",
+    },
+    {
       id: "alphabet-twins",
       name: "Alphabet twins",
       hit: alphabetTwins !== null,
@@ -660,6 +668,34 @@ export function scoreWord(word: string): ScoredWord {
       }
       continue;
     }
+    if (factor.id === "alphabet-step") {
+      const hits = alphabetStepHits(normalized);
+      if (hits.length === 0) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      for (const hit of hits) {
+        const next = running * multiplier;
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${multiplier}`,
+          detail: `Stepping that letter spells ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          points: multiplier,
+          scored: true,
+          match: hit.word,
+          highlight: [hit.index],
+          reason: `Stepping that letter spells ${hit.word}.`,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (factor.id === "swap-shop") {
       const hits = swapShopHits(normalized);
       if (hits.length === 0) {
@@ -850,6 +886,28 @@ function originFactors(word: string): Array<{
       missDetail: "Wiktionary has no usable Chinese or Japanese origin for this word.",
     },
   ];
+}
+
+export type AlphabetStepHit = { index: number; word: string };
+
+/** One letter replaced by its immediate alphabetical neighbour, spelling another ENABLE word. */
+export function alphabetStepHits(word: string): AlphabetStepHit[] {
+  const letters = [...word];
+  const hits: AlphabetStepHit[] = [];
+  for (let index = 0; index < letters.length; index += 1) {
+    const letter = letters[index];
+    if (letter === undefined) continue;
+    const code = letter.charCodeAt(0);
+    for (const nextCode of [code - 1, code + 1]) {
+      if (nextCode < 97 || nextCode > 122) continue;
+      const stepped = letters.slice();
+      stepped[index] = String.fromCharCode(nextCode);
+      const next = stepped.join("");
+      if (next === word || !ENABLE_WORDS.has(next)) continue;
+      hits.push({ index, word: next });
+    }
+  }
+  return hits;
 }
 
 export type SwapShopHit = { index: number; word: string };
