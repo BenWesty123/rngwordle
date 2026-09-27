@@ -6,6 +6,7 @@ import {
   FACTOR_MULTIPLIERS,
   alphabetStaircaseRuns,
   formatPeriodicSpelling,
+  isPerfectlyShared,
   isRomanWord,
   lengthMultiplier,
   letterCollector,
@@ -67,6 +68,12 @@ test("rarer factors get larger multipliers", () => {
     FACTOR_MULTIPLIERS["periodic-spelling"],
     rarityMultiplier(FACTOR_MATCHES["periodic-spelling"]),
   );
+  assert.equal(FACTOR_MATCHES["perfectly-shared"], 34909);
+  assert.equal(FACTOR_MULTIPLIERS["perfectly-shared"], 2);
+  assert.equal(
+    FACTOR_MULTIPLIERS["perfectly-shared"],
+    rarityMultiplier(FACTOR_MATCHES["perfectly-shared"]),
+  );
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
@@ -98,7 +105,8 @@ test("quiz is scrabble tiles times length times contraband", () => {
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
   assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 3);
   assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 2);
-  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3 * 2);
+  assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.points, 2);
+  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3 * 2 * 2);
   assert.equal(product(scored), scored.total);
 });
 
@@ -644,6 +652,61 @@ test("even company needs every letter exactly twice", () => {
 
   assert.equal(scoreWord("book").rows.find((entry) => entry.id === "even-company")?.scored, false);
   assert.equal(scoreWord("bookkeeper").rows.find((entry) => entry.id === "even-company")?.scored, false);
+});
+
+test("perfectly shared needs every distinct letter to share one count", () => {
+  assert.equal(isPerfectlyShared("the"), true);
+  assert.equal(isPerfectlyShared("CAT"), true);
+  assert.equal(isPerfectlyShared("noon"), true);
+  assert.equal(isPerfectlyShared("NOON"), true);
+  assert.equal(isPerfectlyShared("book"), false);
+  assert.equal(isPerfectlyShared("BOOK"), false);
+  assert.equal(isPerfectlyShared("aaa"), true);
+  assert.equal(isPerfectlyShared("a"), true);
+  assert.equal(isPerfectlyShared(""), false);
+  assert.equal(isPerfectlyShared("no-on"), false);
+
+  const cat = scoreWord("cat");
+  const catRow = cat.rows.find((entry) => entry.id === "perfectly-shared");
+  assert.equal(cat.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
+  assert.equal(catRow?.scored, true);
+  assert.equal(catRow?.points, 2);
+  assert.equal(catRow?.name, "Perfectly shared ×2");
+  assert.equal(catRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
+  assert.equal(catRow?.reason, "c, a, t each occur once.");
+  assert.deepEqual(catRow?.highlight, [0, 1, 2]);
+  assert.equal(cat.total, product(cat));
+
+  const the = scoreWord("the");
+  assert.equal(the.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
+  assert.equal(the.rows.find((entry) => entry.id === "perfectly-shared")?.scored, true);
+  assert.deepEqual(the.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, [0, 1, 2]);
+
+  const noon = scoreWord("noon");
+  const noonRow = noon.rows.find((entry) => entry.id === "perfectly-shared");
+  assert.equal(noon.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
+  assert.equal(noonRow?.scored, true);
+  assert.equal(noonRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
+  assert.equal(noonRow?.reason, "n, o each occur twice.");
+  assert.deepEqual(noonRow?.highlight, [0, 1, 2, 3]);
+
+  const deeded = scoreWord("deeded");
+  const deededRow = deeded.rows.find((entry) => entry.id === "perfectly-shared");
+  assert.equal(deeded.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
+  assert.equal(deededRow?.scored, true);
+  assert.equal(deededRow?.reason, "d, e each occur 3 times.");
+  assert.deepEqual(deededRow?.highlight, [0, 1, 2, 3, 4, 5]);
+
+  const book = scoreWord("book");
+  assert.equal(book.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
+  assert.equal(book.rows.find((entry) => entry.id === "perfectly-shared")?.scored, false);
+  assert.equal(book.rows.find((entry) => entry.id === "perfectly-shared")?.points, null);
+  assert.equal(book.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, undefined);
+
+  const single = scoreWord("a");
+  assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.scored, true);
+  assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.reason, "a occurs once.");
+  assert.deepEqual(single.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, [0]);
 });
 
 test("double twins sit together and a run of three is not a pair", () => {

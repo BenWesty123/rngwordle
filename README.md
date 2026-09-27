@@ -60,6 +60,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Triple twins | Three runs of exactly two identical letters in a row, like ookkee in bookkeeper. A run of three or more of the same letter is not a pair | 4 | ×14 |
 | No repeats | Every letter is different | 34,816 | ×2 |
 | Even company | Every distinct letter appears exactly twice. A letter that appears once, or three or more times, misses. The card lights the whole word | 92 | ×10 |
+| Perfectly shared | Every distinct letter occurs the same number of times. A count of one counts, so a word with no repeated letters hits. A single-letter word hits when it is in the list. noon hits, because n and o each occur twice. book misses, because the counts differ. Only a–z letters count, ignoring case. One card per word, and it lights the whole word | 34,909 | ×2 |
 | Inside | A dictionary word of at least 3 letters sits inside. The whole word does not count. Each match multiplies once, including a word nested in a longer match | 167,370 | ×2 |
 | Letter sandwich | Removing the first and last letters leaves an ENABLE word of at least 3 letters. Shorter words miss. The card lights that middle and names it | 7,298 | ×4 |
 | Front or back | The word with its first letter removed and the word with its last letter removed are both ENABLE words. If only one is a word, it misses. The card names both and lights the whole word | 5,031 | ×5 |

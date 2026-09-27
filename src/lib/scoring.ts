@@ -83,6 +83,7 @@ export const FACTOR_MATCHES = {
   "triple-twins": 4,
   "no-repeats": 34816,
   "even-company": 92,
+  "perfectly-shared": 34909,
   inside: 167370,
   "letter-sandwich": 7298,
   "shrinking-word": 9924,
@@ -325,6 +326,7 @@ export function scoreWord(word: string): ScoredWord {
   const woven = wovenWords(normalized);
   const blocks = buildingBlockRun(normalized);
   const lonely = isLonelyWord(normalized);
+  const shared = perfectlySharedCount(normalized);
 
   const factors: Array<{
     id: FactorId;
@@ -403,6 +405,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: evenCompany(normalized),
       hitDetail: `${[...new Set(normalized)].join(", ")} each appear twice.`,
       missDetail: "A letter appears once, or more than twice.",
+    },
+    {
+      id: "perfectly-shared",
+      name: "Perfectly shared",
+      hit: shared !== null,
+      hitDetail: shared === null ? "" : perfectlySharedDetail(normalized, shared),
+      missDetail: "The letters do not all occur the same number of times.",
     },
     {
       id: "inside",
@@ -1490,6 +1499,37 @@ function evenCompany(word: string): boolean {
   if (counts.size === 0) return false;
   for (const count of counts.values()) if (count !== 2) return false;
   return true;
+}
+
+/**
+ * Every distinct letter occurs the same number of times.
+ * A count of 1 hits, so a word with no repeated letters hits.
+ * A single letter hits. The empty string does not.
+ * Matching is case-insensitive. Anything outside a–z misses.
+ * One card per word. A hit lights the whole word.
+ */
+export function isPerfectlyShared(word: string): boolean {
+  return perfectlySharedCount(word) !== null;
+}
+
+function perfectlySharedCount(word: string): number | null {
+  const text = word.toLowerCase();
+  if (!/^[a-z]+$/.test(text)) return null;
+  const counts = new Map<string, number>();
+  for (const letter of text) counts.set(letter, (counts.get(letter) ?? 0) + 1);
+  let shared: number | null = null;
+  for (const count of counts.values()) {
+    if (shared === null) shared = count;
+    else if (count !== shared) return null;
+  }
+  return shared;
+}
+
+function perfectlySharedDetail(word: string, count: number): string {
+  const letters = [...new Set(word)];
+  const times = count === 1 ? "once" : count === 2 ? "twice" : `${count} times`;
+  if (letters.length === 1) return `${letters[0]} occurs ${times}.`;
+  return `${letters.join(", ")} each occur ${times}.`;
 }
 
 function twinRuns(word: string): string[] {
