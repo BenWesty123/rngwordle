@@ -89,6 +89,7 @@ export const FACTOR_MATCHES = {
   "swap-shop": 2815,
   "alphabet-step": 16735,
   "double-or-nothing": 5429,
+  "woven-together": 1490,
   "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
@@ -310,12 +311,15 @@ export function scoreWord(word: string): ScoredWord {
   ];
   running = afterLength;
 
+  const woven = wovenWords(normalized);
+
   const factors: Array<{
     id: FactorId;
     name: string;
     hit: boolean;
     hitDetail: string;
     missDetail: string;
+    match?: string;
   }> = [
     {
       id: "mirror",
@@ -445,6 +449,17 @@ export function scoreWord(word: string): ScoredWord {
       hit: doubleOrNothingHits(normalized).length > 0,
       hitDetail: "",
       missDetail: "No single letter doubles into another dictionary word, and no doubled pair comes from one.",
+    },
+    {
+      id: "woven-together",
+      name: "Two words woven together",
+      hit: woven !== null,
+      hitDetail: woven ? `Odd letters spell ${woven.odd}, and even letters spell ${woven.even}.` : "",
+      missDetail:
+        length < 4
+          ? "Needs at least 4 letters, so each strand is a word of 2 or more."
+          : "The odd letters and the even letters are not both dictionary words.",
+      match: woven ? `${woven.odd} and ${woven.even}` : undefined,
     },
     {
       id: "alphabet-twins",
@@ -846,6 +861,7 @@ export function scoreWord(word: string): ScoredWord {
       scored: true,
       highlight: factorHighlight(factor.id, normalized),
       reason: factor.hitDetail.trim(),
+      match: factor.match,
     });
     running = next;
   }
@@ -926,6 +942,20 @@ function originFactors(word: string): Array<{
       missDetail: "Wiktionary has no usable Chinese or Japanese origin for this word.",
     },
   ];
+}
+
+/** Odd positions and even positions, counting from 1, when both are ENABLE words of at least 2 letters. */
+export function wovenWords(word: string): { odd: string; even: string } | null {
+  if (word.length < 4) return null;
+  let odd = "";
+  let even = "";
+  for (let index = 0; index < word.length; index += 1) {
+    if (index % 2 === 0) odd += word[index] ?? "";
+    else even += word[index] ?? "";
+  }
+  if (odd.length < 2 || even.length < 2) return null;
+  if (!ENABLE_WORDS.has(odd) || !ENABLE_WORDS.has(even)) return null;
+  return { odd, even };
 }
 
 export type DoubleOrNothingHit = { highlight: number[]; word: string };
