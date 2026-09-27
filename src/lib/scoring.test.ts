@@ -4,6 +4,7 @@ import {
   FACTOR_MATCHES,
   FACTOR_MULTIPLIERS,
   lengthMultiplier,
+  letterCollector,
   rarityMultiplier,
   scoreWord,
 } from "./scoring";
@@ -40,6 +41,12 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MATCHES["lonely-word"], 35181);
   assert.equal(FACTOR_MULTIPLIERS["lonely-word"], 2);
   assert.equal(FACTOR_MULTIPLIERS["lonely-word"], rarityMultiplier(FACTOR_MATCHES["lonely-word"]));
+  assert.equal(FACTOR_MATCHES["letter-collector"], 145);
+  assert.equal(FACTOR_MULTIPLIERS["letter-collector"], 9);
+  assert.equal(
+    FACTOR_MULTIPLIERS["letter-collector"],
+    rarityMultiplier(FACTOR_MATCHES["letter-collector"]),
+  );
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
@@ -172,6 +179,46 @@ test("cat steps C to bat, and A does not wrap around to Z", () => {
   assert.equal(
     aero.rows.some((row) => row.match === "zero"),
     false,
+  );
+});
+
+test("feedback collects A through F, and a 5-letter stretch misses", () => {
+  const feedback = scoreWord("feedback");
+  const row = feedback.rows.find((entry) => entry.id === "letter-collector");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 9);
+  assert.equal(row?.points, FACTOR_MULTIPLIERS["letter-collector"]);
+  assert.equal(row?.name, "Letter collector ×9");
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(row?.reason, "A–F is 6 alphabet letters in a row.");
+  assert.equal(feedback.total, product(feedback));
+  assert.deepEqual(letterCollector("FEEDBACK")?.indexes, [0, 1, 2, 3, 4, 5, 6]);
+
+  const boldface = scoreWord("boldface");
+  assert.equal(boldface.rows.find((entry) => entry.id === "letter-collector")?.scored, true);
+  assert.deepEqual(boldface.rows.find((entry) => entry.id === "letter-collector")?.highlight, [
+    0, 3, 4, 5, 6, 7,
+  ]);
+
+  const backed = scoreWord("backed");
+  assert.equal(backed.rows.find((entry) => entry.id === "letter-collector")?.scored, false);
+  assert.equal(backed.rows.find((entry) => entry.id === "letter-collector")?.points, null);
+  assert.equal(letterCollector("backed"), null);
+
+  assert.equal(scoreWord("abcefg").rows.find((entry) => entry.id === "letter-collector")?.scored, false);
+  assert.equal(letterCollector("abcefg"), null);
+
+  const earlier = scoreWord("abcdefxyzmnopqr");
+  assert.deepEqual(earlier.rows.find((entry) => entry.id === "letter-collector")?.highlight, [
+    0, 1, 2, 3, 4, 5,
+  ]);
+  assert.equal(earlier.rows.find((entry) => entry.id === "letter-collector")?.reason, "A–F is 6 alphabet letters in a row.");
+
+  const longer = scoreWord("abcdefmnopqrst");
+  assert.equal(longer.rows.find((entry) => entry.id === "letter-collector")?.reason, "M–T is 8 alphabet letters in a row.");
+  assert.deepEqual(
+    longer.rows.find((entry) => entry.id === "letter-collector")?.highlight,
+    [6, 7, 8, 9, 10, 11, 12, 13],
   );
 });
 

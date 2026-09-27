@@ -91,6 +91,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Ish | Ends in -ish, and the word is longer than the ending | 554 | ×7 |
 | Alphabet soup | At least 4 letters, each the same as or later than the last | 411 | ×8 |
 | Backwards alphabet | The whole word runs in non-increasing alphabetical order. Each letter is the same as or earlier than the one before it. Repeats are allowed. One-letter words miss. The card lights the whole word | 432 | ×8 |
+| Letter collector | At least 6 alphabet letters in a row appear in the word, in any order. A repeated letter does not extend the stretch, and a gap breaks it, so A, B, C, E, F is not one stretch. The card lights every occurrence of the letters in the longest stretch, or the one that starts earlier when two tie, and names that stretch, such as A–F | 145 | ×9 |
 | Bone dry | No A, E, I, O, or U | 121 | ×9 |
 | Mirror | Palindrome, at least 3 letters | 101 | ×10 |
 | Hidden mirror | A contiguous run of at least 5 letters is a palindrome, and the whole word is not. The run is shorter than the word. A shorter run does not count. The card lights the longest such run, or the leftmost when several tie | 3,148 | ×5 |

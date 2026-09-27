@@ -99,6 +99,7 @@ export const FACTOR_MATCHES = {
   "bone-dry": 121,
   "alphabet-soup": 411,
   "backwards-alphabet": 432,
+  "letter-collector": 145,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
@@ -267,6 +268,7 @@ export function scoreWord(word: string): ScoredWord {
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
+  const collected = letterCollector(normalized);
   const sandwich = letterSandwich(normalized);
   const trimmedEnds = frontOrBack(normalized);
   const shrinking = SHRINKING_CHAINS[normalized] ?? null;
@@ -534,6 +536,13 @@ export function scoreWord(word: string): ScoredWord {
         length < 2
           ? "A one-letter word cannot run backwards through the alphabet."
           : "A letter comes later in the alphabet than the one before it.",
+    },
+    {
+      id: "letter-collector",
+      name: "Letter collector",
+      hit: collected !== null,
+      hitDetail: collected ? letterCollectorDetail(collected) : "",
+      missDetail: "The longest unbroken stretch of the alphabet is shorter than 6 letters.",
     },
     {
       id: "vowel-sweep",
@@ -1241,6 +1250,7 @@ function factorHighlight(id: FactorId, word: string): number[] {
     if (!run) return everyIndex(word.length);
     return Array.from({ length: run.length }, (_, offset) => run.start + offset);
   }
+  if (id === "letter-collector") return letterCollector(word)?.indexes ?? [];
   return everyIndex(word.length);
 }
 
@@ -1499,6 +1509,63 @@ function isFlat(word: string): boolean {
     if (ASCENDERS.has(letter) || DESCENDERS.has(letter)) return false;
   }
   return true;
+}
+
+export type LetterCollectorHit = {
+  /** First letter of the stretch, lowercase. */
+  start: string;
+  /** Last letter of the stretch, lowercase. */
+  end: string;
+  length: number;
+  /** Every index whose letter belongs to that stretch, including repeats. */
+  indexes: number[];
+};
+
+/**
+ * Longest run of alphabet letters that all appear in the word.
+ * Order does not matter. A repeated letter does not extend the run.
+ * A missing letter ends it. Ties keep the run that starts earlier.
+ * Returns null when that run is shorter than 6.
+ */
+export function letterCollector(word: string): LetterCollectorHit | null {
+  const normalized = word.toLowerCase();
+  const present = Array.from({ length: 26 }, () => false);
+  for (const letter of normalized) {
+    const code = letter.charCodeAt(0) - 97;
+    if (code >= 0 && code < 26) present[code] = true;
+  }
+  let bestStart = -1;
+  let bestLength = 0;
+  let runStart = -1;
+  for (let index = 0; index <= 26; index += 1) {
+    if (index < 26 && present[index]) {
+      if (runStart < 0) runStart = index;
+      continue;
+    }
+    if (runStart >= 0) {
+      const length = index - runStart;
+      if (length > bestLength) {
+        bestLength = length;
+        bestStart = runStart;
+      }
+    }
+    runStart = -1;
+  }
+  if (bestLength < 6 || bestStart < 0) return null;
+  const letters = new Set<string>();
+  for (let offset = 0; offset < bestLength; offset += 1) {
+    letters.add(String.fromCharCode(97 + bestStart + offset));
+  }
+  return {
+    start: String.fromCharCode(97 + bestStart),
+    end: String.fromCharCode(97 + bestStart + bestLength - 1),
+    length: bestLength,
+    indexes: [...normalized].flatMap((letter, index) => (letters.has(letter) ? [index] : [])),
+  };
+}
+
+function letterCollectorDetail(hit: LetterCollectorHit): string {
+  return `${hit.start.toUpperCase()}–${hit.end.toUpperCase()} is ${hit.length} alphabet letters in a row.`;
 }
 
 function isNonDecreasing(word: string): boolean {
