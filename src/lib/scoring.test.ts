@@ -40,6 +40,8 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], rarityMultiplier(1490));
+  assert.equal(FACTOR_MULTIPLIERS["building-blocks"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["building-blocks"], rarityMultiplier(4186));
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
   assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
   assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
@@ -95,6 +97,20 @@ test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () =
   const wrapped = scoreWord("abcbaqabcba");
   assert.equal(wrapped.rows.find((row) => row.id === "mirror")?.scored, true);
   assert.equal(wrapped.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+});
+
+test("antics builds from an through antics, and quiz has no such run", () => {
+  const rows = scoreWord("antics").rows.filter((row) => row.id === "building-blocks");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.scored, true);
+  assert.equal(rows[0]?.points, 5);
+  assert.equal(rows[0]?.match, "an, ant, anti, antic, antics");
+  assert.deepEqual(rows[0]?.highlight, [0, 1, 2, 3, 4, 5]);
+  assert.equal(rows[0]?.reason, "an, ant, anti, antic, antics.");
+
+  const quiz = scoreWord("quiz");
+  assert.equal(quiz.rows.find((row) => row.id === "building-blocks")?.scored, false);
+  assert.equal(quiz.rows.find((row) => row.id === "building-blocks")?.points, null);
 });
 
 test("schooled weaves shoe and cold, and a word that does not split misses", () => {

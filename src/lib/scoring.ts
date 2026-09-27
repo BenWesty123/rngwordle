@@ -90,6 +90,7 @@ export const FACTOR_MATCHES = {
   "alphabet-step": 16735,
   "double-or-nothing": 5429,
   "woven-together": 1490,
+  "building-blocks": 4186,
   "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
@@ -312,6 +313,7 @@ export function scoreWord(word: string): ScoredWord {
   running = afterLength;
 
   const woven = wovenWords(normalized);
+  const blocks = buildingBlockRun(normalized);
 
   const factors: Array<{
     id: FactorId;
@@ -460,6 +462,14 @@ export function scoreWord(word: string): ScoredWord {
           ? "Needs at least 4 letters, so each strand is a word of 2 or more."
           : "The odd letters and the even letters are not both dictionary words.",
       match: woven ? `${woven.odd} and ${woven.even}` : undefined,
+    },
+    {
+      id: "building-blocks",
+      name: "Building blocks",
+      hit: blocks !== null,
+      hitDetail: blocks ? `${blocks.join(", ")}.` : "",
+      missDetail: "No 4 neighbouring prefixes are dictionary words.",
+      match: blocks ? blocks.join(", ") : undefined,
     },
     {
       id: "alphabet-twins",
@@ -944,6 +954,28 @@ function originFactors(word: string): Array<{
   ];
 }
 
+/**
+ * Longest run of neighbouring prefixes that are ENABLE words.
+ * A run may start after the first letter. One-letter words count when they are in the list.
+ * Ties keep the earliest run. Returns null when the longest run is shorter than 4.
+ */
+export function buildingBlockRun(word: string): string[] | null {
+  const prefixes: string[] = [];
+  for (let length = 1; length <= word.length; length += 1) {
+    const prefix = word.slice(0, length);
+    if (ENABLE_WORDS.has(prefix)) prefixes.push(prefix);
+  }
+  let best: string[] | null = null;
+  let current: string[] = [];
+  for (const prefix of prefixes) {
+    const previous = current[current.length - 1];
+    if (previous && prefix.length === previous.length + 1) current.push(prefix);
+    else current = [prefix];
+    if (current.length >= 4 && (best === null || current.length > best.length)) best = current.slice();
+  }
+  return best;
+}
+
 /** Odd positions and even positions, counting from 1, when both are ENABLE words of at least 2 letters. */
 export function wovenWords(word: string): { odd: string; even: string } | null {
   if (word.length < 4) return null;
@@ -1127,6 +1159,12 @@ export function hiddenMirrorRun(word: string): { start: number; end: number } | 
 }
 
 function factorHighlight(id: FactorId, word: string): number[] {
+  if (id === "building-blocks") {
+    const run = buildingBlockRun(word);
+    const longest = run?.[run.length - 1];
+    if (!longest) return [];
+    return everyIndex(longest.length);
+  }
   if (id === "hidden-mirror") {
     const run = hiddenMirrorRun(word);
     if (!run) return [];
