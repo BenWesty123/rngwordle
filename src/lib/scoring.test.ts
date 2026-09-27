@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  FACTOR_MATCHES,
   FACTOR_MULTIPLIERS,
   lengthMultiplier,
   rarityMultiplier,
@@ -36,6 +37,9 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 3);
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], rarityMultiplier(16735));
+  assert.equal(FACTOR_MATCHES["lonely-word"], 35181);
+  assert.equal(FACTOR_MULTIPLIERS["lonely-word"], 2);
+  assert.equal(FACTOR_MULTIPLIERS["lonely-word"], rarityMultiplier(FACTOR_MATCHES["lonely-word"]));
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
@@ -169,6 +173,36 @@ test("cat steps C to bat, and A does not wrap around to Z", () => {
     aero.rows.some((row) => row.match === "zero"),
     false,
   );
+});
+
+test("a lonely word has no insert, delete, or substitute neighbour", () => {
+  const lonely = scoreWord("syzygy");
+  const row = lonely.rows.find((entry) => entry.id === "lonely-word");
+  assert.equal(row?.scored, true);
+  assert.equal(row?.points, 2);
+  assert.equal(row?.name, "Lonely word ×2");
+  assert.equal(row?.points, FACTOR_MULTIPLIERS["lonely-word"]);
+  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
+  assert.match(row?.reason ?? "", /insertion, deletion, or substitution/);
+  assert.equal(lonely.total, product(lonely));
+
+  const abaft = scoreWord("abaft");
+  assert.equal(abaft.rows.find((entry) => entry.id === "lonely-word")?.scored, true);
+  assert.deepEqual(abaft.rows.find((entry) => entry.id === "lonely-word")?.highlight, [0, 1, 2, 3, 4]);
+
+  const swapped = scoreWord("compliant");
+  const swap = swapped.rows.find((entry) => entry.id === "swap-shop" && entry.scored);
+  assert.equal(swap?.match, "complaint");
+  assert.equal(swapped.rows.find((entry) => entry.id === "lonely-word")?.scored, true);
+
+  const cat = scoreWord("cat");
+  assert.equal(cat.rows.find((entry) => entry.id === "alphabet-step")?.match, "bat");
+  assert.equal(cat.rows.find((entry) => entry.id === "lonely-word")?.scored, false);
+  assert.equal(cat.rows.find((entry) => entry.id === "lonely-word")?.points, null);
+
+  assert.equal(scoreWord("c").rows.find((entry) => entry.id === "lonely-word")?.scored, true);
+  assert.deepEqual(scoreWord("c").rows.find((entry) => entry.id === "lonely-word")?.highlight, [0]);
+  assert.equal(scoreWord("a").rows.find((entry) => entry.id === "lonely-word")?.scored, false);
 });
 
 test("salt swaps into slat, and identical neighbours do not", () => {

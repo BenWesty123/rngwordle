@@ -88,6 +88,7 @@ export const FACTOR_MATCHES = {
   "inside-out": 1061,
   "swap-shop": 2815,
   "alphabet-step": 16735,
+  "lonely-word": 35181,
   "double-or-nothing": 5429,
   "woven-together": 1490,
   "building-blocks": 4186,
@@ -314,6 +315,7 @@ export function scoreWord(word: string): ScoredWord {
 
   const woven = wovenWords(normalized);
   const blocks = buildingBlockRun(normalized);
+  const lonely = isLonelyWord(normalized);
 
   const factors: Array<{
     id: FactorId;
@@ -444,6 +446,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: alphabetStepHits(normalized).length > 0,
       hitDetail: "",
       missDetail: "No one-letter step to an alphabetical neighbour is another dictionary word.",
+    },
+    {
+      id: "lonely-word",
+      name: "Lonely word",
+      hit: lonely,
+      hitDetail: "No other dictionary word is one insertion, deletion, or substitution away.",
+      missDetail: "Another dictionary word is one insertion, deletion, or substitution away.",
     },
     {
       id: "double-or-nothing",
@@ -1056,6 +1065,39 @@ export function swapShopHits(word: string): SwapShopHit[] {
     hits.push({ index, word: next });
   }
   return hits;
+}
+
+const EDIT_ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+
+/**
+ * No other ENABLE word is one insertion, deletion, or substitution away.
+ * Transpositions are Swap shop. The word itself does not count. The empty
+ * string is not a word, so a one-letter word is lonely unless an insertion
+ * or a substitution hits.
+ */
+function isLonelyWord(word: string): boolean {
+  if (word.length > 1) {
+    for (let index = 0; index < word.length; index += 1) {
+      const deleted = word.slice(0, index) + word.slice(index + 1);
+      if (deleted.length > 0 && ENABLE_WORDS.has(deleted)) return false;
+    }
+  }
+  for (let index = 0; index < word.length; index += 1) {
+    const prefix = word.slice(0, index);
+    const suffix = word.slice(index + 1);
+    for (const letter of EDIT_ALPHABET) {
+      if (letter === word[index]) continue;
+      if (ENABLE_WORDS.has(prefix + letter + suffix)) return false;
+    }
+  }
+  for (let index = 0; index <= word.length; index += 1) {
+    const prefix = word.slice(0, index);
+    const suffix = word.slice(index);
+    for (const letter of EDIT_ALPHABET) {
+      if (ENABLE_WORDS.has(prefix + letter + suffix)) return false;
+    }
+  }
+  return true;
 }
 
 export function anagramsOf(word: string): string[] {
