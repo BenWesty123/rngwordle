@@ -75,6 +75,7 @@ const QUIET_PREFIXES = ["kn", "gn", "wr", "ps", "rh"] as const;
 /** How many bundled words have each property. Precompute checks these counts. */
 export const FACTOR_MATCHES = {
   mirror: 101,
+  "hidden-mirror": 3148,
   contraband: 16286,
   twins: 41209,
   "double-twins": 223,
@@ -254,7 +255,8 @@ export function scoreWord(word: string): ScoredWord {
   const runs = twinRuns(normalized);
   const doubleTwins = pairedTwins(normalized, 2);
   const tripleTwins = pairedTwins(normalized, 3);
-  const palindrome = length >= 3 && normalized === [...normalized].reverse().join("");
+  const palindrome = isMirror(normalized);
+  const hiddenMirror = hiddenMirrorRun(normalized);
   const allVowels = [...normalized].every((letter) => VOWELS.has(letter));
   const noVowels = [...normalized].every((letter) => !VOWELS.has(letter));
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
@@ -319,6 +321,17 @@ export function scoreWord(word: string): ScoredWord {
       hitDetail: "Same word forwards and backwards.",
       missDetail:
         length < 3 ? "Needs at least 3 letters to count as a mirror." : "Not the same word backwards.",
+    },
+    {
+      id: "hidden-mirror",
+      name: "Hidden mirror",
+      hit: hiddenMirror !== null,
+      hitDetail: hiddenMirror
+        ? `${normalized.slice(hiddenMirror.start, hiddenMirror.end)} reads the same backwards.`
+        : "",
+      missDetail: palindrome
+        ? "The whole word is a mirror."
+        : "No run of 5 or more letters reads the same backwards.",
     },
     {
       id: "rewind",
@@ -882,7 +895,33 @@ function everyIndex(length: number): number[] {
   return Array.from({ length }, (_, index) => index);
 }
 
+/** Same test as Mirror: at least 3 letters, and the same word backwards. */
+function isMirror(text: string): boolean {
+  return text.length >= 3 && text === [...text].reverse().join("");
+}
+
+/**
+ * Longest contiguous palindrome of at least 5 letters that is shorter than the word.
+ * Ties keep the leftmost run. A word that is itself a palindrome misses.
+ */
+export function hiddenMirrorRun(word: string): { start: number; end: number } | null {
+  if (isMirror(word)) return null;
+  for (let length = word.length - 1; length >= 5; length -= 1) {
+    const last = word.length - length;
+    for (let start = 0; start <= last; start += 1) {
+      if (!isMirror(word.slice(start, start + length))) continue;
+      return { start, end: start + length };
+    }
+  }
+  return null;
+}
+
 function factorHighlight(id: FactorId, word: string): number[] {
+  if (id === "hidden-mirror") {
+    const run = hiddenMirrorRun(word);
+    if (!run) return [];
+    return Array.from({ length: run.end - run.start }, (_, offset) => run.start + offset);
+  }
   if (id === "letter-sandwich") {
     return Array.from({ length: Math.max(0, word.length - 2) }, (_, index) => index + 1);
   }

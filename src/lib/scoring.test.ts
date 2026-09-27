@@ -31,6 +31,8 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["alphabet-soup"], 8);
   assert.equal(FACTOR_MULTIPLIERS["bone-dry"], 9);
   assert.equal(FACTOR_MULTIPLIERS.mirror, 10);
+  assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
   assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
   assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
   assert.equal(FACTOR_MULTIPLIERS["flat-type"], 4);
@@ -57,6 +59,34 @@ test("quiz is scrabble tiles times length times contraband", () => {
   assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 2);
   assert.equal(scored.total, 22 * 32 * 3 * 2 * 3 * 2);
   assert.equal(product(scored), scored.total);
+});
+
+test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () => {
+  const rotator = scoreWord("rotator");
+  assert.equal(rotator.rows.find((row) => row.id === "mirror")?.scored, true);
+  assert.equal(rotator.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+  assert.equal(rotator.rows.find((row) => row.id === "hidden-mirror")?.points, null);
+
+  const prefer = scoreWord("prefer");
+  const hidden = prefer.rows.filter((row) => row.id === "hidden-mirror");
+  assert.equal(hidden.length, 1);
+  assert.equal(hidden[0]?.scored, true);
+  assert.equal(hidden[0]?.points, 5);
+  assert.deepEqual(hidden[0]?.highlight, [1, 2, 3, 4, 5]);
+  assert.match(hidden[0]?.reason ?? "", /refer reads the same backwards/);
+  assert.equal(prefer.rows.find((row) => row.id === "mirror")?.scored, false);
+
+  assert.equal(scoreWord("xabbay").rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+
+  const tied = scoreWord("abcbaqdefed");
+  assert.deepEqual(tied.rows.find((row) => row.id === "hidden-mirror")?.highlight, [0, 1, 2, 3, 4]);
+
+  const longer = scoreWord("abcbaqdeffed");
+  assert.deepEqual(longer.rows.find((row) => row.id === "hidden-mirror")?.highlight, [6, 7, 8, 9, 10, 11]);
+
+  const wrapped = scoreWord("abcbaqabcba");
+  assert.equal(wrapped.rows.find((row) => row.id === "mirror")?.scored, true);
+  assert.equal(wrapped.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
 });
 
 test("kayak multiplies mirror", () => {
