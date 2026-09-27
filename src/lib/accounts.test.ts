@@ -5,6 +5,7 @@ import {
   ANONYMOUS_NAME,
   consumeLoginLink,
   createLoginLink,
+  loginLinkState,
   deleteLoginLink,
   listBoard,
   loginLinkSentRecently,
@@ -71,6 +72,25 @@ test("week starts Monday 00:00 UTC and month starts on the 1st", () => {
   assert.equal(periodStart("week", sunday), Date.parse("2026-09-21T00:00:00.000Z"))
   const previousSunday = new Date("2026-09-20T12:00:00.000Z")
   assert.equal(periodStart("week", previousSunday), Date.parse("2026-09-14T00:00:00.000Z"))
+})
+
+test("looking at a login link does not use it", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  assert.equal(await loginLinkState(db, created.token, now), "ok")
+  assert.equal(await loginLinkState(db, created.token, now + 1), "ok")
+  const row = await db.get<{ used_at: number | null }>("SELECT used_at FROM login_links WHERE token = ?", created.token)
+  assert.equal(row?.used_at, null)
+  assert.equal(await loginLinkState(db, "missing-token", now), "missing")
+  assert.equal(await loginLinkState(db, created.token, now + 31 * 60 * 1000), "expired")
+  const still = await db.get<{ used_at: number | null }>("SELECT used_at FROM login_links WHERE token = ?", created.token)
+  assert.equal(still?.used_at, null)
+  const session = await consumeLoginLink(db, created.token, now)
+  assert.ok(!("error" in session))
+  assert.equal(await loginLinkState(db, created.token, now), "used")
 })
 
 test("a login link works once, then a username can be claimed", async () => {

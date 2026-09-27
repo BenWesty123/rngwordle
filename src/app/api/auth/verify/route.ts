@@ -6,17 +6,28 @@ import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-export async function GET(request: Request) {
-  const token = new URL(request.url).searchParams.get("token") ?? ""
+export async function POST(request: Request) {
+  const token = await postedToken(request)
   const result = token ? await consumeLoginLink(await appDb(), token) : { error: "missing" as const }
   const origin = publicOrigin(request)
   const secure = origin.startsWith("https:")
   if ("error" in result) {
     const login = new URL("/login", origin)
     login.searchParams.set("error", result.error)
-    return NextResponse.redirect(login)
+    return NextResponse.redirect(login, 303)
   }
-  const response = NextResponse.redirect(new URL("/", origin))
+  const response = NextResponse.redirect(new URL("/", origin), 303)
   response.cookies.set(SESSION_COOKIE, result.sessionToken, sessionCookieOptions(secure))
   return response
+}
+
+async function postedToken(request: Request): Promise<string> {
+  const query = new URL(request.url).searchParams.get("token") ?? ""
+  const type = request.headers.get("content-type") ?? ""
+  if (type.includes("application/x-www-form-urlencoded") || type.includes("multipart/form-data")) {
+    const form = await request.formData()
+    const value = form.get("token")
+    if (typeof value === "string" && value) return value
+  }
+  return query
 }

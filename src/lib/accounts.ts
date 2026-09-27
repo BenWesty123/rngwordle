@@ -134,6 +134,23 @@ export async function deleteLoginLink(db: AppDatabase, token: string): Promise<v
   await db.run("DELETE FROM login_links WHERE token = ?", token)
 }
 
+/** Read a login link without using it. A GET from a mail scanner must leave the row unused. */
+export async function loginLinkState(
+  db: AppDatabase,
+  token: string,
+  now = Date.now(),
+): Promise<"ok" | "missing" | "used" | "expired"> {
+  if (!token) return "missing"
+  const link = await db.get<{ expires_at: number; used_at: number | null }>(
+    "SELECT expires_at, used_at FROM login_links WHERE token = ?",
+    token,
+  )
+  if (!link) return "missing"
+  if (link.used_at != null) return "used"
+  if (link.expires_at < now) return "expired"
+  return "ok"
+}
+
 export async function consumeLoginLink(
   db: AppDatabase,
   token: string,
