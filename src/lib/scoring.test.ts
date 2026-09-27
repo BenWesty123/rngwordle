@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   FACTOR_MATCHES,
   FACTOR_MULTIPLIERS,
+  alphabetStaircaseRuns,
   lengthMultiplier,
   letterCollector,
   rarityMultiplier,
@@ -46,6 +47,12 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(
     FACTOR_MULTIPLIERS["letter-collector"],
     rarityMultiplier(FACTOR_MATCHES["letter-collector"]),
+  );
+  assert.equal(FACTOR_MATCHES["alphabet-staircase"], 1502);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-staircase"], 6);
+  assert.equal(
+    FACTOR_MULTIPLIERS["alphabet-staircase"],
+    rarityMultiplier(FACTOR_MATCHES["alphabet-staircase"]),
   );
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
@@ -219,6 +226,61 @@ test("feedback collects A through F, and a 5-letter stretch misses", () => {
   assert.deepEqual(
     longer.rows.find((entry) => entry.id === "letter-collector")?.highlight,
     [6, 7, 8, 9, 10, 11, 12, 13],
+  );
+});
+
+test("hijack and first step up the alphabet, and a short or descending run misses", () => {
+  const hijack = scoreWord("hijack");
+  const hij = hijack.rows.find((entry) => entry.id === "alphabet-staircase");
+  assert.equal(hijack.rows.filter((entry) => entry.id === "alphabet-staircase").length, 1);
+  assert.equal(hij?.scored, true);
+  assert.equal(hij?.points, 6);
+  assert.equal(hij?.points, FACTOR_MULTIPLIERS["alphabet-staircase"]);
+  assert.equal(hij?.name, "Alphabet staircase ×6");
+  assert.deepEqual(hij?.highlight, [0, 1, 2]);
+  assert.equal(hij?.reason, "HIJ is 3 letters stepping up the alphabet.");
+  assert.deepEqual(alphabetStaircaseRuns("HIJACK"), [{ start: 0, end: 3 }]);
+  assert.equal(hijack.total, product(hijack));
+
+  const first = scoreWord("first");
+  const rst = first.rows.find((entry) => entry.id === "alphabet-staircase");
+  assert.equal(rst?.scored, true);
+  assert.equal(rst?.points, FACTOR_MULTIPLIERS["alphabet-staircase"]);
+  assert.deepEqual(rst?.highlight, [2, 3, 4]);
+  assert.equal(rst?.reason, "RST is 3 letters stepping up the alphabet.");
+  assert.deepEqual(alphabetStaircaseRuns("first"), [{ start: 2, end: 5 }]);
+
+  const fed = scoreWord("fed");
+  assert.equal(fed.rows.find((entry) => entry.id === "alphabet-staircase")?.scored, false);
+  assert.equal(fed.rows.find((entry) => entry.id === "alphabet-staircase")?.points, null);
+  assert.deepEqual(alphabetStaircaseRuns("fed"), []);
+  assert.deepEqual(alphabetStaircaseRuns("onm"), []);
+
+  const step = scoreWord("ab");
+  assert.equal(step.rows.find((entry) => entry.id === "alphabet-staircase")?.scored, false);
+  assert.equal(step.rows.find((entry) => entry.id === "alphabet-staircase")?.points, null);
+  assert.deepEqual(alphabetStaircaseRuns("ab"), []);
+
+  assert.deepEqual(alphabetStaircaseRuns("book"), []);
+  assert.deepEqual(alphabetStaircaseRuns("yza"), []);
+
+  const longer = scoreWord("overstuff");
+  assert.equal(
+    longer.rows.find((entry) => entry.id === "alphabet-staircase")?.reason,
+    "RSTU is 4 letters stepping up the alphabet.",
+  );
+  assert.deepEqual(longer.rows.find((entry) => entry.id === "alphabet-staircase")?.highlight, [
+    3, 4, 5, 6,
+  ]);
+
+  const both = scoreWord("hijackxyz");
+  assert.equal(both.rows.filter((entry) => entry.id === "alphabet-staircase").length, 1);
+  assert.deepEqual(both.rows.find((entry) => entry.id === "alphabet-staircase")?.highlight, [
+    0, 1, 2, 6, 7, 8,
+  ]);
+  assert.equal(
+    both.rows.find((entry) => entry.id === "alphabet-staircase")?.reason,
+    "HIJ and XYZ step up the alphabet.",
   );
 });
 

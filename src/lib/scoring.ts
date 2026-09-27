@@ -100,6 +100,7 @@ export const FACTOR_MATCHES = {
   "alphabet-soup": 411,
   "backwards-alphabet": 432,
   "letter-collector": 145,
+  "alphabet-staircase": 1502,
   "vowel-sweep": 2462,
   "vowel-rich": 5979,
   "one-vowel-wonder": 2856,
@@ -269,6 +270,7 @@ export function scoreWord(word: string): ScoredWord {
   const alphabetical = length >= 4 && isNonDecreasing(normalized);
   const backwardsAlphabet = length >= 2 && isNonIncreasing(normalized);
   const collected = letterCollector(normalized);
+  const staircase = alphabetStaircaseRuns(normalized);
   const sandwich = letterSandwich(normalized);
   const trimmedEnds = frontOrBack(normalized);
   const shrinking = SHRINKING_CHAINS[normalized] ?? null;
@@ -543,6 +545,13 @@ export function scoreWord(word: string): ScoredWord {
       hit: collected !== null,
       hitDetail: collected ? letterCollectorDetail(collected) : "",
       missDetail: "The longest unbroken stretch of the alphabet is shorter than 6 letters.",
+    },
+    {
+      id: "alphabet-staircase",
+      name: "Alphabet staircase",
+      hit: staircase.length > 0,
+      hitDetail: staircase.length > 0 ? alphabetStaircaseDetail(normalized, staircase) : "",
+      missDetail: "No three letters in a row step up the alphabet.",
     },
     {
       id: "vowel-sweep",
@@ -1251,6 +1260,11 @@ function factorHighlight(id: FactorId, word: string): number[] {
     return Array.from({ length: run.length }, (_, offset) => run.start + offset);
   }
   if (id === "letter-collector") return letterCollector(word)?.indexes ?? [];
+  if (id === "alphabet-staircase") {
+    return alphabetStaircaseRuns(word).flatMap((run) =>
+      Array.from({ length: run.end - run.start }, (_, offset) => run.start + offset),
+    );
+  }
   return everyIndex(word.length);
 }
 
@@ -1566,6 +1580,44 @@ export function letterCollector(word: string): LetterCollectorHit | null {
 
 function letterCollectorDetail(hit: LetterCollectorHit): string {
   return `${hit.start.toUpperCase()}–${hit.end.toUpperCase()} is ${hit.length} alphabet letters in a row.`;
+}
+
+export type AlphabetStaircaseRun = {
+  /** Index of the first letter in the run. */
+  start: number;
+  /** Index just after the last letter in the run. */
+  end: number;
+};
+
+/**
+ * Maximal contiguous runs where each letter is the immediate next letter of the alphabet.
+ * Ascending only, and at least 3 letters. A repeated letter breaks the run.
+ * The alphabet does not wrap, so YZA is not a run. A longer run still counts.
+ */
+export function alphabetStaircaseRuns(word: string): AlphabetStaircaseRun[] {
+  const normalized = word.toLowerCase();
+  const runs: AlphabetStaircaseRun[] = [];
+  let start = 0;
+  for (let index = 1; index <= normalized.length; index += 1) {
+    const previous = normalized.charCodeAt(index - 1);
+    const current = index < normalized.length ? normalized.charCodeAt(index) : 0;
+    if (current === previous + 1 && previous >= 97 && previous <= 121) continue;
+    if (index - start >= 3) runs.push({ start, end: index });
+    start = index;
+  }
+  return runs;
+}
+
+function alphabetStaircaseDetail(word: string, runs: AlphabetStaircaseRun[]): string {
+  const labels = runs.map((run) => word.slice(run.start, run.end).toUpperCase());
+  if (labels.length === 1) {
+    const label = labels[0] ?? "";
+    return `${label} is ${label.length} letters stepping up the alphabet.`;
+  }
+  const last = labels[labels.length - 1] ?? "";
+  const head = labels.slice(0, -1);
+  const list = head.length === 1 ? `${head[0]} and ${last}` : `${head.join(", ")}, and ${last}`;
+  return `${list} step up the alphabet.`;
 }
 
 function isNonDecreasing(word: string): boolean {
