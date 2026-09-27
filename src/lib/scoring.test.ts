@@ -32,6 +32,8 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["bone-dry"], 9);
   assert.equal(FACTOR_MULTIPLIERS.mirror, 10);
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["swap-shop"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
   assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
   assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
@@ -87,6 +89,36 @@ test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () =
   const wrapped = scoreWord("abcbaqabcba");
   assert.equal(wrapped.rows.find((row) => row.id === "mirror")?.scored, true);
   assert.equal(wrapped.rows.find((row) => row.id === "hidden-mirror")?.scored, false);
+});
+
+test("salt swaps into slat, and identical neighbours do not", () => {
+  const salt = scoreWord("salt");
+  const swaps = salt.rows.filter((row) => row.id === "swap-shop");
+  assert.equal(swaps.length, 1);
+  assert.equal(swaps[0]?.scored, true);
+  assert.equal(swaps[0]?.points, 5);
+  assert.equal(swaps[0]?.match, "slat");
+  assert.deepEqual(swaps[0]?.highlight, [1, 2]);
+  assert.match(swaps[0]?.reason ?? "", /slat/);
+
+  const quiz = scoreWord("quiz");
+  assert.equal(quiz.rows.find((row) => row.id === "swap-shop")?.scored, false);
+  assert.equal(quiz.rows.find((row) => row.id === "swap-shop")?.points, null);
+
+  const doubled = scoreWord("aa");
+  assert.equal(doubled.rows.find((row) => row.id === "swap-shop")?.scored, false);
+  assert.equal(scoreWord("book").rows.find((row) => row.id === "swap-shop")?.scored, false);
+
+  const acred = scoreWord("acred");
+  const pairs = acred.rows.filter((row) => row.id === "swap-shop" && row.scored);
+  assert.deepEqual(
+    pairs.map((row) => ({ word: row.match, highlight: row.highlight })),
+    [
+      { word: "cared", highlight: [0, 1] },
+      { word: "arced", highlight: [1, 2] },
+    ],
+  );
+  assert.ok(pairs.every((row) => row.points === 5));
 });
 
 test("kayak multiplies mirror", () => {

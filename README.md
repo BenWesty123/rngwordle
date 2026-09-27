@@ -65,6 +65,7 @@ The base is the Scrabble tile sum. Everything else multiplies it. The breakdown 
 | Front or back | The word with its first letter removed and the word with its last letter removed are both ENABLE words. If only one is a word, it misses. The card names both and lights the whole word | 5,031 | ×5 |
 | Shrinking word | A chain of at least 5 ENABLE words, counting this word, each made by deleting one letter from anywhere in the previous word. The card names the chain and lights the whole word | 9,924 | ×4 |
 | Inside out | Moving the first letter to the end makes a different ENABLE word. The same spelling again misses. The card names that word and lights the whole rolled word | 1,061 | ×7 |
+| Swap shop | Swapping two different adjacent letters makes a different ENABLE word. Each pair is its own card, lighting those two letters and naming the word. Identical letters and non-adjacent swaps do not count | 2,815 | ×5 |
 | Anagram | A different dictionary word uses exactly the same letters. The word itself does not count. Each anagram multiplies once. This one is ×4 per anagram, not the rarity formula | 28,648 | ×4 |
 | Alphabet twins | Another word uses exactly the same distinct letters with different counts. Anagrams do not count. The card names the partners, eight of them if there are more, and lights the whole word | 127,151 | ×2 |
 | Next door | First and last letters are neighbours in the alphabet | 16,304 | ×3 |

@@ -86,6 +86,7 @@ export const FACTOR_MATCHES = {
   "letter-sandwich": 7298,
   "shrinking-word": 9924,
   "inside-out": 1061,
+  "swap-shop": 2815,
   "alphabet-twins": 127151,
   "front-or-back": 5031,
   anagram: 28648,
@@ -423,6 +424,13 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "Moving the first letter to the end is not a different dictionary word.",
     },
     {
+      id: "swap-shop",
+      name: "Swap shop",
+      hit: swapShopHits(normalized).length > 0,
+      hitDetail: "",
+      missDetail: "No adjacent swap of two different letters is another dictionary word.",
+    },
+    {
       id: "alphabet-twins",
       name: "Alphabet twins",
       hit: alphabetTwins !== null,
@@ -652,6 +660,34 @@ export function scoreWord(word: string): ScoredWord {
       }
       continue;
     }
+    if (factor.id === "swap-shop") {
+      const hits = swapShopHits(normalized);
+      if (hits.length === 0) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: factor.missDetail,
+          points: null,
+          scored: false,
+        });
+        continue;
+      }
+      for (const hit of hits) {
+        const next = running * multiplier;
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${multiplier}`,
+          detail: `Swapping those two spells ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          points: multiplier,
+          scored: true,
+          match: hit.word,
+          highlight: [hit.index, hit.index + 1],
+          reason: `Swapping those two spells ${hit.word}.`,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (factor.id === "anagram") {
       const hits = anagramsOf(normalized);
       if (hits.length === 0) {
@@ -814,6 +850,26 @@ function originFactors(word: string): Array<{
       missDetail: "Wiktionary has no usable Chinese or Japanese origin for this word.",
     },
   ];
+}
+
+export type SwapShopHit = { index: number; word: string };
+
+/** Adjacent transpositions of two different letters that spell another ENABLE word. */
+export function swapShopHits(word: string): SwapShopHit[] {
+  const letters = [...word];
+  const hits: SwapShopHit[] = [];
+  for (let index = 0; index < letters.length - 1; index += 1) {
+    const left = letters[index];
+    const right = letters[index + 1];
+    if (left === undefined || right === undefined || left === right) continue;
+    const swapped = letters.slice();
+    swapped[index] = right;
+    swapped[index + 1] = left;
+    const next = swapped.join("");
+    if (next === word || !ENABLE_WORDS.has(next)) continue;
+    hits.push({ index, word: next });
+  }
+  return hits;
 }
 
 export function anagramsOf(word: string): string[] {
