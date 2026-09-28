@@ -13,7 +13,10 @@ export default async function VerifyLoginPage({
 }) {
   const { token = "" } = await searchParams
   const state = await loginLinkState(await appDb(), token)
-  if (state !== "ok") redirect(`/login?error=${state}`)
+  if (state !== "ok") {
+    const params = new URLSearchParams({ login: "1", error: state })
+    redirect(`/?${params.toString()}`)
+  }
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-10">

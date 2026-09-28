@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { AccountProvider } from "@/components/account-provider";
+import { LoginDialogProvider } from "@/components/login-dialog";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}
     >
       <body className="min-h-dvh bg-background text-foreground">
-        <AccountProvider>{children}</AccountProvider>
+        <AccountProvider>
+          <LoginDialogProvider>{children}</LoginDialogProvider>
+        </AccountProvider>
       </body>
     </html>
   );

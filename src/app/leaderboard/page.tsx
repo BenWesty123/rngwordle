@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LoginPrompt } from "@/components/login-dialog"
 import { SiteHeader } from "@/components/site-header"
 import { appDb } from "@/lib/app-db"
 import { formatScore, listBoard, parseBoardView, type BoardView } from "@/lib/accounts"
@@ -106,9 +107,9 @@ export default async function LeaderboardPage({
             </>
           ) : (
             <>
-              <Link href="/login" className="text-foreground underline-offset-4 hover:underline">
+              <LoginPrompt className="cursor-pointer text-foreground underline-offset-4 hover:underline">
                 Log in
-              </Link>{" "}
+              </LoginPrompt>{" "}
               and pick a username to open a friends board.
             </>
           )}

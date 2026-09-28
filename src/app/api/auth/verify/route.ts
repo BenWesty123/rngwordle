@@ -12,7 +12,8 @@ export async function POST(request: Request) {
   const origin = publicOrigin(request)
   const secure = origin.startsWith("https:")
   if ("error" in result) {
-    const login = new URL("/login", origin)
+    const login = new URL("/", origin)
+    login.searchParams.set("login", "1")
     login.searchParams.set("error", result.error)
     return NextResponse.redirect(login, 303)
   }

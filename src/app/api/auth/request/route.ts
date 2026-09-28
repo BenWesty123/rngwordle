@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const db = await appDb()
   if (await loginLinkSentRecently(db, normalized)) {
-    return NextResponse.json(inCloudflareWorker() ? { ok: true } : { ok: true, dev: true })
+    return NextResponse.json({ ok: true, limited: true })
   }
 
   const created = await createLoginLink(db, normalized)

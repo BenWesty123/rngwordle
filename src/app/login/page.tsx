@@ -1,4 +1,4 @@
-import { LoginScreen } from "@/components/login-screen"
+import { redirect } from "next/navigation"
 
 export default async function LoginPage({
   searchParams,
@@ -6,5 +6,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>
 }) {
   const { error } = await searchParams
-  return <LoginScreen errorCode={error} />
+  const params = new URLSearchParams({ login: "1" })
+  if (error) params.set("error", error)
+  redirect(`/?${params.toString()}`)
 }

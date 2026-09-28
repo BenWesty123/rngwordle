@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LoginPrompt } from "@/components/login-dialog"
 import { FriendsPanel } from "@/components/friends-panel"
 import { SiteHeader } from "@/components/site-header"
 import { appDb } from "@/lib/app-db"
@@ -17,9 +18,9 @@ export default async function FriendsPage() {
       <h1 className="mt-12 font-display text-5xl leading-[0.95] tracking-tight italic sm:text-6xl">Friends</h1>
       {!account ? (
         <p className="mt-6 max-w-md text-base text-muted-foreground">
-          <Link href="/login" className="text-foreground underline-offset-4 hover:underline">
+          <LoginPrompt className="cursor-pointer text-foreground underline-offset-4 hover:underline">
             Log in
-          </Link>{" "}
+          </LoginPrompt>{" "}
           and pick a username before you add a friend.
         </p>
       ) : !account.username ? (
