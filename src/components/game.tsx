@@ -23,8 +23,8 @@ import {
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
-const TILE_REVEAL_MS = 180;
-const BOX_REVEAL_MS = 200;
+const TILE_REVEAL_MS = 460;
+const BOX_REVEAL_MS = 1450;
 
 const TIER_STYLE: Record<TierId, { badge: string; glow: string }> = {
   trash: {
@@ -454,6 +454,7 @@ function ScoreReveal({
   const reduce = useReducedMotion();
   const [letters, setLetters] = useState(0);
   const [shown, setShown] = useState(0);
+  const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
   const tileRowRef = useRef<HTMLUListElement>(null);
@@ -461,36 +462,41 @@ function ScoreReveal({
   const pileTops = useRef(new Map<string, number>());
   if (reduce && letters !== scored.tiles.length) setLetters(scored.tiles.length);
   if (reduce && shown !== steps.length) setShown(steps.length);
+  if (reduce && settled !== steps.length) setSettled(steps.length);
   const visibleLetters = reduce ? scored.tiles.length : letters;
   const visible = reduce ? steps.length : shown;
   const baseDone = visibleLetters >= scored.tiles.length;
-  const done = baseDone && visible >= steps.length;
+  const done = baseDone && settled >= steps.length;
   const tileTarget = scored.tiles.slice(0, visibleLetters).reduce((sum, tile) => sum + tile.value, 0);
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, visible - 1));
   const target = baseDone ? runningTotal(scored.tileSum, steps, visible) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
-  const currentStep = baseDone && visible > 0 && visible <= steps.length ? (steps[visible - 1] ?? null) : null;
+  const currentStep = baseDone && visible > settled ? (steps[visible - 1] ?? null) : null;
   const addedTile = !baseDone && visibleLetters > 0 ? scored.tiles[visibleLetters - 1] : null;
 
   useLayoutEffect(() => {
     if (reduce) return;
     const tiles = tilesRef.current;
     if (tiles.length === 0) return;
-    let count = 1;
-    setLetters(1);
-    playLetterPoints(tiles[0]?.value ?? 0, 0);
-    if (tiles.length === 1) return;
+    let heard = 0;
     const id = window.setInterval(() => {
       const pile = tilesRef.current;
-      const tile = pile[count];
-      const runningBefore = pile.slice(0, count).reduce((sum, item) => sum + item.value, 0);
+      if (heard >= pile.length) {
+        window.clearInterval(id);
+        return;
+      }
+      const tile = pile[heard];
+      const runningBefore = pile.slice(0, heard).reduce((sum, item) => sum + item.value, 0);
       if (tile) playLetterPoints(tile.value, runningBefore);
-      count += 1;
-      setLetters(count);
-      if (count >= pile.length) window.clearInterval(id);
+      heard += 1;
+      setLetters(heard);
+      if (heard >= pile.length) window.clearInterval(id);
     }, TILE_REVEAL_MS);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      stopScoreAudio();
+    };
   }, [reduce, scored.tiles.length]);
 
   useLayoutEffect(() => {
@@ -505,17 +511,18 @@ function ScoreReveal({
       playVerdict();
       return;
     }
-    let count = 0;
+    let heard = 0;
     const id = window.setInterval(() => {
       const boxes = stepsRef.current;
-      if (count >= boxes.length) {
-        window.clearInterval(id);
+      if (heard < boxes.length) {
+        playMultiplier(heard);
+        heard += 1;
+        setShown(heard);
+        setSettled(heard - 1);
         return;
       }
-      playMultiplier(count);
-      count += 1;
-      setShown(count);
-      if (count >= boxes.length) window.clearInterval(id);
+      setSettled(boxes.length);
+      window.clearInterval(id);
     }, BOX_REVEAL_MS);
     return () => {
       window.clearInterval(id);
@@ -564,7 +571,7 @@ function ScoreReveal({
     let start = 0;
     const tick = (now: number) => {
       if (start === 0) start = now;
-      const t = Math.min(1, (now - start) / (baseDone ? BOX_REVEAL_MS : TILE_REVEAL_MS));
+      const t = Math.min(1, (now - start) / (baseDone ? 700 : 280));
       const eased = 1 - (1 - t) ** 3;
       const next = Math.round(from + (target - from) * eased);
       displayRef.current = next;
