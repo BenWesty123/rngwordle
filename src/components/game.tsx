@@ -449,16 +449,15 @@ function useLetterReveal(word: string, replayKey: number, hold: boolean): number
 function RevealedWord({ word, count, className }: { word: string; count: number; className: string }) {
   return (
     <h1
-      className={cn(
-        "mt-4 flex max-w-full flex-wrap justify-center font-display leading-none tracking-tight italic",
-        className,
-      )}
+      className={cn("mt-4 w-full text-center font-display leading-none tracking-tight italic", className)}
       aria-label={word}
       data-revealed={count}
     >
-      <span aria-hidden="true" className="inline-flex max-w-full flex-wrap justify-center">
+      <span aria-hidden="true" className="flex w-full flex-wrap justify-center">
         {[...word].map((letter, index) => (
-          <span key={index} className="letter-slot" data-letter={letter} data-shown={index < count ? "true" : "false"} />
+          <span key={index} className={cn("letter-slot", index < count ? "letter-in" : "letter-pending")}>
+            {letter}
+          </span>
         ))}
       </span>
     </h1>
