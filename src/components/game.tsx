@@ -8,7 +8,7 @@ import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary } from "@/lib/dictionary";
-import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
+import { armScoreAudio, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { scoreWord, type LedgerRow } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -23,7 +23,7 @@ import {
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
-const LETTER_REVEAL_MS = 90;
+const BOX_REVEAL_MS = 200;
 
 const TIER_STYLE: Record<TierId, { badge: string; glow: string }> = {
   trash: {
@@ -348,8 +348,6 @@ function Result({
   rollError: string | null;
 }) {
   const spinning = spinWord !== null;
-  const shown = spinWord ?? scored.word;
-  const revealed = useLetterReveal(scored.word, replayKey, spinning);
   const share = buildShareText({
     date: roll.date,
     scored,
@@ -360,22 +358,20 @@ function Result({
 
   return (
     <div className="flex flex-1 flex-col pt-12 sm:pt-16">
-      <p className="text-center text-sm text-muted-foreground">
+      <h1 className="text-center text-sm text-muted-foreground">
         {spinning ? "Shuffling the tiles…" : daily ? "Today's saved roll" : "Your word"}
-      </p>
+      </h1>
       {spinning ? (
         <p
           aria-hidden
           className={cn(
             "mt-4 text-center font-display leading-none tracking-tight break-all italic",
-            wordSize(shown.length),
+            wordSize(spinWord.length),
           )}
         >
-          {shown}
+          {spinWord}
         </p>
-      ) : (
-        <RevealedWord word={scored.word} count={revealed} className={wordSize(scored.word.length)} />
-      )}
+      ) : null}
 
       {!spinning ? <WordDefinition word={scored.word} /> : null}
       {rollError ? (
@@ -388,7 +384,6 @@ function Result({
         <ScoreReveal
           key={`${scored.word}-${replayKey}`}
           scored={scored}
-          revealed={revealed}
           share={share}
           copied={copied}
           copyError={copyError}
@@ -410,57 +405,6 @@ function useReducedMotion(): boolean {
     subscribeReducedMotion,
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     () => false,
-  );
-}
-
-function useLetterReveal(word: string, replayKey: number, hold: boolean): number {
-  const reduce = useReducedMotion();
-  const key = `${replayKey}:${word}`;
-  const [state, setState] = useState({ key: "", count: 0 });
-  const finishedKey = useRef("");
-  if (!hold && (state.key !== key || (reduce && state.count !== word.length))) {
-    setState({ key, count: reduce ? word.length : 0 });
-  }
-  const count = hold || state.key !== key ? 0 : state.count;
-
-  useLayoutEffect(() => {
-    if (hold) return;
-    if (reduce || word.length === 0) {
-      finishedKey.current = key;
-      return;
-    }
-    if (finishedKey.current === key) return;
-    let shown = 0;
-    const id = window.setInterval(() => {
-      shown += 1;
-      const next = Math.min(shown, word.length);
-      setState({ key, count: next });
-      if (next >= word.length) {
-        finishedKey.current = key;
-        window.clearInterval(id);
-      }
-    }, LETTER_REVEAL_MS);
-    return () => window.clearInterval(id);
-  }, [hold, reduce, key, word.length]);
-
-  return reduce && !hold ? word.length : count;
-}
-
-function RevealedWord({ word, count, className }: { word: string; count: number; className: string }) {
-  return (
-    <h1
-      className={cn("mt-4 w-full text-center font-display leading-none tracking-tight italic", className)}
-      aria-label={word}
-      data-revealed={count}
-    >
-      <span aria-hidden="true" className="flex w-full flex-wrap justify-center">
-        {[...word].map((letter, index) => (
-          <span key={index} className={cn("letter-slot", index < count ? "letter-in" : "letter-pending")}>
-            {letter}
-          </span>
-        ))}
-      </span>
-    </h1>
   );
 }
 
@@ -492,14 +436,12 @@ function WordDefinition({ word }: { word: string }) {
 
 function ScoreReveal({
   scored,
-  revealed,
   share,
   copied,
   copyError,
   onCopy,
 }: {
   scored: ReturnType<typeof scoreWord>;
-  revealed: number;
   share: string;
   copied: boolean;
   copyError: boolean;
@@ -507,90 +449,74 @@ function ScoreReveal({
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
   const stepsRef = useRef(steps);
-  const tilesRef = useRef(scored.tiles);
-  const [letters, setLetters] = useState(0);
-  const [applied, setApplied] = useState(0);
-  const [settled, setSettled] = useState(0);
-  const [display, setDisplay] = useState(0);
-  const displayRef = useRef(0);
+  const reduce = useReducedMotion();
+  const [shown, setShown] = useState(0);
+  const finished = useRef(false);
+  const [display, setDisplay] = useState(scored.tileSum);
+  const displayRef = useRef(scored.tileSum);
   const pileRef = useRef<HTMLOListElement>(null);
   const pileTops = useRef(new Map<string, number>());
-  const baseDone = letters >= scored.tiles.length;
-  const done = baseDone && settled >= steps.length;
-  const tileTarget = scored.tiles.slice(0, letters).reduce((sum, tile) => sum + tile.value, 0);
-  const target = baseDone ? runningTotal(scored.tileSum, steps, applied) : tileTarget;
+  if (reduce && shown !== steps.length) setShown(steps.length);
+  const visible = reduce ? steps.length : shown;
+  const done = visible >= steps.length;
+  const previous = runningTotal(scored.tileSum, steps, Math.max(0, visible - 1));
+  const target = runningTotal(scored.tileSum, steps, visible);
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
-  const activeStep = baseDone && applied > settled ? (steps[applied - 1] ?? null) : null;
+  const currentStep = visible > 0 && visible <= steps.length ? (steps[visible - 1] ?? null) : null;
 
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const heard = { current: 0 };
+  useLayoutEffect(() => {
+    if (reduce) {
+      finished.current = true;
+      return;
+    }
+    if (finished.current) return;
+    const tier = standingFor(scored.total).tier.id;
+    const pending = stepsRef.current;
+    prepareMultiplierScore(
+      pending.map((step) => step.points ?? 0),
+      tier,
+    );
+    if (pending.length === 0) {
+      playVerdict();
+      finished.current = true;
+      return;
+    }
+    let count = 0;
     const id = window.setInterval(() => {
-      const current = heard.current;
-      if (current >= tilesRef.current.length) {
+      const boxes = stepsRef.current;
+      if (count >= boxes.length) {
+        finished.current = true;
         window.clearInterval(id);
         return;
       }
-      const tiles = tilesRef.current;
-      const tile = tiles[current];
-      const runningBefore = tiles.slice(0, current).reduce((sum, item) => sum + item.value, 0);
-      if (tile && !reduce) playLetterPoints(tile.value, runningBefore);
-      heard.current = current + 1;
-      setLetters(heard.current);
-      if (heard.current >= tiles.length) window.clearInterval(id);
-    }, 460);
+      playMultiplier(count);
+      count += 1;
+      setShown(count);
+      if (count >= boxes.length) {
+        finished.current = true;
+        window.clearInterval(id);
+      }
+    }, BOX_REVEAL_MS);
     return () => {
       window.clearInterval(id);
       stopScoreAudio();
     };
-  }, [scored.tiles.length, steps.length]);
-
-  useEffect(() => {
-    if (!baseDone) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const tier = standingFor(scored.total).tier.id;
-    if (!reduce) {
-      prepareMultiplierScore(
-        stepsRef.current.map((step) => step.points ?? 0),
-        tier,
-      );
-    }
-    if (steps.length === 0) {
-      if (!reduce) playVerdict();
-      return;
-    }
-    const heard = { current: 0 };
-    const id = window.setInterval(() => {
-      const pending = stepsRef.current;
-      const current = heard.current;
-      if (current < pending.length) {
-        if (!reduce) playMultiplier(current);
-        heard.current = current + 1;
-        setApplied(heard.current);
-        setSettled(current);
-        return;
-      }
-      setSettled(pending.length);
-      window.clearInterval(id);
-    }, 1450);
-    return () => window.clearInterval(id);
-  }, [baseDone, scored.total, steps.length]);
+  }, [reduce, scored.total, steps.length]);
 
   useLayoutEffect(() => {
     const list = pileRef.current;
     if (!list) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const next = new Map<string, number>();
     for (const item of [...list.children]) {
       if (!(item instanceof HTMLElement)) continue;
       const key = item.dataset.pileKey;
       if (!key) continue;
       const top = item.getBoundingClientRect().top;
-      const previous = pileTops.current.get(key);
+      const earlier = pileTops.current.get(key);
       next.set(key, top);
-      if (reduce || previous == null) continue;
-      const delta = previous - top;
+      if (reduce || earlier == null) continue;
+      const delta = earlier - top;
       if (Math.abs(delta) < 0.5) continue;
       item.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], {
         duration: 450,
@@ -598,7 +524,7 @@ function ScoreReveal({
       });
     }
     pileTops.current = next;
-  }, [applied]);
+  }, [visible, reduce]);
 
   useEffect(() => {
     const from = displayRef.current;
@@ -607,7 +533,7 @@ function ScoreReveal({
     let start = 0;
     const tick = (now: number) => {
       if (start === 0) start = now;
-      const t = Math.min(1, (now - start) / (baseDone ? 700 : 280));
+      const t = Math.min(1, (now - start) / BOX_REVEAL_MS);
       const eased = 1 - (1 - t) ** 3;
       const next = Math.round(from + (target - from) * eased);
       displayRef.current = next;
@@ -616,12 +542,7 @@ function ScoreReveal({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [target, baseDone]);
-
-  const previous = runningTotal(scored.tileSum, steps, Math.max(0, applied - 1));
-  const currentStep = activeStep;
-  const addedTile = applied === 0 && letters > 0 && letters <= revealed ? scored.tiles[letters - 1] : null;
-  const wordShown = revealed >= scored.word.length;
+  }, [target]);
 
   return (
     <>
@@ -632,57 +553,27 @@ function ScoreReveal({
           tone.glow,
         )}
       />
-      <ul className="mt-6 flex flex-wrap justify-center gap-1.5" aria-label="Scrabble tiles">
-        {scored.tiles.map((tile, index) => {
-          const face = index < revealed;
-          return (
-            <li
-              key={`${tile.letter}-${index}`}
-              className={cn(
-                "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase transition-opacity duration-300",
-                scored.length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
-                tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
-                tile.twin && "ring-1 ring-foreground/30 ring-inset",
-                index >= letters && "opacity-30",
-                face && index === letters - 1 && applied === 0 && "score-rise ring-1 ring-amber-200/80",
-              )}
-              title={face ? (tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined) : undefined}
-            >
-              {face ? tile.letter : ""}
-              {face ? (
-                <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
 
       <div className="mt-8 text-center">
         <p className="sr-only">Score</p>
-        <p key={`${letters}-${applied}`} className={cn("score-rise font-mono tabular-nums", scoreSize(display))}>
+        <p key={visible} className={cn("score-rise font-mono tabular-nums", scoreSize(display))}>
           {display.toLocaleString("en-US")}
         </p>
         <p className="mt-3 text-sm text-foreground" aria-live="polite">
-          {currentStep
+          {currentStep && !done
             ? currentStep.name
-            : addedTile
-              ? `${addedTile.letter.toUpperCase()} adds ${addedTile.value}`
-              : done
-                ? steps.length > 0
-                  ? "Every multiplier that hit"
-                  : "No multiplier hit"
-                : baseDone
-                  ? "The base, before any multiplier."
-                  : "Scrabble tiles"}
+            : done
+              ? steps.length > 0
+                ? "Every multiplier that hit"
+                : "No multiplier hit"
+              : "The base, before any multiplier."}
         </p>
         <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
-          {currentStep
+          {currentStep && !done
             ? `${previous.toLocaleString("en-US")} × ${currentStep.points} = ${target.toLocaleString("en-US")}`
             : done
               ? ""
-              : baseDone
-                ? "The base, before any multiplier."
-                : "Adding the letter scores."}
+              : "The base, before any multiplier."}
         </p>
         <p
           className={cn(
@@ -697,32 +588,30 @@ function ScoreReveal({
         </p>
       </div>
 
-      {baseDone && wordShown ? (
-        <section className="mt-8" aria-label="Multipliers">
-          {applied > 0 ? (
-            <ol ref={pileRef} className="card-pile flex flex-col gap-2">
-              {steps
-                .slice(0, applied)
-                .map((row, stepIndex) => ({ row, stepIndex }))
-                .reverse()
-                .map(({ row, stepIndex }) => {
-                  const isNewest = stepIndex === applied - 1;
-                  return (
-                    <li
-                      key={`${row.id}-${stepIndex}`}
-                      data-pile-key={`${row.id}-${stepIndex}`}
-                      className={cn("relative", isNewest && "z-10")}
-                    >
-                      <MultiplierCard word={scored.word} row={row} featured={isNewest} revealed={revealed} />
-                    </li>
-                  );
-                })}
-            </ol>
-          ) : null}
-        </section>
-      ) : null}
+      <section className="mt-8" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
+        {visible > 0 ? (
+          <ol ref={pileRef} className="card-pile flex flex-col gap-2">
+            {steps
+              .slice(0, visible)
+              .map((row, stepIndex) => ({ row, stepIndex }))
+              .reverse()
+              .map(({ row, stepIndex }) => {
+                const isNewest = stepIndex === visible - 1;
+                return (
+                  <li
+                    key={`${row.id}-${stepIndex}`}
+                    data-pile-key={`${row.id}-${stepIndex}`}
+                    className={cn("relative", isNewest && "z-10")}
+                  >
+                    <MultiplierCard word={scored.word} row={row} featured={isNewest} />
+                  </li>
+                );
+              })}
+          </ol>
+        ) : null}
+      </section>
 
-      {done && wordShown ? (
+      {done ? (
         <section className="row-in mt-10" aria-label="Share">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Share</h2>
@@ -745,19 +634,8 @@ function ScoreReveal({
   );
 }
 
-function MultiplierCard({
-  word,
-  row,
-  featured = false,
-  revealed,
-}: {
-  word: string;
-  row: LedgerRow;
-  featured?: boolean;
-  revealed: number;
-}) {
+function MultiplierCard({ word, row, featured = false }: { word: string; row: LedgerRow; featured?: boolean }) {
   const lit = new Set(row.highlight ?? []);
-  const shown = [...word].map((letter, index) => (index < revealed ? letter : " ")).join("");
   return (
     <article
       className={cn(
@@ -771,17 +649,13 @@ function MultiplierCard({
           "flex flex-wrap justify-center gap-x-0.5 font-display tracking-tight",
           featured ? "text-3xl" : "text-xl",
         )}
-        aria-label={revealed >= word.length ? word : shown.trim()}
+        aria-label={word}
       >
-        {[...word].map((letter, index) =>
-          index < revealed ? (
-            <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
-              {letter}
-            </span>
-          ) : (
-            <span key={index} className="inline-block min-w-[0.55em]" aria-hidden="true" />
-          ),
-        )}
+        {[...word].map((letter, index) => (
+          <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
+            {letter}
+          </span>
+        ))}
       </p>
       <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
       {row.reason ? (
