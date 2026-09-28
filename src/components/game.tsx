@@ -8,8 +8,8 @@ import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary } from "@/lib/dictionary";
-import { armScoreAudio, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
-import { scoreWord, type LedgerRow } from "@/lib/scoring";
+import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
+import { scoreWord, type LedgerRow, type Tile } from "@/lib/scoring";
 import { buildShareText, formatBeaten } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
 import {
@@ -23,6 +23,7 @@ import {
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
+const TILE_REVEAL_MS = 180;
 const BOX_REVEAL_MS = 200;
 
 const TIER_STYLE: Record<TierId, { badge: string; glow: string }> = {
@@ -449,28 +450,51 @@ function ScoreReveal({
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
   const stepsRef = useRef(steps);
+  const tilesRef = useRef(scored.tiles);
   const reduce = useReducedMotion();
+  const [letters, setLetters] = useState(0);
   const [shown, setShown] = useState(0);
-  const finished = useRef(false);
-  const [display, setDisplay] = useState(scored.tileSum);
-  const displayRef = useRef(scored.tileSum);
+  const [display, setDisplay] = useState(0);
+  const displayRef = useRef(0);
+  const tileRowRef = useRef<HTMLUListElement>(null);
   const pileRef = useRef<HTMLOListElement>(null);
   const pileTops = useRef(new Map<string, number>());
+  if (reduce && letters !== scored.tiles.length) setLetters(scored.tiles.length);
   if (reduce && shown !== steps.length) setShown(steps.length);
+  const visibleLetters = reduce ? scored.tiles.length : letters;
   const visible = reduce ? steps.length : shown;
-  const done = visible >= steps.length;
+  const baseDone = visibleLetters >= scored.tiles.length;
+  const done = baseDone && visible >= steps.length;
+  const tileTarget = scored.tiles.slice(0, visibleLetters).reduce((sum, tile) => sum + tile.value, 0);
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, visible - 1));
-  const target = runningTotal(scored.tileSum, steps, visible);
+  const target = baseDone ? runningTotal(scored.tileSum, steps, visible) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
-  const currentStep = visible > 0 && visible <= steps.length ? (steps[visible - 1] ?? null) : null;
+  const currentStep = baseDone && visible > 0 && visible <= steps.length ? (steps[visible - 1] ?? null) : null;
+  const addedTile = !baseDone && visibleLetters > 0 ? scored.tiles[visibleLetters - 1] : null;
 
   useLayoutEffect(() => {
-    if (reduce) {
-      finished.current = true;
-      return;
-    }
-    if (finished.current) return;
+    if (reduce) return;
+    const tiles = tilesRef.current;
+    if (tiles.length === 0) return;
+    let count = 1;
+    setLetters(1);
+    playLetterPoints(tiles[0]?.value ?? 0, 0);
+    if (tiles.length === 1) return;
+    const id = window.setInterval(() => {
+      const pile = tilesRef.current;
+      const tile = pile[count];
+      const runningBefore = pile.slice(0, count).reduce((sum, item) => sum + item.value, 0);
+      if (tile) playLetterPoints(tile.value, runningBefore);
+      count += 1;
+      setLetters(count);
+      if (count >= pile.length) window.clearInterval(id);
+    }, TILE_REVEAL_MS);
+    return () => window.clearInterval(id);
+  }, [reduce, scored.tiles.length]);
+
+  useLayoutEffect(() => {
+    if (reduce || !baseDone) return;
     const tier = standingFor(scored.total).tier.id;
     const pending = stepsRef.current;
     prepareMultiplierScore(
@@ -479,32 +503,34 @@ function ScoreReveal({
     );
     if (pending.length === 0) {
       playVerdict();
-      finished.current = true;
       return;
     }
     let count = 0;
     const id = window.setInterval(() => {
       const boxes = stepsRef.current;
       if (count >= boxes.length) {
-        finished.current = true;
         window.clearInterval(id);
         return;
       }
       playMultiplier(count);
       count += 1;
       setShown(count);
-      if (count >= boxes.length) {
-        finished.current = true;
-        window.clearInterval(id);
-      }
+      if (count >= boxes.length) window.clearInterval(id);
     }, BOX_REVEAL_MS);
     return () => {
       window.clearInterval(id);
       stopScoreAudio();
     };
-  }, [reduce, scored.total, steps.length]);
+  }, [baseDone, reduce, scored.total, steps.length]);
 
   useLayoutEffect(() => {
+    const row = tileRowRef.current;
+    if (row && visibleLetters > 0) {
+      const rect = row.getBoundingClientRect();
+      if (rect.top < 8 || rect.bottom > window.innerHeight - 8) {
+        row.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
     const list = pileRef.current;
     if (!list) return;
     const next = new Map<string, number>();
@@ -524,23 +550,21 @@ function ScoreReveal({
       });
     }
     pileTops.current = next;
-    const wordLine = list.querySelector("article p");
-    if (!(wordLine instanceof HTMLElement)) return;
-    const rect = wordLine.getBoundingClientRect();
-    const margin = 8;
-    if (rect.top < margin || rect.bottom > window.innerHeight - margin) {
-      wordLine.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
-  }, [visible, reduce]);
+  }, [visibleLetters, visible, reduce]);
 
   useEffect(() => {
+    if (reduce) {
+      displayRef.current = scored.total;
+      setDisplay(scored.total);
+      return;
+    }
     const from = displayRef.current;
     if (from === target) return;
     let frame = 0;
     let start = 0;
     const tick = (now: number) => {
       if (start === 0) start = now;
-      const t = Math.min(1, (now - start) / BOX_REVEAL_MS);
+      const t = Math.min(1, (now - start) / (baseDone ? BOX_REVEAL_MS : TILE_REVEAL_MS));
       const eased = 1 - (1 - t) ** 3;
       const next = Math.round(from + (target - from) * eased);
       displayRef.current = next;
@@ -549,7 +573,7 @@ function ScoreReveal({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [target]);
+  }, [target, reduce, baseDone, scored.total]);
 
   return (
     <>
@@ -561,19 +585,40 @@ function ScoreReveal({
         )}
       />
 
+      <ul
+        ref={tileRowRef}
+        className="mt-3 flex flex-wrap justify-center gap-1.5"
+        aria-label="Scrabble tiles"
+        data-tiles={visibleLetters}
+        data-tile-count={scored.tiles.length}
+      >
+        {scored.tiles.slice(0, visibleLetters).map((tile, index) => (
+          <TileBox
+            key={`${tile.letter}-${index}`}
+            tile={tile}
+            length={scored.length}
+            fresh={index === visibleLetters - 1 && !baseDone}
+          />
+        ))}
+      </ul>
+
       <div className="mt-3 text-center">
         <p className="sr-only">Score</p>
-        <p key={visible} className={cn("score-rise font-mono tabular-nums leading-none", scoreSize(display))}>
+        <p key={`${visibleLetters}-${visible}`} className={cn("score-rise font-mono tabular-nums leading-none", scoreSize(display))}>
           {display.toLocaleString("en-US")}
         </p>
         <p className="mt-2 text-sm text-foreground" aria-live="polite">
           {currentStep && !done
             ? currentStep.name
-            : done
-              ? steps.length > 0
-                ? "Every multiplier that hit"
-                : "No multiplier hit"
-              : "The base, before any multiplier."}
+            : addedTile
+              ? `${addedTile.letter.toUpperCase()} adds ${addedTile.value}`
+              : done
+                ? steps.length > 0
+                  ? "Every multiplier that hit"
+                  : "No multiplier hit"
+                : baseDone
+                  ? "The base, before any multiplier."
+                  : "Scrabble tiles"}
         </p>
         {currentStep && !done ? (
           <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
@@ -594,7 +639,7 @@ function ScoreReveal({
       </div>
 
       <section className="mt-3" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
-        {visible > 0 ? (
+        {baseDone && visible > 0 ? (
           <ol ref={pileRef} className="card-pile flex flex-col gap-2">
             {steps
               .slice(0, visible)
@@ -608,7 +653,7 @@ function ScoreReveal({
                     data-pile-key={`${row.id}-${stepIndex}`}
                     className={cn("relative", isNewest && "z-10")}
                   >
-                    <MultiplierCard word={scored.word} row={row} featured={isNewest} />
+                    <MultiplierCard tiles={scored.tiles} row={row} featured={isNewest} />
                   </li>
                 );
               })}
@@ -639,7 +684,38 @@ function ScoreReveal({
   );
 }
 
-function MultiplierCard({ word, row, featured = false }: { word: string; row: LedgerRow; featured?: boolean }) {
+function TileBox({
+  tile,
+  length,
+  lit = false,
+  fresh = false,
+}: {
+  tile: Tile;
+  length: number;
+  lit?: boolean;
+  fresh?: boolean;
+}) {
+  return (
+    <li
+      className={cn(
+        "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase",
+        length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
+        tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
+        tile.twin && "ring-1 ring-foreground/30 ring-inset",
+        lit && "bg-amber-200/25 text-amber-100",
+        fresh && "score-rise ring-1 ring-amber-200/80",
+      )}
+      title={tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined}
+      data-letter={tile.letter}
+      data-points={tile.value}
+    >
+      {tile.letter}
+      <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
+    </li>
+  );
+}
+
+function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: LedgerRow; featured?: boolean }) {
   const lit = new Set(row.highlight ?? []);
   return (
     <article
@@ -649,19 +725,11 @@ function MultiplierCard({ word, row, featured = false }: { word: string; row: Le
       )}
       aria-live={featured ? "polite" : undefined}
     >
-      <p
-        className={cn(
-          "text-center font-display leading-none tracking-tight break-words text-foreground italic",
-          cardWordSize(word.length, featured),
-        )}
-        aria-label={word}
-      >
-        {[...word].map((letter, index) => (
-          <span key={index} className={lit.has(index) ? "text-amber-100" : undefined}>
-            {letter}
-          </span>
+      <ul className="flex flex-wrap justify-center gap-1.5" aria-label={`${row.name} tiles`}>
+        {tiles.map((tile, index) => (
+          <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} lit={lit.has(index)} />
         ))}
-      </p>
+      </ul>
       <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
       {row.reason ? (
         <p className="mt-1 text-center text-xs leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
@@ -681,13 +749,6 @@ function scoreSize(total: number): string {
   if (digits <= 3) return "text-5xl sm:text-6xl";
   if (digits <= 5) return "text-4xl sm:text-5xl";
   return "text-3xl sm:text-4xl";
-}
-
-function cardWordSize(length: number, featured: boolean): string {
-  if (length > 18) return featured ? "text-3xl" : "text-2xl";
-  if (length > 12) return featured ? "text-4xl" : "text-3xl";
-  if (length > 8) return featured ? "text-5xl" : "text-4xl";
-  return featured ? "text-6xl" : "text-5xl";
 }
 
 function wordSize(length: number): string {
