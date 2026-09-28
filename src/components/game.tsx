@@ -646,13 +646,13 @@ function MultiplierCard({ word, row, featured = false }: { word: string; row: Le
     >
       <p
         className={cn(
-          "flex flex-wrap justify-center gap-x-0.5 font-display tracking-tight",
+          "text-center font-display tracking-tight text-foreground italic",
           featured ? "text-3xl" : "text-xl",
         )}
         aria-label={word}
       >
         {[...word].map((letter, index) => (
-          <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
+          <span key={index} className={lit.has(index) ? "text-amber-100" : undefined}>
             {letter}
           </span>
         ))}
