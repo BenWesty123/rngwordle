@@ -192,7 +192,7 @@ export function Game() {
   return (
     <div className="relative min-h-dvh">
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-10">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
         <SiteHeader
           trailing={
             roll && scored && standing ? (
@@ -357,7 +357,7 @@ function Result({
   });
 
   return (
-    <div className="flex flex-1 flex-col pt-12 sm:pt-16">
+    <div className="flex flex-1 flex-col pt-2">
       <h1 className="text-center text-sm text-muted-foreground">
         {spinning ? "Shuffling the tiles…" : daily ? "Today's saved roll" : "Your word"}
       </h1>
@@ -373,7 +373,6 @@ function Result({
         </p>
       ) : null}
 
-      {!spinning ? <WordDefinition word={scored.word} /> : null}
       {rollError ? (
         <p className="mt-4 text-center text-sm text-foreground" role="alert">
           {rollError}
@@ -390,6 +389,7 @@ function Result({
           onCopy={onCopy}
         />
       ) : null}
+      {!spinning ? <WordDefinition word={scored.word} /> : null}
     </div>
   );
 }
@@ -524,6 +524,13 @@ function ScoreReveal({
       });
     }
     pileTops.current = next;
+    const wordLine = list.querySelector("article p");
+    if (!(wordLine instanceof HTMLElement)) return;
+    const rect = wordLine.getBoundingClientRect();
+    const margin = 8;
+    if (rect.top < margin || rect.bottom > window.innerHeight - margin) {
+      wordLine.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
   }, [visible, reduce]);
 
   useEffect(() => {
@@ -554,12 +561,12 @@ function ScoreReveal({
         )}
       />
 
-      <div className="mt-8 text-center">
+      <div className="mt-3 text-center">
         <p className="sr-only">Score</p>
-        <p key={visible} className={cn("score-rise font-mono tabular-nums", scoreSize(display))}>
+        <p key={visible} className={cn("score-rise font-mono tabular-nums leading-none", scoreSize(display))}>
           {display.toLocaleString("en-US")}
         </p>
-        <p className="mt-3 text-sm text-foreground" aria-live="polite">
+        <p className="mt-2 text-sm text-foreground" aria-live="polite">
           {currentStep && !done
             ? currentStep.name
             : done
@@ -568,27 +575,25 @@ function ScoreReveal({
                 : "No multiplier hit"
               : "The base, before any multiplier."}
         </p>
-        <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
-          {currentStep && !done
-            ? `${previous.toLocaleString("en-US")} × ${currentStep.points} = ${target.toLocaleString("en-US")}`
-            : done
-              ? ""
-              : "The base, before any multiplier."}
-        </p>
+        {currentStep && !done ? (
+          <p className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
+            {`${previous.toLocaleString("en-US")} × ${currentStep.points} = ${target.toLocaleString("en-US")}`}
+          </p>
+        ) : null}
         <p
           className={cn(
-            "mt-4 inline-flex rounded-full border px-3 py-1 text-[11px] tracking-[0.22em] uppercase",
+            "mt-2 inline-flex rounded-full border px-3 py-1 text-[11px] tracking-[0.22em] uppercase",
             tone.badge,
           )}
         >
           {live.tier.label}
         </p>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-muted-foreground">
           Beats {formatBeaten(live.beaten)} of {live.wordCount.toLocaleString("en-US")} words
         </p>
       </div>
 
-      <section className="mt-8" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
+      <section className="mt-3" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
         {visible > 0 ? (
           <ol ref={pileRef} className="card-pile flex flex-col gap-2">
             {steps
@@ -646,8 +651,8 @@ function MultiplierCard({ word, row, featured = false }: { word: string; row: Le
     >
       <p
         className={cn(
-          "text-center font-display tracking-tight text-foreground italic",
-          featured ? "text-3xl" : "text-xl",
+          "text-center font-display leading-none tracking-tight break-words text-foreground italic",
+          cardWordSize(word.length, featured),
         )}
         aria-label={word}
       >
@@ -676,6 +681,13 @@ function scoreSize(total: number): string {
   if (digits <= 3) return "text-5xl sm:text-6xl";
   if (digits <= 5) return "text-4xl sm:text-5xl";
   return "text-3xl sm:text-4xl";
+}
+
+function cardWordSize(length: number, featured: boolean): string {
+  if (length > 18) return featured ? "text-3xl" : "text-2xl";
+  if (length > 12) return featured ? "text-4xl" : "text-3xl";
+  if (length > 8) return featured ? "text-5xl" : "text-4xl";
+  return featured ? "text-6xl" : "text-5xl";
 }
 
 function wordSize(length: number): string {
