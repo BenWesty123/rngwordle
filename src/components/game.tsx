@@ -23,6 +23,8 @@ import {
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
+const LETTER_REVEAL_MS = 90;
+
 const TIER_STYLE: Record<TierId, { badge: string; glow: string }> = {
   trash: {
     badge: "border-stone-400/30 bg-stone-400/10 text-stone-300",
@@ -347,6 +349,7 @@ function Result({
 }) {
   const spinning = spinWord !== null;
   const shown = spinWord ?? scored.word;
+  const revealed = useLetterReveal(scored.word, replayKey, spinning);
   const share = buildShareText({
     date: roll.date,
     scored,
@@ -371,14 +374,7 @@ function Result({
           {shown}
         </p>
       ) : (
-        <h1
-          className={cn(
-            "mt-4 text-center font-display leading-none tracking-tight break-all italic",
-            wordSize(shown.length),
-          )}
-        >
-          {shown}
-        </h1>
+        <RevealedWord word={scored.word} count={revealed} className={wordSize(scored.word.length)} />
       )}
 
       {!spinning ? <WordDefinition word={scored.word} /> : null}
@@ -389,18 +385,83 @@ function Result({
       ) : null}
 
       {!spinning ? (
-        <>
-          <ScoreReveal
-            key={`${scored.word}-${replayKey}`}
-            scored={scored}
-            share={share}
-            copied={copied}
-            copyError={copyError}
-            onCopy={onCopy}
-          />
-        </>
+        <ScoreReveal
+          key={`${scored.word}-${replayKey}`}
+          scored={scored}
+          revealed={revealed}
+          share={share}
+          copied={copied}
+          copyError={copyError}
+          onCopy={onCopy}
+        />
       ) : null}
     </div>
+  );
+}
+
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function useReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
+}
+
+function useLetterReveal(word: string, replayKey: number, hold: boolean): number {
+  const reduce = useReducedMotion();
+  const key = `${replayKey}:${word}`;
+  const [state, setState] = useState({ key: "", count: 0 });
+  const finishedKey = useRef("");
+  if (!hold && (state.key !== key || (reduce && state.count !== word.length))) {
+    setState({ key, count: reduce ? word.length : 0 });
+  }
+  const count = hold || state.key !== key ? 0 : state.count;
+
+  useLayoutEffect(() => {
+    if (hold) return;
+    if (reduce || word.length === 0) {
+      finishedKey.current = key;
+      return;
+    }
+    if (finishedKey.current === key) return;
+    let shown = 0;
+    const id = window.setInterval(() => {
+      shown += 1;
+      const next = Math.min(shown, word.length);
+      setState({ key, count: next });
+      if (next >= word.length) {
+        finishedKey.current = key;
+        window.clearInterval(id);
+      }
+    }, LETTER_REVEAL_MS);
+    return () => window.clearInterval(id);
+  }, [hold, reduce, key, word.length]);
+
+  return reduce && !hold ? word.length : count;
+}
+
+function RevealedWord({ word, count, className }: { word: string; count: number; className: string }) {
+  return (
+    <h1
+      className={cn(
+        "mt-4 flex max-w-full flex-wrap justify-center font-display leading-none tracking-tight italic",
+        className,
+      )}
+      aria-label={word}
+      data-revealed={count}
+    >
+      <span aria-hidden="true" className="inline-flex max-w-full flex-wrap justify-center">
+        {[...word].map((letter, index) => (
+          <span key={index} className="letter-slot" data-letter={letter} data-shown={index < count ? "true" : "false"} />
+        ))}
+      </span>
+    </h1>
   );
 }
 
@@ -432,12 +493,14 @@ function WordDefinition({ word }: { word: string }) {
 
 function ScoreReveal({
   scored,
+  revealed,
   share,
   copied,
   copyError,
   onCopy,
 }: {
   scored: ReturnType<typeof scoreWord>;
+  revealed: number;
   share: string;
   copied: boolean;
   copyError: boolean;
@@ -558,7 +621,8 @@ function ScoreReveal({
 
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, applied - 1));
   const currentStep = activeStep;
-  const addedTile = applied === 0 && letters > 0 ? scored.tiles[letters - 1] : null;
+  const addedTile = applied === 0 && letters > 0 && letters <= revealed ? scored.tiles[letters - 1] : null;
+  const wordShown = revealed >= scored.word.length;
 
   return (
     <>
@@ -570,23 +634,28 @@ function ScoreReveal({
         )}
       />
       <ul className="mt-6 flex flex-wrap justify-center gap-1.5" aria-label="Scrabble tiles">
-        {scored.tiles.map((tile, index) => (
-          <li
-            key={`${tile.letter}-${index}`}
-            className={cn(
-              "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase transition-opacity duration-300",
-              scored.length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
-              tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
-              tile.twin && "ring-1 ring-foreground/30 ring-inset",
-              index >= letters && "opacity-30",
-              index === letters - 1 && applied === 0 && "score-rise ring-1 ring-amber-200/80",
-            )}
-            title={tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined}
-          >
-            {tile.letter}
-            <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
-          </li>
-        ))}
+        {scored.tiles.map((tile, index) => {
+          const face = index < revealed;
+          return (
+            <li
+              key={`${tile.letter}-${index}`}
+              className={cn(
+                "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase transition-opacity duration-300",
+                scored.length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
+                tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
+                tile.twin && "ring-1 ring-foreground/30 ring-inset",
+                index >= letters && "opacity-30",
+                face && index === letters - 1 && applied === 0 && "score-rise ring-1 ring-amber-200/80",
+              )}
+              title={face ? (tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined) : undefined}
+            >
+              {face ? tile.letter : ""}
+              {face ? (
+                <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="mt-8 text-center">
@@ -629,7 +698,7 @@ function ScoreReveal({
         </p>
       </div>
 
-      {baseDone ? (
+      {baseDone && wordShown ? (
         <section className="mt-8" aria-label="Multipliers">
           {applied > 0 ? (
             <ol ref={pileRef} className="card-pile flex flex-col gap-2">
@@ -645,7 +714,7 @@ function ScoreReveal({
                       data-pile-key={`${row.id}-${stepIndex}`}
                       className={cn("relative", isNewest && "z-10")}
                     >
-                      <MultiplierCard word={scored.word} row={row} featured={isNewest} />
+                      <MultiplierCard word={scored.word} row={row} featured={isNewest} revealed={revealed} />
                     </li>
                   );
                 })}
@@ -654,7 +723,7 @@ function ScoreReveal({
         </section>
       ) : null}
 
-      {done ? (
+      {done && wordShown ? (
         <section className="row-in mt-10" aria-label="Share">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Share</h2>
@@ -677,8 +746,19 @@ function ScoreReveal({
   );
 }
 
-function MultiplierCard({ word, row, featured = false }: { word: string; row: LedgerRow; featured?: boolean }) {
+function MultiplierCard({
+  word,
+  row,
+  featured = false,
+  revealed,
+}: {
+  word: string;
+  row: LedgerRow;
+  featured?: boolean;
+  revealed: number;
+}) {
   const lit = new Set(row.highlight ?? []);
+  const shown = [...word].map((letter, index) => (index < revealed ? letter : " ")).join("");
   return (
     <article
       className={cn(
@@ -692,13 +772,17 @@ function MultiplierCard({ word, row, featured = false }: { word: string; row: Le
           "flex flex-wrap justify-center gap-x-0.5 font-display tracking-tight",
           featured ? "text-3xl" : "text-xl",
         )}
-        aria-label={word}
+        aria-label={revealed >= word.length ? word : shown.trim()}
       >
-        {[...word].map((letter, index) => (
-          <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
-            {letter}
-          </span>
-        ))}
+        {[...word].map((letter, index) =>
+          index < revealed ? (
+            <span key={index} className={lit.has(index) ? "text-amber-100" : "text-muted-foreground/40"}>
+              {letter}
+            </span>
+          ) : (
+            <span key={index} className="inline-block min-w-[0.55em]" aria-hidden="true" />
+          ),
+        )}
       </p>
       <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
       {row.reason ? (

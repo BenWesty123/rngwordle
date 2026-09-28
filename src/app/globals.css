@@ -179,6 +179,46 @@
   animation: card-pop 0.45s ease-out;
 }
 
+.letter-slot {
+  position: relative;
+  display: inline-block;
+  min-width: 0.42em;
+}
+
+.letter-slot::before {
+  content: attr(data-letter);
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.letter-slot[data-shown="false"]::after {
+  content: "";
+  position: absolute;
+  right: 0.06em;
+  bottom: 0.07em;
+  left: 0.06em;
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 32%, transparent);
+}
+
+.letter-slot[data-shown="true"]::after {
+  content: attr(data-letter);
+  position: absolute;
+  inset: 0;
+  animation: letter-in 160ms ease-out;
+}
+
+@keyframes letter-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.12em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .card-pile {
   overflow-anchor: none;
 }
@@ -186,7 +226,8 @@
 @media (prefers-reduced-motion: reduce) {
   .score-rise,
   .row-in,
-  .card-pop {
+  .card-pop,
+  .letter-slot[data-shown="true"]::after {
     animation: none;
   }
 }
