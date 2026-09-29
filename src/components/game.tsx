@@ -743,11 +743,47 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
           <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} lit={lit.has(index)} />
         ))}
       </ul>
-      <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
+      <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+        <span className={featured ? "text-base" : "text-sm"}>{row.name}</span>
+        {row.points != null && row.points > 1 ? (
+          <FactorBadge points={row.points} />
+        ) : null}
+      </p>
       {row.reason ? (
         <p className="mt-1 text-center text-xs leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
       ) : null}
     </article>
+  );
+}
+
+function factorRarity(points: number): "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" {
+  if (points <= 2) return "Common";
+  if (points === 3) return "Uncommon";
+  if (points <= 5) return "Rare";
+  if (points <= 8) return "Epic";
+  return "Legendary";
+}
+
+const RARITY_BADGE = {
+  Common: "border-zinc-300/40 bg-zinc-300/10 text-zinc-100",
+  Uncommon: "border-emerald-300/45 bg-emerald-300/15 text-emerald-100",
+  Rare: "border-sky-300/50 bg-sky-300/15 text-sky-100",
+  Epic: "border-violet-300/50 bg-violet-300/15 text-violet-100",
+  Legendary: "border-amber-200/60 bg-amber-200/15 text-amber-100",
+} as const;
+
+function FactorBadge({ points }: { points: number }) {
+  const label = factorRarity(points);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium",
+        RARITY_BADGE[label],
+      )}
+      data-rarity={label}
+    >
+      {label}
+    </span>
   );
 }
 
