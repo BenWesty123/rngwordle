@@ -390,7 +390,6 @@ function Result({
           onCopy={onCopy}
         />
       ) : null}
-      {!spinning ? <WordDefinition word={scored.word} /> : null}
     </div>
   );
 }
@@ -409,7 +408,7 @@ function useReducedMotion(): boolean {
   );
 }
 
-function WordDefinition({ word }: { word: string }) {
+function WordDefinition({ word, show, reduce }: { word: string; show: boolean; reduce: boolean }) {
   const [gloss, setGloss] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let cancel = false;
@@ -427,9 +426,15 @@ function WordDefinition({ word }: { word: string }) {
       cancel = true;
     };
   }, [word]);
-  if (gloss === undefined) return null;
+  if (!show || gloss === undefined) return null;
   return (
-    <p className="mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground">
+    <p
+      className={cn(
+        "mx-auto mt-4 max-w-md text-center text-sm text-pretty text-muted-foreground",
+        !reduce && "definition-in",
+      )}
+      data-definition=""
+    >
       {gloss ?? "No definition on file"}
     </p>
   );
@@ -608,6 +613,7 @@ function ScoreReveal({
           />
         ))}
       </ul>
+      <WordDefinition word={scored.word} show={baseDone} reduce={reduce} />
 
       <div className="mt-3 text-center">
         <p className="sr-only">Score</p>
