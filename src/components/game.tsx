@@ -193,7 +193,7 @@ export function Game() {
   return (
     <div className="relative min-h-dvh">
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div className="relative mx-auto flex min-h-dvh w-full flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
         <SiteHeader
           trailing={
             roll && scored && standing ? (
