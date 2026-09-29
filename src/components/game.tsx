@@ -750,7 +750,7 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
         ) : null}
       </p>
       {row.reason ? (
-        <p className="mt-1 text-center text-xs leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
+        <p className="mt-1 text-center text-sm leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
       ) : null}
     </article>
   );

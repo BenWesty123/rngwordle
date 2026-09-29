@@ -145,7 +145,10 @@ test("antics builds from an through antics, and quiz has no such run", () => {
   assert.equal(rows[0]?.points, 5);
   assert.equal(rows[0]?.match, "an, ant, anti, antic, antics");
   assert.deepEqual(rows[0]?.highlight, [0, 1, 2, 3, 4, 5]);
-  assert.equal(rows[0]?.reason, "an, ant, anti, antic, antics.");
+  assert.equal(
+    rows[0]?.reason,
+    "Prefixes that grow by one letter are all dictionary words: an, ant, anti, antic, antics.",
+  );
 
   const quiz = scoreWord("quiz");
   assert.equal(quiz.rows.find((row) => row.id === "building-blocks")?.scored, false);
@@ -218,7 +221,10 @@ test("feedback collects A through F, and a 5-letter stretch misses", () => {
   assert.equal(row?.points, FACTOR_MULTIPLIERS["letter-collector"]);
   assert.equal(row?.name, "Letter collector ×9");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6]);
-  assert.equal(row?.reason, "A–F is 6 alphabet letters in a row.");
+  assert.equal(
+    row?.reason,
+    "Neighbouring letters of the alphabet show up in any order, at least six of them. A–F is 6 alphabet letters in a row.",
+  );
   assert.equal(feedback.total, product(feedback));
   assert.deepEqual(letterCollector("FEEDBACK")?.indexes, [0, 1, 2, 3, 4, 5, 6]);
 
@@ -240,10 +246,16 @@ test("feedback collects A through F, and a 5-letter stretch misses", () => {
   assert.deepEqual(earlier.rows.find((entry) => entry.id === "letter-collector")?.highlight, [
     0, 1, 2, 3, 4, 5,
   ]);
-  assert.equal(earlier.rows.find((entry) => entry.id === "letter-collector")?.reason, "A–F is 6 alphabet letters in a row.");
+  assert.equal(
+    earlier.rows.find((entry) => entry.id === "letter-collector")?.reason,
+    "Neighbouring letters of the alphabet show up in any order, at least six of them. A–F is 6 alphabet letters in a row.",
+  );
 
   const longer = scoreWord("abcdefmnopqrst");
-  assert.equal(longer.rows.find((entry) => entry.id === "letter-collector")?.reason, "M–T is 8 alphabet letters in a row.");
+  assert.equal(
+    longer.rows.find((entry) => entry.id === "letter-collector")?.reason,
+    "Neighbouring letters of the alphabet show up in any order, at least six of them. M–T is 8 alphabet letters in a row.",
+  );
   assert.deepEqual(
     longer.rows.find((entry) => entry.id === "letter-collector")?.highlight,
     [6, 7, 8, 9, 10, 11, 12, 13],
@@ -259,7 +271,10 @@ test("hijack and first step up the alphabet, and a short or descending run misse
   assert.equal(hij?.points, FACTOR_MULTIPLIERS["alphabet-staircase"]);
   assert.equal(hij?.name, "Alphabet staircase ×6");
   assert.deepEqual(hij?.highlight, [0, 1, 2]);
-  assert.equal(hij?.reason, "HIJ is 3 letters stepping up the alphabet.");
+  assert.equal(
+    hij?.reason,
+    "Three or more letters in a row each step up to the next letter of the alphabet. HIJ is 3 letters stepping up the alphabet.",
+  );
   assert.deepEqual(alphabetStaircaseRuns("HIJACK"), [{ start: 0, end: 3 }]);
   assert.equal(hijack.total, product(hijack));
 
@@ -268,7 +283,10 @@ test("hijack and first step up the alphabet, and a short or descending run misse
   assert.equal(rst?.scored, true);
   assert.equal(rst?.points, FACTOR_MULTIPLIERS["alphabet-staircase"]);
   assert.deepEqual(rst?.highlight, [2, 3, 4]);
-  assert.equal(rst?.reason, "RST is 3 letters stepping up the alphabet.");
+  assert.equal(
+    rst?.reason,
+    "Three or more letters in a row each step up to the next letter of the alphabet. RST is 3 letters stepping up the alphabet.",
+  );
   assert.deepEqual(alphabetStaircaseRuns("first"), [{ start: 2, end: 5 }]);
 
   const fed = scoreWord("fed");
@@ -288,7 +306,7 @@ test("hijack and first step up the alphabet, and a short or descending run misse
   const longer = scoreWord("overstuff");
   assert.equal(
     longer.rows.find((entry) => entry.id === "alphabet-staircase")?.reason,
-    "RSTU is 4 letters stepping up the alphabet.",
+    "Three or more letters in a row each step up to the next letter of the alphabet. RSTU is 4 letters stepping up the alphabet.",
   );
   assert.deepEqual(longer.rows.find((entry) => entry.id === "alphabet-staircase")?.highlight, [
     3, 4, 5, 6,
@@ -301,7 +319,7 @@ test("hijack and first step up the alphabet, and a short or descending run misse
   ]);
   assert.equal(
     both.rows.find((entry) => entry.id === "alphabet-staircase")?.reason,
-    "HIJ and XYZ step up the alphabet.",
+    "Three or more letters in a row each step up to the next letter of the alphabet. HIJ and XYZ step up the alphabet.",
   );
 });
 
@@ -366,7 +384,10 @@ test("banana and silicon split into element symbols, and jazz does not", () => {
     assert.equal(rows[0]?.points, 2);
     assert.equal(rows[0]?.points, FACTOR_MULTIPLIERS["periodic-spelling"]);
     assert.equal(rows[0]?.name, "Periodic spelling ×2");
-    assert.equal(rows[0]?.reason, `Segmented into ${partition}.`);
+    assert.equal(
+      rows[0]?.reason,
+      `The whole word splits into chemical element symbols: ${partition}.`,
+    );
     assert.deepEqual(
       rows[0]?.highlight,
       Array.from({ length: word.length }, (_, index) => index),
@@ -544,12 +565,18 @@ test("alphabet twins share a letter set with different counts", () => {
   assert.equal(row?.scored, true);
   assert.equal(row?.points, 2);
   assert.equal(row?.name, "Alphabet twins ×2");
-  assert.equal(row?.reason, "ban, nab.");
+  assert.equal(
+    row?.reason,
+    "Another word uses these same letters, but not the same number of each. ban, nab.",
+  );
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
 
   const tone = scoreWord("tone");
   const toneRow = tone.rows.find((entry) => entry.id === "alphabet-twins");
-  const tonePartners = (toneRow?.reason ?? "").replace(/\.$/, "").split(", ");
+  const tonePartners = (toneRow?.reason ?? "")
+    .replace(/^.*\. /, "")
+    .replace(/\.$/, "")
+    .split(", ");
   assert.equal(toneRow?.scored, true);
   assert.ok(tonePartners.includes("nonet"));
   assert.equal(tonePartners.includes("note"), false);
@@ -557,7 +584,10 @@ test("alphabet twins share a letter set with different counts", () => {
 
   const start = scoreWord("start");
   const startRow = start.rows.find((entry) => entry.id === "alphabet-twins");
-  assert.match(startRow?.reason ?? "", /^arts, attars, ratatats, rats, satara, sataras, star, stars, and 10 more\.$/);
+  assert.match(
+    startRow?.reason ?? "",
+    /^Another word uses these same letters, but not the same number of each\. arts, attars, ratatats, rats, satara, sataras, star, stars, and 10 more\.$/,
+  );
 
   assert.equal(scoreWord("quiz").rows.find((entry) => entry.id === "alphabet-twins")?.scored, false);
 });
@@ -568,7 +598,7 @@ test("inside out moves the first letter to the end", () => {
   assert.equal(row?.scored, true);
   assert.equal(row?.points, 7);
   assert.equal(row?.name, "Inside out ×7");
-  assert.equal(row?.reason, "tables.");
+  assert.equal(row?.reason, "Move the first letter to the end and you get another word: tables.");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
 
   assert.equal(scoreWord("book").rows.find((entry) => entry.id === "inside-out")?.scored, false);
@@ -582,7 +612,7 @@ test("shrinking word follows a deletion chain of at least 5", () => {
   assert.equal(row?.scored, true);
   assert.equal(row?.points, 4);
   assert.equal(row?.name, "Shrinking word ×4");
-  assert.equal(row?.reason, chain);
+  assert.equal(row?.reason, `Each step deletes one letter and is still a dictionary word. ${chain}`);
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const steps = chain.split(" → ");
   assert.ok(steps.length >= 5);
@@ -613,7 +643,10 @@ test("front or back needs both trimmed words", () => {
   assert.equal(row?.scored, true);
   assert.equal(row?.points, 5);
   assert.equal(row?.name, "Front or back ×5");
-  assert.equal(row?.reason, "tart and star.");
+  assert.equal(
+    row?.reason,
+    "Drop the first letter and a word remains, and drop the last letter and a word remains: tart and star.",
+  );
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4]);
 
   const book = scoreWord("book");
@@ -626,7 +659,7 @@ test("letter sandwich scores the exact middle word", () => {
   assert.equal(row?.scored, true);
   assert.equal(row?.points, 4);
   assert.equal(row?.name, "Letter sandwich ×4");
-  assert.equal(row?.reason, "her sits inside.");
+  assert.equal(row?.reason, "Take off the first and last letters and a dictionary word is left: her.");
   assert.deepEqual(row?.highlight, [1, 2, 3]);
 
   const book = scoreWord("book");
@@ -673,7 +706,10 @@ test("perfectly shared needs every distinct letter to share one count", () => {
   assert.equal(catRow?.points, 2);
   assert.equal(catRow?.name, "Perfectly shared ×2");
   assert.equal(catRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
-  assert.equal(catRow?.reason, "c, a, t each occur once.");
+  assert.equal(
+    catRow?.reason,
+    "Every different letter appears the same number of times. c, a, t each occur once.",
+  );
   assert.deepEqual(catRow?.highlight, [0, 1, 2]);
   assert.equal(cat.total, product(cat));
 
@@ -687,14 +723,20 @@ test("perfectly shared needs every distinct letter to share one count", () => {
   assert.equal(noon.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
   assert.equal(noonRow?.scored, true);
   assert.equal(noonRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
-  assert.equal(noonRow?.reason, "n, o each occur twice.");
+  assert.equal(
+    noonRow?.reason,
+    "Every different letter appears the same number of times. n, o each occur twice.",
+  );
   assert.deepEqual(noonRow?.highlight, [0, 1, 2, 3]);
 
   const deeded = scoreWord("deeded");
   const deededRow = deeded.rows.find((entry) => entry.id === "perfectly-shared");
   assert.equal(deeded.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
   assert.equal(deededRow?.scored, true);
-  assert.equal(deededRow?.reason, "d, e each occur 3 times.");
+  assert.equal(
+    deededRow?.reason,
+    "Every different letter appears the same number of times. d, e each occur 3 times.",
+  );
   assert.deepEqual(deededRow?.highlight, [0, 1, 2, 3, 4, 5]);
 
   const book = scoreWord("book");
@@ -705,7 +747,10 @@ test("perfectly shared needs every distinct letter to share one count", () => {
 
   const single = scoreWord("a");
   assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.scored, true);
-  assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.reason, "a occurs once.");
+  assert.equal(
+    single.rows.find((entry) => entry.id === "perfectly-shared")?.reason,
+    "Every different letter appears the same number of times. a occurs once.",
+  );
   assert.deepEqual(single.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, [0]);
 });
 

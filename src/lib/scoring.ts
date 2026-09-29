@@ -349,7 +349,7 @@ export function scoreWord(word: string): ScoredWord {
       name: "Hidden mirror",
       hit: hiddenMirror !== null,
       hitDetail: hiddenMirror
-        ? `${normalized.slice(hiddenMirror.start, hiddenMirror.end)} reads the same backwards.`
+        ? `${normalized.slice(hiddenMirror.start, hiddenMirror.end)} reads the same backwards, in a run of at least five letters that is not the whole word.`
         : "",
       missDetail: palindrome
         ? "The whole word is a mirror."
@@ -359,7 +359,7 @@ export function scoreWord(word: string): ScoredWord {
       id: "rewind",
       name: "Rewind",
       hit: hasFact(normalized, "rewind"),
-      hitDetail: `Backwards, it spells ${[...normalized].reverse().join("")}.`,
+      hitDetail: `Read backwards, it is a different dictionary word: ${[...normalized].reverse().join("")}.`,
       missDetail: palindrome
         ? "Backwards, it is the same word. That is Mirror."
         : "Backwards, it is not a different word in this dictionary.",
@@ -368,28 +368,32 @@ export function scoreWord(word: string): ScoredWord {
       id: "contraband",
       name: "Contraband",
       hit: rareTiles.length > 0,
-      hitDetail: `${rareTiles.length} rare ${rareTiles.length === 1 ? "tile" : "tiles"} (${rareTiles.map((letter) => letter.toUpperCase()).join(", ")}).`,
+      hitDetail: `J, Q, X, and Z are rare Scrabble letters. This word has ${rareTiles.length} rare ${rareTiles.length === 1 ? "tile" : "tiles"} (${rareTiles.map((letter) => letter.toUpperCase()).join(", ")}).`,
       missDetail: "No J, Q, X, or Z.",
     },
     {
       id: "twins",
       name: "Twins",
       hit: runs.length > 0,
-      hitDetail: `${runs.join(", ")}.`,
+      hitDetail: `A letter sits next to a copy of itself: ${runs.join(", ")}.`,
       missDetail: "No letter sits next to itself.",
     },
     {
       id: "double-twins",
       name: "Double twins",
       hit: doubleTwins !== null,
-      hitDetail: doubleTwins?.detail ?? "",
+      hitDetail: doubleTwins
+        ? `Two or more doubled letters sit against each other. ${doubleTwins.detail}`
+        : "",
       missDetail: "No two letter pairs sit against each other.",
     },
     {
       id: "triple-twins",
       name: "Triple twins",
       hit: tripleTwins !== null,
-      hitDetail: tripleTwins?.detail ?? "",
+      hitDetail: tripleTwins
+        ? `Three or more doubled letters sit in a row. ${tripleTwins.detail}`
+        : "",
       missDetail: "No three letter pairs sit in a row.",
     },
     {
@@ -403,14 +407,17 @@ export function scoreWord(word: string): ScoredWord {
       id: "even-company",
       name: "Even company",
       hit: evenCompany(normalized),
-      hitDetail: `${[...new Set(normalized)].join(", ")} each appear twice.`,
+      hitDetail: `Every letter appears exactly twice. ${[...new Set(normalized)].join(", ")} each appear twice.`,
       missDetail: "A letter appears once, or more than twice.",
     },
     {
       id: "perfectly-shared",
       name: "Perfectly shared",
       hit: shared !== null,
-      hitDetail: shared === null ? "" : perfectlySharedDetail(normalized, shared),
+      hitDetail:
+        shared === null
+          ? ""
+          : `Every different letter appears the same number of times. ${perfectlySharedDetail(normalized, shared)}`,
       missDetail: "The letters do not all occur the same number of times.",
     },
     {
@@ -424,7 +431,9 @@ export function scoreWord(word: string): ScoredWord {
       id: "letter-sandwich",
       name: "Letter sandwich",
       hit: sandwich !== null,
-      hitDetail: sandwich ? `${sandwich} sits inside.` : "",
+      hitDetail: sandwich
+        ? `Take off the first and last letters and a dictionary word is left: ${sandwich}.`
+        : "",
       missDetail:
         length < 5
           ? "Needs at least 5 letters, so the inside can be a word of 3 or more."
@@ -434,21 +443,25 @@ export function scoreWord(word: string): ScoredWord {
       id: "front-or-back",
       name: "Front or back",
       hit: trimmedEnds !== null,
-      hitDetail: trimmedEnds ? `${trimmedEnds.withoutFirst} and ${trimmedEnds.withoutLast}.` : "",
+      hitDetail: trimmedEnds
+        ? `Drop the first letter and a word remains, and drop the last letter and a word remains: ${trimmedEnds.withoutFirst} and ${trimmedEnds.withoutLast}.`
+        : "",
       missDetail: "Removing the first letter, or the last, does not leave a dictionary word.",
     },
     {
       id: "shrinking-word",
       name: "Shrinking word",
       hit: shrinking !== null,
-      hitDetail: shrinking ?? "",
+      hitDetail: shrinking
+        ? `Each step deletes one letter and is still a dictionary word. ${shrinking}`
+        : "",
       missDetail: "No chain of 5 dictionary words by deleting one letter at a time.",
     },
     {
       id: "inside-out",
       name: "Inside out",
       hit: rotated !== null,
-      hitDetail: rotated ? `${rotated}.` : "",
+      hitDetail: rotated ? `Move the first letter to the end and you get another word: ${rotated}.` : "",
       missDetail: "Moving the first letter to the end is not a different dictionary word.",
     },
     {
@@ -483,7 +496,9 @@ export function scoreWord(word: string): ScoredWord {
       id: "woven-together",
       name: "Two words woven together",
       hit: woven !== null,
-      hitDetail: woven ? `Odd letters spell ${woven.odd}, and even letters spell ${woven.even}.` : "",
+      hitDetail: woven
+        ? `Taking every other letter makes two words. Odd letters spell ${woven.odd}, and even letters spell ${woven.even}.`
+        : "",
       missDetail:
         length < 4
           ? "Needs at least 4 letters, so each strand is a word of 2 or more."
@@ -494,7 +509,9 @@ export function scoreWord(word: string): ScoredWord {
       id: "building-blocks",
       name: "Building blocks",
       hit: blocks !== null,
-      hitDetail: blocks ? `${blocks.join(", ")}.` : "",
+      hitDetail: blocks
+        ? `Prefixes that grow by one letter are all dictionary words: ${blocks.join(", ")}.`
+        : "",
       missDetail: "No 4 neighbouring prefixes are dictionary words.",
       match: blocks ? blocks.join(", ") : undefined,
     },
@@ -502,7 +519,9 @@ export function scoreWord(word: string): ScoredWord {
       id: "alphabet-twins",
       name: "Alphabet twins",
       hit: alphabetTwins !== null,
-      hitDetail: alphabetTwins ? formatAlphabetTwins(alphabetTwins) : "",
+      hitDetail: alphabetTwins
+        ? `Another word uses these same letters, but not the same number of each. ${formatAlphabetTwins(alphabetTwins)}`
+        : "",
       missDetail: "No other word uses these letters with different counts.",
     },
     {
@@ -578,7 +597,9 @@ export function scoreWord(word: string): ScoredWord {
       id: "periodic-spelling",
       name: "Periodic spelling",
       hit: periodic !== null,
-      hitDetail: periodic ? `Segmented into ${formatPeriodicSpelling(periodic.symbols)}.` : "",
+      hitDetail: periodic
+        ? `The whole word splits into chemical element symbols: ${formatPeriodicSpelling(periodic.symbols)}.`
+        : "",
       missDetail: "The letters do not split entirely into element symbols.",
     },
     {
@@ -594,7 +615,7 @@ export function scoreWord(word: string): ScoredWord {
       id: "vowel-rich",
       name: "Vowel rich",
       hit: vowelRich,
-      hitDetail: `${vowels} ${vowels === 1 ? "vowel" : "vowels"}, ${consonants} ${consonants === 1 ? "consonant" : "consonants"}.`,
+      hitDetail: `Vowels outnumber the consonants: ${vowels} ${vowels === 1 ? "vowel" : "vowels"}, ${consonants} ${consonants === 1 ? "consonant" : "consonants"}.`,
       missDetail:
         vowels === consonants
           ? "Vowels and consonants are tied."
@@ -604,14 +625,14 @@ export function scoreWord(word: string): ScoredWord {
       id: "one-vowel-wonder",
       name: "One vowel wonder",
       hit: oneVowel.hit,
-      hitDetail: `Every vowel is ${oneVowel.vowel.toUpperCase()} (${oneVowel.count} of them).`,
+      hitDetail: `At least three vowels, and they are all the same letter. Every vowel is ${oneVowel.vowel.toUpperCase()} (${oneVowel.count} of them).`,
       missDetail: "Needs at least 3 vowels, and they all have to be the same one. Y does not count.",
     },
     {
       id: "perfect-balance",
       name: "Perfect balance",
       hit: vowels > 0 && vowels === consonants,
-      hitDetail: `${vowels} vowels and ${consonants} consonants.`,
+      hitDetail: `Vowels and consonants split evenly: ${vowels} vowels and ${consonants} consonants.`,
       missDetail:
         vowels === 0
           ? "No A, E, I, O, or U. Y counts as a consonant."
@@ -654,7 +675,7 @@ export function scoreWord(word: string): ScoredWord {
       id: "next-door",
       name: "Next door",
       hit: nextDoor,
-      hitDetail: `${normalized[0]!.toUpperCase()} and ${normalized[length - 1]!.toUpperCase()} are neighbours in the alphabet.`,
+      hitDetail: `The first and last letters sit next to each other in the alphabet: ${normalized[0]!.toUpperCase()} and ${normalized[length - 1]!.toUpperCase()}.`,
       missDetail: "The first and last letters are not neighbours.",
     },
     {
@@ -706,7 +727,7 @@ export function scoreWord(word: string): ScoredWord {
       id: "quiet-letters",
       name: "Quiet letters",
       hit: quiet.length > 0,
-      hitDetail: `Silent-letter spelling: ${quiet.join(", ")}.`,
+      hitDetail: `A usually silent spelling shows up: ${quiet.join(", ")}.`,
       missDetail: "No KN, GN, WR, PS, or RH at the start, and it does not end in MB.",
     },
     {
@@ -745,12 +766,12 @@ export function scoreWord(word: string): ScoredWord {
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
-          detail: `${hit.text} sits inside. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          detail: `A dictionary word of at least 3 letters is hidden in this one: ${hit.text}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
           match: hit.text,
           highlight: everyIndex(hit.text.length).map((index) => index + hit.start),
-          reason: `${hit.text} sits inside.`,
+          reason: `A dictionary word of at least 3 letters is hidden in this one: ${hit.text}.`,
         });
         running = next;
       }
@@ -773,12 +794,12 @@ export function scoreWord(word: string): ScoredWord {
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
-          detail: `Stepping that letter spells ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          detail: `Change one letter to the next or previous letter in the alphabet and you get another word: ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
           match: hit.word,
           highlight: [hit.index],
-          reason: `Stepping that letter spells ${hit.word}.`,
+          reason: `Change one letter to the next or previous letter in the alphabet and you get another word: ${hit.word}.`,
         });
         running = next;
       }
@@ -800,8 +821,8 @@ export function scoreWord(word: string): ScoredWord {
         const next = running * multiplier;
         const reason =
           hit.highlight.length === 1
-            ? `Doubling that letter spells ${hit.word}.`
-            : `That pair comes from ${hit.word}.`;
+            ? `Double one letter and you get another word: ${hit.word}.`
+            : `Collapse a doubled letter back to one and you get another word: ${hit.word}.`;
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
@@ -833,12 +854,12 @@ export function scoreWord(word: string): ScoredWord {
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
-          detail: `Swapping those two spells ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          detail: `Swap two neighbouring letters and you get another word: ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
           match: hit.word,
           highlight: [hit.index, hit.index + 1],
-          reason: `Swapping those two spells ${hit.word}.`,
+          reason: `Swap two neighbouring letters and you get another word: ${hit.word}.`,
         });
         running = next;
       }
@@ -861,12 +882,12 @@ export function scoreWord(word: string): ScoredWord {
         rows.push({
           id: factor.id,
           name: `${factor.name} ×${multiplier}`,
-          detail: `${hit}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
+          detail: `Another word uses these exact letters: ${hit}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
           points: multiplier,
           scored: true,
           match: hit,
           highlight: everyIndex(normalized.length),
-          reason: hit,
+          reason: `Another word uses these exact letters: ${hit}.`,
         });
         running = next;
       }
@@ -1435,7 +1456,7 @@ function lengthReason(length: number): string {
   const distance = Math.abs(length - LENGTH_CENTER);
   const direction = length < LENGTH_CENTER ? "shorter" : "longer";
   const step = distance === 1 ? "step" : "steps";
-  return `${length} letters, ${distance} ${step} ${direction} than ${LENGTH_CENTER}.`;
+  return `Length multiplies by how far the word sits from ${LENGTH_CENTER} letters, the average length here. ${length} letters, ${distance} ${step} ${direction} than ${LENGTH_CENTER}.`;
 }
 
 function lengthDetail(length: number, multiplier: number, before: number, after: number): string {
@@ -1610,7 +1631,8 @@ function longestRun(word: string, vowel: boolean): LetterRun | null {
 }
 
 function chainReason(word: string, run: LetterRun, kind: "consonants" | "vowels"): string {
-  return `${word.slice(run.start, run.end)} is ${run.length} ${kind} in a row.`;
+  const runWord = kind === "consonants" ? "consonants" : "vowels";
+  return `Letters of the same kind sit together. ${word.slice(run.start, run.end)} is ${run.length} ${runWord} in a row.`;
 }
 
 function chainMultiplier(table: Record<number, number>, length: number): number {
@@ -1729,7 +1751,7 @@ export function letterCollector(word: string): LetterCollectorHit | null {
 }
 
 function letterCollectorDetail(hit: LetterCollectorHit): string {
-  return `${hit.start.toUpperCase()}–${hit.end.toUpperCase()} is ${hit.length} alphabet letters in a row.`;
+  return `Neighbouring letters of the alphabet show up in any order, at least six of them. ${hit.start.toUpperCase()}–${hit.end.toUpperCase()} is ${hit.length} alphabet letters in a row.`;
 }
 
 export type AlphabetStaircaseRun = {
@@ -1760,14 +1782,15 @@ export function alphabetStaircaseRuns(word: string): AlphabetStaircaseRun[] {
 
 function alphabetStaircaseDetail(word: string, runs: AlphabetStaircaseRun[]): string {
   const labels = runs.map((run) => word.slice(run.start, run.end).toUpperCase());
+  const rule = "Three or more letters in a row each step up to the next letter of the alphabet.";
   if (labels.length === 1) {
     const label = labels[0] ?? "";
-    return `${label} is ${label.length} letters stepping up the alphabet.`;
+    return `${rule} ${label} is ${label.length} letters stepping up the alphabet.`;
   }
   const last = labels[labels.length - 1] ?? "";
   const head = labels.slice(0, -1);
   const list = head.length === 1 ? `${head[0]} and ${last}` : `${head.join(", ")}, and ${last}`;
-  return `${list} step up the alphabet.`;
+  return `${rule} ${list} step up the alphabet.`;
 }
 
 function isNonDecreasing(word: string): boolean {
