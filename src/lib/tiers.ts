@@ -31,7 +31,7 @@ export const TIER_BANDS = [
   },
   {
     id: "trash",
-    label: "Trash",
+    label: "Common",
     minBeaten: 0,
     blurb: "Most words land here. No shame, little glory.",
   },

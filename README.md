@@ -153,7 +153,7 @@ Rewind and Ditto need no outside list. Rewind is a semordnilap. Ditto is a tauto
 | Rare | Beats at least 85% |
 | Uncommon | Beats at least 65% |
 | Common | Beats at least 35% |
-| Trash | Beats under 35% |
+| Common | Beats under 35% |
 
 ## Accounts
 
