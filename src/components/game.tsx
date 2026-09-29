@@ -651,7 +651,7 @@ function ScoreReveal({
         </p>
       </div>
 
-      <section className="mt-3" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
+      <section className="mx-auto mt-3 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
         {baseDone && visible > 0 ? (
           <ol ref={pileRef} className="card-pile flex flex-col gap-2">
             {steps
@@ -675,7 +675,7 @@ function ScoreReveal({
       </section>
 
       {done ? (
-        <section className="row-in mt-10" aria-label="Share">
+        <section className="row-in mx-auto mt-10 w-full max-w-xl" aria-label="Share">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Share</h2>
             <Button type="button" variant="outline" className="h-8" onClick={() => onCopy(share)}>
