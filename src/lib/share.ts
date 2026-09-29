@@ -7,6 +7,12 @@ export function formatBeaten(beaten: number): string {
   return `${rounded.toFixed(1)}%`;
 }
 
+export function formatStanding(beaten: number): string {
+  const rounded = Math.round(beaten * 1000) / 10;
+  const shown = rounded >= 100 && beaten < 1 ? 99.9 : rounded <= 0 && beaten > 0 ? 0.1 : rounded;
+  return `${shown >= 50 ? "Top" : "Bottom"} ${formatBeaten(beaten)}`;
+}
+
 export function buildShareText(input: {
   date: string;
   scored: ScoredWord;
@@ -14,12 +20,11 @@ export function buildShareText(input: {
   beaten: number;
   wordCount: number;
 }): string {
-  const percent = formatBeaten(input.beaten);
   const lines = [
     `RWGdle · ${input.date}`,
     input.scored.word.toUpperCase(),
     `${input.scored.total.toLocaleString("en-US")} · ${input.tierLabel}`,
-    `Beats ${percent} of ${input.wordCount.toLocaleString("en-US")} words`,
+    formatStanding(input.beaten),
     "",
     ...input.scored.rows.map((row) =>
       row.match ? `${row.name}: ${row.match} ${formatRowValue(row)}` : `${row.name}: ${formatRowValue(row)}`,

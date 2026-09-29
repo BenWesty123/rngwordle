@@ -10,7 +10,7 @@ import { utcDateKey } from "@/lib/day";
 import { flickerWord, loadDictionary } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { scoreWord, type LedgerRow, type Tile } from "@/lib/scoring";
-import { buildShareText, formatBeaten } from "@/lib/share";
+import { buildShareText, formatStanding } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
 import {
   parseRoll,
@@ -647,7 +647,7 @@ function ScoreReveal({
           {live.tier.label}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Beats {formatBeaten(live.beaten)} of {live.wordCount.toLocaleString("en-US")} words
+          {formatStanding(live.beaten)}
         </p>
       </div>
 
