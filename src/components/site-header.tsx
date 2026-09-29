@@ -18,7 +18,7 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
       </Link>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/leaderboard" aria-current={path.startsWith("/leaderboard") ? "page" : undefined} />}>
-          Board
+          Leaderboard
         </Button>
         {account.status === "player" ? (
           <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/friends" aria-current={path === "/friends" ? "page" : undefined} />}>

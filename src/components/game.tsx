@@ -286,7 +286,7 @@ function EmptyState({
           ? "Generate saves one roll under your name for this UTC day. Generating again shows that same word."
           : account === "needs-name"
             ? "Generate saves one roll today as Anonymous until you pick a username."
-            : "Generate saves a roll on the board as Anonymous. Log in when you want a username on your daily roll."}
+            : "Generate saves a roll on the leaderboard as Anonymous. Log in when you want a username on your daily roll."}
       </p>
       {dictionaryError ? (
         <div className="mt-8 max-w-md" role="alert">
@@ -318,8 +318,8 @@ function EmptyState({
           ? `${wordCount.toLocaleString("en-US")} words in the pot. `
           : "A full dictionary is in the pot. "}
         {account === "guest"
-          ? "The latest word stays in this browser until you roll again. Each one is on the board."
-          : "Logged-out rolls are on the board as Anonymous."}
+          ? "The latest word stays in this browser until you roll again. Each one is on the leaderboard."
+          : "Logged-out rolls are on the leaderboard as Anonymous."}
       </p>
     </div>
   );

@@ -42,13 +42,13 @@ export default async function LeaderboardPage({
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-10">
       <SiteHeader />
-      <h1 className="mt-12 font-display text-5xl leading-[0.95] tracking-tight italic sm:text-6xl">The board</h1>
+      <h1 className="mt-12 font-display text-5xl leading-[0.95] tracking-tight italic sm:text-6xl">Leaderboard</h1>
       <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
         {friends ? "You and accepted friends. " : ""}
         {current.note} Highest score first. Top 100.
       </p>
       {named ? (
-        <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Who is on the board">
+        <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Who is on the leaderboard">
           <Link
             href={periodHref(view, false)}
             role="tab"
@@ -103,14 +103,14 @@ export default async function LeaderboardPage({
               <Link href="/" className="text-foreground underline-offset-4 hover:underline">
                 home page
               </Link>{" "}
-              before you open a friends board.
+              before you open a friends leaderboard.
             </>
           ) : (
             <>
               <LoginPrompt className="cursor-pointer text-foreground underline-offset-4 hover:underline">
                 Log in
               </LoginPrompt>{" "}
-              and pick a username to open a friends board.
+              and pick a username to open a friends leaderboard.
             </>
           )}
         </p>

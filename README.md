@@ -2,7 +2,7 @@
 
 Press Generate and the dictionary deals you a random English word. The score — with every factor that made it — is the game.
 
-Every generate is saved on the board. Logged-out rows are named Anonymous. Log in to put a username on your one roll per UTC day.
+Every generate is saved on the leaderboard. Logged-out rows are named Anonymous. Log in to put a username on your one roll per UTC day.
 
 ## Run
 
@@ -163,9 +163,9 @@ Accounts, login links, sessions, and saved rolls use the same tables in two plac
 
 ## Leaderboard
 
-The board is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
+The leaderboard is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
 
-A logged-in player with a username can switch that board to Friends. It ranks their rolls plus accepted friends, for the same four periods. Anonymous players have no friends list.
+A logged-in player with a username can switch that leaderboard to Friends. It ranks their rolls plus accepted friends, for the same four periods. Anonymous players have no friends list.
 
 ## Friends
 

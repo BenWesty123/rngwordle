@@ -34,7 +34,7 @@ export default async function FriendsPage() {
       ) : (
         <>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Add a player by their exact username. They accept before the two of you share a board. No email is sent.
+            Add a player by their exact username. They accept before the two of you share a leaderboard. No email is sent.
           </p>
           <FriendsPanel list={await listFriendships(await appDb(), account.id)} />
         </>

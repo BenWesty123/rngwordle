@@ -45,7 +45,7 @@ export function UsernameForm({ compact = false }: { compact?: boolean }) {
       )}
       <p className={compact ? "mt-3 text-sm leading-relaxed text-muted-foreground" : "mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg"}>
         {account.status === "needs-name" ? `${account.email} is logged in. ` : null}
-        Three to twenty characters: letters, numbers, and underscores. The name shows on the board.
+        Three to twenty characters: letters, numbers, and underscores. The name shows on the leaderboard.
       </p>
       <form className="mt-8 max-w-md" onSubmit={(event) => void onSubmit(event)}>
         <label className="block text-sm text-foreground" htmlFor="username">

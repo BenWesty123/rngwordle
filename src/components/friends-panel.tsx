@@ -82,7 +82,7 @@ export function FriendsPanel({ list }: { list: FriendList }) {
       ) : null}
       {empty ? (
         <p className="mt-10 max-w-md text-base text-muted-foreground" role="status">
-          No friends yet. Send a request with their exact username. They accept before you share a board.
+          No friends yet. Send a request with their exact username. They accept before you share a leaderboard.
         </p>
       ) : (
         <div className="mt-10 flex flex-col gap-8">
@@ -121,7 +121,7 @@ export function FriendsPanel({ list }: { list: FriendList }) {
       <p className="mt-8 text-sm text-muted-foreground">
         Accepted friends show on the{" "}
         <Link href="/leaderboard?scope=friends" className="text-foreground underline-offset-4 hover:underline">
-          friends board
+          friends leaderboard
         </Link>
         .
       </p>
