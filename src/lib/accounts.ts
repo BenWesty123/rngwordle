@@ -27,6 +27,14 @@ export type BoardRow = {
   score: string
 }
 
+export type TotalsView = "week" | "month"
+
+export type TotalsRow = {
+  rank: number
+  username: string
+  score: string
+}
+
 type AccountRow = {
   id: string
   email: string
@@ -72,6 +80,63 @@ export function periodStart(view: BoardView, now: Date): number | null {
 export function parseBoardView(value: string | undefined): BoardView {
   if (value === "week" || value === "month" || value === "all" || value === "today") return value
   return "today"
+}
+
+export function parseTotalsView(value: string | undefined): TotalsView {
+  if (value === "month") return "month"
+  return "week"
+}
+
+/** Digit-string addition. Scores can outgrow a JS number, so the sum stays a string. */
+export function addScoreDigits(left: string, right: string): string {
+  if (!/^\d+$/.test(left) || !/^\d+$/.test(right)) throw new Error("Score is not a whole number")
+  let carry = 0
+  let i = left.length - 1
+  let j = right.length - 1
+  let out = ""
+  while (i >= 0 || j >= 0 || carry > 0) {
+    const a = i >= 0 ? left.charCodeAt(i) - 48 : 0
+    const b = j >= 0 ? right.charCodeAt(j) - 48 : 0
+    const sum = a + b + carry
+    out = String(sum % 10) + out
+    carry = Math.floor(sum / 10)
+    i -= 1
+    j -= 1
+  }
+  return out.replace(/^0+(?=\d)/, "")
+}
+
+function compareScoreDigits(left: string, right: string): number {
+  if (left.length !== right.length) return left.length - right.length
+  if (left === right) return 0
+  return left < right ? -1 : 1
+}
+
+export function rankScoreTotals(
+  rows: Array<{ accountId: string; username: string; score: string; playedAt: number }>,
+  limit = 100,
+): TotalsRow[] {
+  const totals = new Map<string, { username: string; score: string; latest: number }>()
+  for (const row of rows) {
+    const current = totals.get(row.accountId)
+    if (!current) {
+      totals.set(row.accountId, { username: row.username, score: row.score, latest: row.playedAt })
+      continue
+    }
+    current.score = addScoreDigits(current.score, row.score)
+    if (row.playedAt >= current.latest) current.latest = row.playedAt
+  }
+  const ranked = [...totals.values()].sort((a, b) => {
+    const byScore = compareScoreDigits(b.score, a.score)
+    if (byScore !== 0) return byScore
+    if (a.latest !== b.latest) return a.latest - b.latest
+    return a.username < b.username ? -1 : a.username > b.username ? 1 : 0
+  })
+  return ranked.slice(0, limit).map((row, index) => ({
+    rank: index + 1,
+    username: row.username,
+    score: row.score,
+  }))
 }
 
 function isConstraintError(error: unknown): boolean {
@@ -329,4 +394,28 @@ export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now
     word: row.word,
     score: row.score,
   }))
+}
+
+const TOTALS_ROLLS = `SELECT rolls.account_id AS account_id, accounts.username AS username, rolls.score AS score, rolls.played_at AS played_at
+  FROM rolls
+  JOIN accounts ON accounts.id = rolls.account_id
+  WHERE accounts.username IS NOT NULL
+    AND rolls.played_at >= ? AND rolls.played_at <= ?`
+
+export async function listTotals(db: AppDatabase, view: TotalsView, now = Date.now(), limit = 100): Promise<TotalsRow[]> {
+  const start = periodStart(view, new Date(now))
+  const rows = await db.all<{ account_id: string; username: string; score: string; played_at: number }>(
+    TOTALS_ROLLS,
+    start ?? 0,
+    now,
+  )
+  return rankScoreTotals(
+    rows.map((row) => ({
+      accountId: row.account_id,
+      username: row.username,
+      score: row.score,
+      playedAt: row.played_at,
+    })),
+    limit,
+  )
 }

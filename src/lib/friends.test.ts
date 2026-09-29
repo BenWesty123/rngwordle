@@ -9,6 +9,7 @@ import {
   declineFriend,
   listFriendships,
   listFriendsBoard,
+  listFriendTotals,
   removeFriend,
   requestFriend,
 } from "./friends"
@@ -141,4 +142,29 @@ test("an older database grows a friendships table on first use", async () => {
   await named(db, "bea@example.com", "bea", now)
   const sent = await requestFriend(db, ada, "bea", now)
   assert.ok(!("error" in sent))
+})
+
+test("friend totals sum accepted friends and leave everyone else off", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  const now = Date.parse("2026-09-26T18:00:00.000Z")
+  const ada = await named(db, "ada@example.com", "ada", now)
+  const bea = await named(db, "bea@example.com", "bea", now)
+  const cy = await named(db, "cy@example.com", "cyx", now)
+  await saveDailyRoll(db, ada, Date.parse("2026-09-21T12:00:00.000Z"), () => ({ word: "aa", score: "10" }))
+  await saveDailyRoll(db, ada, Date.parse("2026-09-22T12:00:00.000Z"), () => ({ word: "tone", score: "20" }))
+  await saveDailyRoll(db, bea, now, () => ({ word: "quiz", score: "25" }))
+  await saveDailyRoll(db, cy, now, () => ({ word: "cat", score: "100" }))
+  await saveAnonymousRoll(db, now, () => ({ word: "dog", score: "5000" }))
+  const sent = await requestFriend(db, ada, "bea", now)
+  assert.ok(!("error" in sent))
+  if ("error" in sent) return
+  await acceptFriend(db, bea, sent.id)
+  const totals = await listFriendTotals(db, ada, "week", now)
+  assert.deepEqual(
+    totals.map((row) => [row.rank, row.username, row.score]),
+    [
+      [1, "ada", "30"],
+      [2, "bea", "25"],
+    ],
+  )
 })

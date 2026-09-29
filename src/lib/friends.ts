@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { normalizeUsername, periodStart, type BoardRow, type BoardView } from "@/lib/accounts"
+import { normalizeUsername, periodStart, rankScoreTotals, type BoardRow, type BoardView, type TotalsRow, type TotalsView } from "@/lib/accounts"
 import type { AppDatabase } from "@/lib/sql"
 
 export type FriendEntry = {
@@ -199,4 +199,44 @@ export async function listFriendsBoard(
     word: row.word,
     score: row.score,
   }))
+}
+
+export async function listFriendTotals(
+  db: AppDatabase,
+  accountId: string,
+  view: TotalsView,
+  now = Date.now(),
+  limit = 100,
+): Promise<TotalsRow[]> {
+  const start = periodStart(view, new Date(now))
+  const rows = await db.all<{ account_id: string; username: string; score: string; played_at: number }>(
+    `SELECT rolls.account_id AS account_id, accounts.username AS username, rolls.score AS score, rolls.played_at AS played_at
+     FROM rolls
+     JOIN accounts ON accounts.id = rolls.account_id
+     WHERE accounts.username IS NOT NULL
+       AND rolls.played_at >= ? AND rolls.played_at <= ?
+       AND (
+         rolls.account_id = ?
+         OR rolls.account_id IN (
+           SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END
+           FROM friendships
+           WHERE status = 'accepted' AND (requester_id = ? OR addressee_id = ?)
+         )
+       )`,
+    start ?? 0,
+    now,
+    accountId,
+    accountId,
+    accountId,
+    accountId,
+  )
+  return rankScoreTotals(
+    rows.map((row) => ({
+      accountId: row.account_id,
+      username: row.username,
+      score: row.score,
+      playedAt: row.played_at,
+    })),
+    limit,
+  )
 }

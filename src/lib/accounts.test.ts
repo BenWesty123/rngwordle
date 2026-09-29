@@ -7,7 +7,9 @@ import {
   createLoginLink,
   loginLinkState,
   deleteLoginLink,
+  addScoreDigits,
   listBoard,
+  listTotals,
   loginLinkSentRecently,
   normalizeUsername,
   periodStart,
@@ -350,6 +352,61 @@ test("a rebuild that already dropped rolls keeps the copied rows", async () => {
   assert.equal(kept?.account_id, null)
   const leftover = await db.get<{ name: string }>("SELECT name FROM sqlite_master WHERE name = 'rolls_next'")
   assert.equal(leftover, null)
+})
+
+test("totals add every named roll in the week or month and leave anonymous rolls off", async () => {
+  assert.equal(addScoreDigits("999", "2"), "1001")
+  assert.equal(addScoreDigits("1" + "0".repeat(30), "1"), "1" + "0".repeat(29) + "1")
+
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  const now = Date.parse("2026-09-26T18:00:00.000Z")
+  const monday = Date.parse("2026-09-21T00:00:00.000Z")
+  const beforeWeek = Date.parse("2026-09-20T23:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  const ada = await consumeLoginLink(db, created.token, now)
+  assert.ok(!("error" in ada))
+  if ("error" in ada) return
+  await setUsername(db, ada.accountId, "ada")
+  const other = await createLoginLink(db, "bea@example.com", now)
+  assert.ok(!("error" in other))
+  if ("error" in other) return
+  const bea = await consumeLoginLink(db, other.token, now)
+  assert.ok(!("error" in bea))
+  if ("error" in bea) return
+  await setUsername(db, bea.accountId, "bea")
+  const unnamedLink = await createLoginLink(db, "cy@example.com", now)
+  assert.ok(!("error" in unnamedLink))
+  if ("error" in unnamedLink) return
+  const cy = await consumeLoginLink(db, unnamedLink.token, now)
+  assert.ok(!("error" in cy))
+  if ("error" in cy) return
+
+  await saveDailyRoll(db, ada.accountId, monday, () => ({ word: "aa", score: "1000" }))
+  await saveDailyRoll(db, ada.accountId, Date.parse("2026-09-22T12:00:00.000Z"), () => ({ word: "tone", score: "2500" }))
+  await saveDailyRoll(db, ada.accountId, beforeWeek, () => ({ word: "cat", score: "9000" }))
+  await saveDailyRoll(db, bea.accountId, now, () => ({ word: "quiz", score: "4000" }))
+  await saveDailyRoll(db, cy.accountId, now, () => ({ word: "dog", score: "8000" }))
+  await saveAnonymousRoll(db, now, () => ({ word: "eel", score: "7000" }))
+  await saveAnonymousRoll(db, now + 1, () => ({ word: "owl", score: "7000" }))
+
+  const week = await listTotals(db, "week", now)
+  assert.deepEqual(
+    week.map((row) => [row.rank, row.username, row.score]),
+    [
+      [1, "bea", "4000"],
+      [2, "ada", "3500"],
+    ],
+  )
+  const month = await listTotals(db, "month", now)
+  assert.deepEqual(
+    month.map((row) => [row.username, row.score]),
+    [
+      ["ada", "12500"],
+      ["bea", "4000"],
+    ],
+  )
 })
 
 function d1ThatRejectsScriptExec(raw: DatabaseSync): D1Binding {
