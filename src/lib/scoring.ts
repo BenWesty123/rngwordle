@@ -18,6 +18,9 @@ import alphabetTwinGroups from "@/data/alphabet-twins.json";
 import enableWordsText from "@/data/enable-words.json";
 import shrinkingChains from "@/data/shrinking-chains.json";
 import wordFacts from "@/data/word-facts.json";
+import { RARE_LETTERS, tilesFor, twinPositions, type LedgerRow, type ScoredWord } from "@/lib/tiles";
+
+export { formatRowValue, TILE_VALUES, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
 
 const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
 const SHRINKING_CHAINS = Object.assign(Object.create(null), shrinkingChains) as Record<string, string>;
@@ -36,37 +39,8 @@ const WORD_FACT_TAGS = wordFacts.words as Record<string, string[]>;
 export const LENGTH_CENTER = 9;
 export const LIST_SIZE = 172823;
 
-export const TILE_VALUES: Record<string, number> = {
-  a: 1,
-  b: 3,
-  c: 3,
-  d: 2,
-  e: 1,
-  f: 4,
-  g: 2,
-  h: 4,
-  i: 1,
-  j: 8,
-  k: 5,
-  l: 1,
-  m: 3,
-  n: 1,
-  o: 1,
-  p: 3,
-  q: 10,
-  r: 1,
-  s: 1,
-  t: 1,
-  u: 1,
-  v: 4,
-  w: 4,
-  x: 8,
-  y: 4,
-  z: 10,
-};
-
 const VOWELS = new Set(["a", "e", "i", "o", "u"]);
-const RARE = new Set(["j", "q", "x", "z"]);
+const RARE = RARE_LETTERS;
 const ASCENDERS = new Set(["b", "d", "f", "h", "k", "l", "t"]);
 const DESCENDERS = new Set(["g", "j", "p", "q", "y"]);
 const ROMAN_LETTERS = new Set(["i", "v", "x", "l", "c", "d", "m"]);
@@ -197,53 +171,11 @@ export const VOWEL_CHAIN_MULTIPLIERS: Record<number, number> = {
   5: 14,
 };
 
-export type Tile = {
-  letter: string;
-  value: number;
-  rare: boolean;
-  twin: boolean;
-};
-
-export type LedgerRow = {
-  id: string;
-  name: string;
-  detail: string;
-  /**
-   * Tile pile: the Scrabble sum.
-   * Length and scoring factors: the multiplier.
-   * A factor that missed: null.
-   */
-  points: number | null;
-  scored: boolean;
-  /** Dictionary word that triggered one Inside hit. */
-  match?: string;
-  /** Letter indexes that explain this hit. */
-  highlight?: number[];
-  /** Why this card lit up, without the running-total math. */
-  reason?: string;
-};
-
-export type ScoredWord = {
-  word: string;
-  tiles: Tile[];
-  tileSum: number;
-  length: number;
-  lengthMultiplier: number;
-  rows: LedgerRow[];
-  total: number;
-};
-
 export function lengthMultiplier(length: number): number {
   if (length === LENGTH_CENTER) return 1;
   const distance = Math.abs(length - LENGTH_CENTER);
   if (length < LENGTH_CENTER) return 2 ** distance;
   return 1 + distance;
-}
-
-export function formatRowValue(row: LedgerRow): string {
-  if (row.id === "tiles") return String(row.points);
-  if (row.points === null) return "—";
-  return `×${row.points}`;
 }
 
 export function scoreWord(word: string): ScoredWord {
@@ -252,13 +184,7 @@ export function scoreWord(word: string): ScoredWord {
     throw new Error(`Cannot score "${word}"`);
   }
 
-  const twinFlags = twinPositions(normalized);
-  const tiles: Tile[] = [...normalized].map((letter, index) => ({
-    letter,
-    value: TILE_VALUES[letter] ?? 0,
-    rare: RARE.has(letter),
-    twin: twinFlags[index] ?? false,
-  }));
+  const tiles = tilesFor(normalized);
   const tileSum = tiles.reduce((sum, tile) => sum + tile.value, 0);
   const length = normalized.length;
   const lengthFactor = lengthMultiplier(length);
@@ -1563,20 +1489,6 @@ function twinRuns(word: string): string[] {
     index = end;
   }
   return runs;
-}
-
-function twinPositions(word: string): boolean[] {
-  const flags = Array.from({ length: word.length }, () => false);
-  let index = 0;
-  while (index < word.length) {
-    let end = index + 1;
-    while (end < word.length && word[end] === word[index]) end += 1;
-    if (end - index >= 2) {
-      for (let cursor = index; cursor < end; cursor += 1) flags[cursor] = true;
-    }
-    index = end;
-  }
-  return flags;
 }
 
 function vowelCount(word: string): number {

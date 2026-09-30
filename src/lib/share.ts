@@ -1,4 +1,4 @@
-import { formatRowValue, type ScoredWord } from "@/lib/scoring";
+import { formatRowValue, type ScoredWord } from "@/lib/tiles";
 
 export function formatBeaten(beaten: number): string {
   const rounded = Math.round(beaten * 1000) / 10;

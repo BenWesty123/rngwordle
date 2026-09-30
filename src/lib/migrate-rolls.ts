@@ -77,6 +77,9 @@ CREATE INDEX IF NOT EXISTS rolls_utc_day ON rolls (utc_day);
 
 /** Create missing tables, then rebuild an older rolls table that required an account. */
 export async function migrateRolls(db: AppDatabase): Promise<void> {
+  // Each new Worker isolate lands here. When the schema is already current,
+  // two reads settle it instead of a dozen sequential round trips to D1.
+  if (await schemaIsCurrent(db)) return
   const fresh = sqlStatements(FRESH_SCHEMA)
   const rollsAt = fresh.findIndex((statement) => /^CREATE TABLE IF NOT EXISTS rolls\b/i.test(statement))
   if (rollsAt < 0) throw new Error("The rolls table is missing from the schema")
@@ -94,6 +97,20 @@ CREATE INDEX IF NOT EXISTS rolls_utc_day ON rolls (utc_day);`)
   await db.exec(fresh.slice(rollsAt).join(";\n"))
   if (!(await rollsRequireAccount(db))) return
   await db.exec(REBUILD_ROLLS)
+}
+
+const SCHEMA_OBJECTS = [...FRESH_SCHEMA.matchAll(/CREATE (?:TABLE|INDEX) IF NOT EXISTS (\w+)/g)].map((match) => match[1]!)
+
+async function schemaIsCurrent(db: AppDatabase): Promise<boolean> {
+  const names = [...SCHEMA_OBJECTS, "rolls_next"]
+  const rows = await db.all<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE name IN (${names.map(() => "?").join(", ")})`,
+    ...names,
+  )
+  const present = new Set(rows.map((row) => row.name))
+  if (present.has("rolls_next")) return false
+  if (!SCHEMA_OBJECTS.every((name) => present.has(name))) return false
+  return !(await rollsRequireAccount(db))
 }
 
 async function tableExists(db: AppDatabase, name: string): Promise<boolean> {

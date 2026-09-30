@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
-import { scoreWord, type LedgerRow, type Tile } from "@/lib/scoring";
+import { primeScore, retryScore, useScored } from "@/lib/score-client";
 import { buildShareText, formatStanding } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
+import { tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
 import {
   parseRoll,
   readRollSnapshot,
@@ -121,6 +122,7 @@ export function Game() {
         word?: string;
         score?: string;
         playedAt?: number;
+        scored?: ScoredWord;
         error?: string;
       };
       if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
@@ -128,6 +130,7 @@ export function Game() {
         setRollError(body.error ?? "That roll didn't save.");
         return;
       }
+      if (body.scored) primeScore(body.scored);
       if (account.status === "guest") writeRoll({ date: utcDateKey(), word: body.word });
       else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
       setReplayKey((key) => key + 1);
@@ -173,7 +176,8 @@ export function Game() {
     setCopyError(true);
   }
 
-  const scored = roll ? scoreWord(roll.word) : null;
+  const scoredState = useScored(roll?.word ?? null);
+  const scored = scoredState && scoredState !== "error" ? scoredState : null;
   const standing = scored ? standingFor(scored.total) : null;
   const glow = EMPTY_GLOW;
 
@@ -221,9 +225,16 @@ export function Game() {
               rollError={rollError}
             />
           </>
-        ) : dealt ? (
+        ) : roll && scoredState === "error" ? (
+          <div className="flex flex-1 flex-col items-center justify-center" role="alert">
+            <p className="text-sm text-foreground">Your roll&apos;s score didn&apos;t load.</p>
+            <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => retryScore(roll.word)}>
+              Try again
+            </Button>
+          </div>
+        ) : roll || dealt ? (
           <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
-            Dealing…
+            {dealt ? "Dealing…" : "Loading your roll…"}
           </p>
         ) : (
           <>
@@ -263,8 +274,8 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
     };
   }, [attempt]);
 
-  const scored = top ? scoreWord(top.word) : null;
-  const standing = scored ? standingFor(scored.total) : null;
+  const tiles = top ? tilesFor(top.word) : null;
+  const standing = top ? standingFor(Number(top.score.replace(/\D/g, ""))) : null;
   const tone = standing ? TIER_STYLE[standing.tier.id] : null;
 
   return (
@@ -294,7 +305,7 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
             </div>
             <span className="mt-6 h-10 w-40 animate-pulse rounded-md bg-card" />
           </div>
-        ) : top === null || !scored || !standing || !tone ? (
+        ) : top === null || !tiles || !standing || !tone ? (
           <div className="mt-6" role="status">
             <p className="font-display text-4xl tracking-tight italic sm:text-5xl">Nobody yet.</p>
             <p className="mt-3 text-sm text-muted-foreground">No saved rolls today. Yours could be the one to beat.</p>
@@ -302,8 +313,8 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
         ) : (
           <div className="row-in mt-5 flex flex-col items-center">
             <ul className="flex flex-wrap justify-center gap-1.5" aria-label={top.word}>
-              {scored.tiles.map((tile, index) => (
-                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={scored.length} />
+              {tiles.map((tile, index) => (
+                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} />
               ))}
             </ul>
             <p className="mt-6 font-mono text-5xl leading-none tabular-nums sm:text-6xl">{top.score}</p>
@@ -354,7 +365,7 @@ function Result({
   rollError,
 }: {
   roll: StoredRoll;
-  scored: ReturnType<typeof scoreWord>;
+  scored: ScoredWord;
   standing: ReturnType<typeof standingFor>;
   spinWord: string | null;
   copied: boolean;
@@ -463,7 +474,7 @@ function ScoreReveal({
   copyError,
   onCopy,
 }: {
-  scored: ReturnType<typeof scoreWord>;
+  scored: ScoredWord;
   share: string;
   copied: boolean;
   copyError: boolean;

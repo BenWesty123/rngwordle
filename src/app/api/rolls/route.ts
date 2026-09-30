@@ -39,5 +39,6 @@ export async function POST() {
     score: result.roll.score,
     playedAt: result.roll.playedAt,
     created: result.created,
+    scored: scoreWord(result.roll.word),
   })
 }

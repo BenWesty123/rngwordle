@@ -4,39 +4,54 @@ import { inCloudflareWorker } from "@/lib/runtime"
 
 type GlossMap = Record<string, string | undefined>
 
-let glosses: GlossMap | null = null
+/** Glosses ship as public/definitions/<first two letters>.json, built by scripts/split-definitions.ts. */
+const shards = new Map<string, Promise<GlossMap>>()
 
-function remember(parsed: unknown): GlossMap {
-  const map = Object.assign(Object.create(null), parsed) as GlossMap
-  glosses = map
-  return map
+export function definitionShard(word: string): string | null {
+  return /^[a-z]+$/.test(word) ? word.slice(0, 2) : null
 }
 
-function glossesFromFile(): GlossMap {
-  const text = readFileSync(join(process.cwd(), "src", "data", "definitions.json"), "utf8")
-  return remember(JSON.parse(text) as unknown)
+function parse(parsed: unknown): GlossMap {
+  return Object.assign(Object.create(null), parsed) as GlossMap
 }
 
-async function glossesFromAssets(): Promise<GlossMap> {
+async function shardFromFile(shard: string): Promise<GlossMap> {
+  try {
+    return parse(JSON.parse(readFileSync(join(process.cwd(), "public", "definitions", `${shard}.json`), "utf8")))
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return parse({})
+    throw error
+  }
+}
+
+async function shardFromAssets(shard: string): Promise<GlossMap> {
   const { getCloudflareContext } = await import("@opennextjs/cloudflare")
   const { env } = await getCloudflareContext({ async: true })
   const assets = (env as { ASSETS?: { fetch: (input: Request | string) => Promise<Response> } }).ASSETS
   if (!assets) throw new Error("Definitions asset is missing")
-  const response = await assets.fetch("http://127.0.0.1/definitions.json")
+  const response = await assets.fetch(`http://127.0.0.1/definitions/${shard}.json`)
+  if (response.status === 404) return parse({})
   if (!response.ok) throw new Error("Definitions asset is missing")
-  return remember((await response.json()) as unknown)
+  return parse(await response.json())
 }
 
-async function loadGlosses(): Promise<GlossMap> {
-  if (glosses) return glosses
-  if (inCloudflareWorker()) return glossesFromAssets()
-  return glossesFromFile()
+function loadShard(shard: string): Promise<GlossMap> {
+  let pending = shards.get(shard)
+  if (!pending) {
+    pending = (inCloudflareWorker() ? shardFromAssets(shard) : shardFromFile(shard)).catch((error: unknown) => {
+      shards.delete(shard)
+      throw error
+    })
+    shards.set(shard, pending)
+  }
+  return pending
 }
 
 export async function definitionFor(word: string): Promise<string | null> {
   const key = word.toLowerCase()
-  if (!/^[a-z]+$/.test(key)) return null
-  const gloss = (await loadGlosses())[key]
+  const shard = definitionShard(key)
+  if (!shard) return null
+  const gloss = (await loadShard(shard))[key]
   return typeof gloss === "string" ? gloss : null
 }
 
