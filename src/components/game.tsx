@@ -222,7 +222,9 @@ export function Game() {
             />
           </>
         ) : dealt ? (
-          <p className="mx-auto mt-16 w-full max-w-xl text-sm text-muted-foreground">Dealing…</p>
+          <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
+            Dealing…
+          </p>
         ) : (
           <>
             {account.status === "needs-name" ? <UsernameForm compact /> : null}
@@ -261,41 +263,80 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
     };
   }, [attempt]);
 
+  const scored = top ? scoreWord(top.word) : null;
+  const standing = scored ? standingFor(scored.total) : null;
+  const tone = standing ? TIER_STYLE[standing.tier.id] : null;
+
   return (
-    <div className="mx-auto mt-10 w-full max-w-xl">
-      <Button type="button" className="h-12 w-full text-base sm:h-14" onClick={onGenerate}>
-        Generate word
-      </Button>
-      <article className="mt-4 rounded-2xl border border-border bg-card px-5 py-5" aria-label="Today's highest rated word">
-        <p className="text-[11px] tracking-[0.22em] text-muted-foreground uppercase">Today&apos;s highest</p>
+    <div className="flex flex-1 flex-col items-center justify-center py-10 sm:py-14">
+      {tone ? (
+        <div
+          aria-hidden
+          className={cn("pointer-events-none absolute inset-x-0 top-0 h-[32rem] transition-opacity duration-700", tone.glow)}
+        />
+      ) : null}
+
+      <article className="relative w-full max-w-md text-center" aria-label="Today's highest rated word">
+        <p className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Today&apos;s best roll</p>
         {topError ? (
-          <div className="mt-3" role="alert">
+          <div className="mt-6" role="alert">
             <p className="text-sm text-foreground">Today&apos;s highest roll didn&apos;t load.</p>
             <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => setAttempt((value) => value + 1)}>
               Try again
             </Button>
           </div>
         ) : top === undefined ? (
-          <p className="mt-3 text-sm text-muted-foreground" role="status">
-            Loading today&apos;s highest roll…
-          </p>
-        ) : top === null ? (
-          <p className="mt-3 text-sm text-muted-foreground" role="status">
-            No saved rolls yet today.
-          </p>
+          <div className="mt-6 flex flex-col items-center" role="status" aria-label="Loading today's highest roll">
+            <div className="flex gap-1.5">
+              {Array.from({ length: 6 }, (_, index) => (
+                <span key={index} className="h-11 w-9 animate-pulse rounded-[4px] border border-foreground/10 bg-card sm:h-12 sm:w-10" />
+              ))}
+            </div>
+            <span className="mt-6 h-10 w-40 animate-pulse rounded-md bg-card" />
+          </div>
+        ) : top === null || !scored || !standing || !tone ? (
+          <div className="mt-6" role="status">
+            <p className="font-display text-4xl tracking-tight italic sm:text-5xl">Nobody yet.</p>
+            <p className="mt-3 text-sm text-muted-foreground">No saved rolls today. Yours could be the one to beat.</p>
+          </div>
         ) : (
-          <div className="mt-3">
-            <p className="font-display text-4xl tracking-tight italic sm:text-5xl">{top.word}</p>
-            <p className="mt-2 font-mono text-sm text-foreground tabular-nums">{top.score}</p>
-            <p className="mt-1 text-sm text-foreground">{top.username}</p>
+          <div className="row-in mt-5 flex flex-col items-center">
+            <ul className="flex flex-wrap justify-center gap-1.5" aria-label={top.word}>
+              {scored.tiles.map((tile, index) => (
+                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={scored.length} />
+              ))}
+            </ul>
+            <p className="mt-6 font-mono text-5xl leading-none tabular-nums sm:text-6xl">{top.score}</p>
+            <p
+              className={cn(
+                "mt-4 inline-flex rounded-full border px-3 py-1 text-[11px] tracking-[0.22em] uppercase",
+                tone.badge,
+              )}
+            >
+              {standing.tier.label}
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Rolled by <span className="text-foreground">{top.username}</span>
+              <span aria-hidden> · </span>
+              {formatStanding(standing.beaten)}
+            </p>
           </div>
         )}
       </article>
-      {rollError ? (
-        <p className="mt-4 text-sm text-foreground" role="alert">
-          {rollError}
+
+      <div className="relative mt-10 flex w-full max-w-xs flex-col items-center">
+        <Button type="button" className="h-12 w-full text-base shadow-lg shadow-black/30 sm:h-14" onClick={onGenerate}>
+          Generate word
+        </Button>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {top ? "Think you can beat it?" : "Every roll goes on the leaderboard."}
         </p>
-      ) : null}
+        {rollError ? (
+          <p className="mt-3 text-center text-sm text-foreground" role="alert">
+            {rollError}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
