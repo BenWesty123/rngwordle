@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
-import { flickerWord, loadDictionary } from "@/lib/dictionary";
+import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { scoreWord, type LedgerRow, type Tile } from "@/lib/scoring";
 import { buildShareText, formatStanding } from "@/lib/share";
@@ -54,46 +54,30 @@ const TIER_STYLE: Record<TierId, { badge: string; glow: string }> = {
 };
 
 export function Game() {
-  const [dictionary, setDictionary] = useState<string[] | null>(null);
-  const [dictionaryError, setDictionaryError] = useState<string | null>(null);
-  const [dictionaryAttempt, setDictionaryAttempt] = useState(0);
   const [spinWord, setSpinWord] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [dealing, setDealing] = useState(false);
+  const [dealt, setDealt] = useState(false);
   const [rollError, setRollError] = useState<string | null>(null);
   const [replayKey, setReplayKey] = useState(0);
   const spinTimer = useRef<number | null>(null);
   const { account, refresh, rememberToday } = useAccount();
   const snapshot = useSyncExternalStore(subscribeRoll, readRollSnapshot, serverRollSnapshot);
   const guestRoll = snapshot ? parseRoll(snapshot) : null;
+  const todayKey = utcDateKey();
   const roll =
     account.status === "player" || account.status === "needs-name"
       ? account.today
-        ? { date: utcDateKey(), word: account.today.word }
+        ? { date: todayKey, word: account.today.word }
         : null
-      : account.status === "guest"
+      : account.status === "guest" && guestRoll?.date === todayKey
         ? guestRoll
         : null;
   const daily =
     (account.status === "player" || account.status === "needs-name") &&
     account.today != null &&
     roll?.word === account.today.word;
-
-  useEffect(() => {
-    let cancelled = false;
-    loadDictionary().then(
-      (words) => {
-        if (!cancelled) setDictionary(words);
-      },
-      () => {
-        if (!cancelled) setDictionaryError("The word list didn't load.");
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [dictionaryAttempt]);
 
   useEffect(() => {
     return () => {
@@ -128,6 +112,7 @@ export function Game() {
     armScoreAudio();
     if (spinTimer.current !== null || dealing) return;
     if (account.status !== "guest" && account.status !== "player" && account.status !== "needs-name") return;
+    setDealt(true);
     setDealing(true);
     setRollError(null);
     try {
@@ -139,6 +124,7 @@ export function Game() {
         error?: string;
       };
       if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
+        setDealt(false);
         setRollError(body.error ?? "That roll didn't save.");
         return;
       }
@@ -149,6 +135,7 @@ export function Game() {
       setCopyError(false);
       startSpin(body.word);
     } catch {
+      setDealt(false);
       setRollError("That roll didn't save.");
     } finally {
       setDealing(false);
@@ -234,21 +221,12 @@ export function Game() {
               rollError={rollError}
             />
           </>
+        ) : dealt ? (
+          <p className="mx-auto mt-16 w-full max-w-xl text-sm text-muted-foreground">Dealing…</p>
         ) : (
           <>
             {account.status === "needs-name" ? <UsernameForm compact /> : null}
-            <EmptyState
-            dictionary={dictionary}
-            dictionaryError={dictionaryError}
-            account={account.status === "needs-name" ? "needs-name" : account.status}
-            dealing={dealing}
-            rollError={rollError}
-            onGenerate={() => void onGenerate()}
-            onRetry={() => {
-              setDictionaryError(null);
-              setDictionaryAttempt((attempt) => attempt + 1);
-            }}
-          />
+            <FirstToday rollError={rollError} onGenerate={() => void onGenerate()} />
           </>
         )}
       </div>
@@ -258,69 +236,66 @@ export function Game() {
 
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,rgba(240,226,200,0.12),transparent_55%)]";
 
-function EmptyState({
-  dictionary,
-  dictionaryError,
-  account,
-  dealing,
-  rollError,
-  onGenerate,
-  onRetry,
-}: {
-  dictionary: string[] | null;
-  dictionaryError: string | null;
-  account: "guest" | "player" | "needs-name";
-  dealing: boolean;
-  rollError: string | null;
-  onGenerate: () => void;
-  onRetry: () => void;
-}) {
-  const wordCount = dictionary?.length;
+type TodayTop = { word: string; username: string; score: string };
+
+function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGenerate: () => void }) {
+  const [attempt, setAttempt] = useState(0);
+  const [top, setTop] = useState<TodayTop | null | undefined>(undefined);
+  const [topError, setTopError] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    setTop(undefined);
+    setTopError(false);
+    fetch("/api/today")
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
+      .then((body: { top?: TodayTop | null }) => {
+        if (cancel) return;
+        setTop(body.top ?? null);
+      })
+      .catch(() => {
+        if (!cancel) setTopError(true);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [attempt]);
+
   return (
-    <div className="flex flex-1 flex-col justify-center py-16">
-      <h1 className="max-w-md font-display text-5xl leading-[0.95] tracking-tight text-balance italic sm:text-6xl">
-        Draw a word.
-      </h1>
-      <p className="mt-6 max-w-md text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-        {account === "player"
-          ? "Generate saves one roll under your name for this UTC day. Generating again shows that same word."
-          : account === "needs-name"
-            ? "Generate saves one roll today as Anonymous until you pick a username."
-            : "Generate saves a roll on the leaderboard as Anonymous. Log in when you want a username on your daily roll."}
-      </p>
-      {dictionaryError ? (
-        <div className="mt-8 max-w-md" role="alert">
-          <p className="text-sm text-foreground">{dictionaryError}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The list lives with the app. Reload it and deal when you’re ready.
+    <div className="mx-auto mt-10 w-full max-w-xl">
+      <Button type="button" className="h-12 w-full text-base sm:h-14" onClick={onGenerate}>
+        Generate word
+      </Button>
+      <article className="mt-4 rounded-2xl border border-border bg-card px-5 py-5" aria-label="Today's highest rated word">
+        <p className="text-[11px] tracking-[0.22em] text-muted-foreground uppercase">Today&apos;s highest</p>
+        {topError ? (
+          <div className="mt-3" role="alert">
+            <p className="text-sm text-foreground">Today&apos;s highest roll didn&apos;t load.</p>
+            <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => setAttempt((value) => value + 1)}>
+              Try again
+            </Button>
+          </div>
+        ) : top === undefined ? (
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
+            Loading today&apos;s highest roll…
           </p>
-          <Button type="button" className="mt-5 h-12 w-full text-base sm:h-14" onClick={onRetry}>
-            Try again
-          </Button>
-        </div>
-      ) : (
-        <Button
-          type="button"
-          className="mt-8 h-12 w-full text-base sm:h-14"
-          disabled={dealing}
-          onClick={onGenerate}
-        >
-          {dealing ? "Dealing…" : "Generate"}
-        </Button>
-      )}
+        ) : top === null ? (
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
+            No saved rolls yet today.
+          </p>
+        ) : (
+          <div className="mt-3">
+            <p className="font-display text-4xl tracking-tight italic sm:text-5xl">{top.word}</p>
+            <p className="mt-2 font-mono text-sm text-foreground tabular-nums">{top.score}</p>
+            <p className="mt-1 text-sm text-foreground">{top.username}</p>
+          </div>
+        )}
+      </article>
       {rollError ? (
-        <p className="mt-4 max-w-md text-sm text-foreground" role="alert">
+        <p className="mt-4 text-sm text-foreground" role="alert">
           {rollError}
         </p>
       ) : null}
-      <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground">
-        {wordCount
-          ? `${wordCount.toLocaleString("en-US")} words in the pot. `
-          : "A full dictionary is in the pot. "}
-        {account === "guest"
-          ? "The latest word stays in this browser until you roll again. Each one is on the leaderboard."
-          : "Logged-out rolls are on the leaderboard as Anonymous."}
-      </p>
     </div>
   );
 }
