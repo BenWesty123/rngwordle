@@ -6,7 +6,7 @@
  * Each step shorter doubles (8→×2, 7→×4, 6→×8, …, 2→×128).
  * Each step longer adds one (10→×2, 11→×3, 12→×4, …).
  * Every other factor multiplies only when it hits. The multiplier is
- * round(3 × log10(list size / matches)), and at least ×2.
+ * round(3 × log10(list size / matches)), then raised to the power 1.5. A property most words share scores ×1.
  * Y is never a vowel. Ascenders are b d f h k l t. Descenders are g j p q y.
  * Origin tags come from English Wiktionary borrowed, inherited, and derived
  * templates. An inflected form inherits the lemma's origin languages.
@@ -136,12 +136,24 @@ export const FACTOR_MATCHES = {
 export type FactorId = keyof typeof FACTOR_MATCHES;
 
 /**
- * round(3 × log10(list size / matches)). A property that about a third of
- * words have, or more, comes out at ×1 and does not score.
+ * Inside and Anagram are a flat ×2 per hit. Every other card's base value is
+ * raised to this power, which sets their weight against those two.
+ */
+export const RARITY_POWER = 1.5;
+
+/** round(raw), then raised to RARITY_POWER. A base of ×1 stays ×1 and does not score. */
+function rarityCurve(raw: number): number {
+  const base = Math.max(1, Math.round(raw));
+  return base === 1 ? 1 : Math.round(base ** RARITY_POWER);
+}
+
+/**
+ * round(3 × log10(list size / matches)) ^ 1.5. A property that about a third
+ * of words have, or more, comes out at ×1 and does not score.
  */
 export function rarityMultiplier(matches: number, wordCount = LIST_SIZE): number {
   if (matches <= 0 || wordCount <= 0) return 2;
-  return Math.max(1, Math.round(3 * Math.log10(wordCount / matches)));
+  return rarityCurve(3 * Math.log10(wordCount / matches));
 }
 
 export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
@@ -187,27 +199,28 @@ export function stackThreshold(id: StackedFactorId): number {
 
 /**
  * Multiplier for a consonant run of this length. Built from how many ENABLE
- * words have a run at least this long, then raised where two lengths tied.
+ * words have a run at least this long, then raised where two lengths tied, and
+ * raised to RARITY_POWER like every other card.
  * A run of 1 does not score.
  */
 export const CONSONANT_CHAIN_MULTIPLIERS: Record<number, number> = {
   // 88% of words have a run of 2, so it does not score.
   2: 1,
-  3: 3,
-  4: 4,
-  5: 6,
-  6: 8,
-  7: 11,
-  8: 12,
-  9: 13,
+  3: 5,
+  4: 8,
+  5: 15,
+  6: 23,
+  7: 36,
+  8: 42,
+  9: 47,
 };
 
-/** Same ladder for vowel runs. No ties on the ENABLE list. */
+/** Same ladder for vowel runs, also raised to RARITY_POWER. No ties on the ENABLE list. */
 export const VOWEL_CHAIN_MULTIPLIERS: Record<number, number> = {
-  2: 2,
-  3: 6,
-  4: 10,
-  5: 14,
+  2: 3,
+  3: 15,
+  4: 32,
+  5: 52,
 };
 
 /** How many bundled words have each length. */
@@ -222,7 +235,7 @@ const COMMONEST_LENGTH_COUNT = Math.max(...Object.values(LENGTH_COUNTS));
 /** Priced by rarity against the most common length (8 letters), the same in both directions. */
 export function lengthMultiplier(length: number): number {
   const count = LENGTH_COUNTS[length] ?? 1;
-  return Math.max(1, Math.round(3 * Math.log10(COMMONEST_LENGTH_COUNT / count)));
+  return rarityCurve(3 * Math.log10(COMMONEST_LENGTH_COUNT / count));
 }
 
 export function scoreWord(word: string): ScoredWord {

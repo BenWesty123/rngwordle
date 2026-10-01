@@ -6,6 +6,7 @@ import {
   MULTIPLIER_CAP_HZ,
   MULTIPLIER_FLOOR_HZ,
   multiplierBlipCount,
+  multiplierRiseSemitones,
   planMultiplierRuns,
   planRollSound,
 } from "./score-sound";
@@ -83,9 +84,9 @@ test("air ends in a rare chord and kayak ends low and thin", () => {
     const ends = melodyEnds(strong.runs[1]!);
     return 12 * Math.log2(ends.last / ends.first);
   })();
-  // air's length is ×4 and Rewind is ×7: both climb 3 semitones.
-  assert.ok(Math.abs(lengthRise - 3) < 0.05);
-  assert.ok(Math.abs(nextRise - 3) < 0.05);
+  // air's length is ×8, a 4-semitone climb. Rewind ×19 climbs further, up to its 6-semitone cap.
+  assert.ok(Math.abs(lengthRise - multiplierRiseSemitones(8)) < 0.05);
+  assert.ok(nextRise > lengthRise && nextRise <= multiplierRiseSemitones(19) + 0.05);
   for (const note of [...strong.runs.flat(), ...strong.verdict, ...weak.runs.flat(), ...weak.verdict]) {
     assert.ok(note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ);
   }

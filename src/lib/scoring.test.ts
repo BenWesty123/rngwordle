@@ -21,78 +21,78 @@ test("common lengths sit at ×1", () => {
 });
 
 test("length is priced by rarity, the same in both directions", () => {
-  assert.equal(lengthMultiplier(5), 2);
-  assert.equal(lengthMultiplier(4), 3);
-  assert.equal(lengthMultiplier(3), 4);
-  assert.equal(lengthMultiplier(2), 7);
-  assert.equal(lengthMultiplier(13), 2);
-  assert.equal(lengthMultiplier(15), 3);
-  assert.equal(lengthMultiplier(20), 7);
-  assert.equal(lengthMultiplier(28), 13);
+  assert.equal(lengthMultiplier(5), 3);
+  assert.equal(lengthMultiplier(4), 5);
+  assert.equal(lengthMultiplier(3), 8);
+  assert.equal(lengthMultiplier(2), 19);
+  assert.equal(lengthMultiplier(13), 3);
+  assert.equal(lengthMultiplier(15), 5);
+  assert.equal(lengthMultiplier(20), 19);
+  assert.equal(lengthMultiplier(28), 47);
   assert.equal(lengthMultiplier(2), lengthMultiplier(20));
 });
 
 test("rarer factors get larger multipliers", () => {
-  assert.equal(rarityMultiplier(41209), 2);
-  assert.equal(FACTOR_MULTIPLIERS.twins, 2);
-  assert.equal(FACTOR_MULTIPLIERS.contraband, 3);
-  assert.equal(FACTOR_MULTIPLIERS["vowel-sweep"], 6);
-  assert.equal(FACTOR_MULTIPLIERS["alphabet-soup"], 8);
-  assert.equal(FACTOR_MULTIPLIERS["bone-dry"], 9);
-  assert.equal(FACTOR_MULTIPLIERS.mirror, 10);
-  assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], 5);
-  assert.equal(FACTOR_MULTIPLIERS["swap-shop"], 5);
+  assert.equal(rarityMultiplier(41209), 3);
+  assert.equal(FACTOR_MULTIPLIERS.twins, 3);
+  assert.equal(FACTOR_MULTIPLIERS.contraband, 5);
+  assert.equal(FACTOR_MULTIPLIERS["vowel-sweep"], 15);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-soup"], 23);
+  assert.equal(FACTOR_MULTIPLIERS["bone-dry"], 27);
+  assert.equal(FACTOR_MULTIPLIERS.mirror, 32);
+  assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], 11);
+  assert.equal(FACTOR_MULTIPLIERS["swap-shop"], 11);
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
-  assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 3);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 5);
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], rarityMultiplier(16735));
   assert.equal(FACTOR_MATCHES["lonely-word"], 35181);
-  assert.equal(FACTOR_MULTIPLIERS["lonely-word"], 2);
+  assert.equal(FACTOR_MULTIPLIERS["lonely-word"], 3);
   assert.equal(FACTOR_MULTIPLIERS["lonely-word"], rarityMultiplier(FACTOR_MATCHES["lonely-word"]));
   assert.equal(FACTOR_MATCHES["letter-collector"], 145);
-  assert.equal(FACTOR_MULTIPLIERS["letter-collector"], 9);
+  assert.equal(FACTOR_MULTIPLIERS["letter-collector"], 27);
   assert.equal(
     FACTOR_MULTIPLIERS["letter-collector"],
     rarityMultiplier(FACTOR_MATCHES["letter-collector"]),
   );
   assert.equal(FACTOR_MATCHES["alphabet-staircase"], 1502);
-  assert.equal(FACTOR_MULTIPLIERS["alphabet-staircase"], 6);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-staircase"], 15);
   assert.equal(
     FACTOR_MULTIPLIERS["alphabet-staircase"],
     rarityMultiplier(FACTOR_MATCHES["alphabet-staircase"]),
   );
   assert.equal(FACTOR_MATCHES["roman-word"], 28);
-  assert.equal(FACTOR_MULTIPLIERS["roman-word"], 11);
+  assert.equal(FACTOR_MULTIPLIERS["roman-word"], 36);
   assert.equal(FACTOR_MULTIPLIERS["roman-word"], rarityMultiplier(FACTOR_MATCHES["roman-word"]));
   assert.equal(FACTOR_MATCHES["periodic-spelling"], 28923);
-  assert.equal(FACTOR_MULTIPLIERS["periodic-spelling"], 2);
+  assert.equal(FACTOR_MULTIPLIERS["periodic-spelling"], 3);
   assert.equal(
     FACTOR_MULTIPLIERS["periodic-spelling"],
     rarityMultiplier(FACTOR_MATCHES["periodic-spelling"]),
   );
   assert.equal(FACTOR_MATCHES["perfectly-shared"], 34909);
-  assert.equal(FACTOR_MULTIPLIERS["perfectly-shared"], 2);
+  assert.equal(FACTOR_MULTIPLIERS["perfectly-shared"], 3);
   assert.equal(
     FACTOR_MULTIPLIERS["perfectly-shared"],
     rarityMultiplier(FACTOR_MATCHES["perfectly-shared"]),
   );
-  assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], 11);
   assert.equal(FACTOR_MULTIPLIERS["double-or-nothing"], rarityMultiplier(5429));
-  assert.equal(FACTOR_MULTIPLIERS["woven-together"], 6);
+  assert.equal(FACTOR_MULTIPLIERS["woven-together"], 15);
   assert.equal(FACTOR_MULTIPLIERS["woven-together"], rarityMultiplier(1490));
-  assert.equal(FACTOR_MULTIPLIERS["building-blocks"], 5);
+  assert.equal(FACTOR_MULTIPLIERS["building-blocks"], 11);
   assert.equal(FACTOR_MULTIPLIERS["building-blocks"], rarityMultiplier(4186));
   assert.equal(FACTOR_MULTIPLIERS["hidden-mirror"], rarityMultiplier(3148));
-  assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 14);
-  assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 4);
-  assert.equal(FACTOR_MULTIPLIERS["flat-type"], 4);
-  assert.equal(FACTOR_MULTIPLIERS["next-door"], 3);
-  assert.equal(FACTOR_MULTIPLIERS.ing, 3);
-  assert.equal(FACTOR_MULTIPLIERS.ist, 6);
-  assert.equal(FACTOR_MULTIPLIERS.ish, 7);
-  assert.equal(FACTOR_MULTIPLIERS["i-before-e"], 6);
-  assert.equal(FACTOR_MULTIPLIERS["quiet-letters"], 7);
-  assert.equal(FACTOR_MULTIPLIERS["a-to-u"], 11);
-  assert.equal(FACTOR_MULTIPLIERS["lone-q"], 11);
+  assert.equal(FACTOR_MULTIPLIERS["a-cappella"], 52);
+  assert.equal(FACTOR_MULTIPLIERS["vowel-rich"], 8);
+  assert.equal(FACTOR_MULTIPLIERS["flat-type"], 8);
+  assert.equal(FACTOR_MULTIPLIERS["next-door"], 5);
+  assert.equal(FACTOR_MULTIPLIERS.ing, 5);
+  assert.equal(FACTOR_MULTIPLIERS.ist, 15);
+  assert.equal(FACTOR_MULTIPLIERS.ish, 19);
+  assert.equal(FACTOR_MULTIPLIERS["i-before-e"], 15);
+  assert.equal(FACTOR_MULTIPLIERS["quiet-letters"], 19);
+  assert.equal(FACTOR_MULTIPLIERS["a-to-u"], 36);
+  assert.equal(FACTOR_MULTIPLIERS["lone-q"], 36);
   assert.ok(FACTOR_MULTIPLIERS.mirror > FACTOR_MULTIPLIERS["vowel-sweep"]);
   assert.ok(FACTOR_MULTIPLIERS["a-to-u"] > FACTOR_MULTIPLIERS.mirror);
   assert.ok(FACTOR_MULTIPLIERS["vowel-sweep"] > FACTOR_MULTIPLIERS.twins);
@@ -101,15 +101,15 @@ test("rarer factors get larger multipliers", () => {
 test("quiz is scrabble tiles times length times contraband", () => {
   const scored = scoreWord("quiz");
   assert.equal(scored.tileSum, 22);
-  assert.equal(scored.lengthMultiplier, 3);
-  assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 3);
-  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 3);
-  assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 2);
+  assert.equal(scored.lengthMultiplier, 5);
+  assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 5);
+  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 3);
+  assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 5);
+  assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 3);
   // No repeats already pays for this.
   assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.points, null);
   assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.matched, true);
-  assert.equal(scored.total, 22 * 3 * 3 * 2 * 3 * 2);
+  assert.equal(scored.total, 22 * 5 * 5 * 3 * 5 * 3);
   assert.equal(product(scored), scored.total);
 });
 
@@ -123,7 +123,7 @@ test("a whole palindrome misses hidden mirror, and an inner run of 5 hits", () =
   const hidden = prefer.rows.filter((row) => row.id === "hidden-mirror");
   assert.equal(hidden.length, 1);
   assert.equal(hidden[0]?.scored, true);
-  assert.equal(hidden[0]?.points, 5);
+  assert.equal(hidden[0]?.points, 11);
   assert.deepEqual(hidden[0]?.highlight, [1, 2, 3, 4, 5]);
   assert.match(hidden[0]?.reason ?? "", /refer reads the same backwards/);
   assert.equal(prefer.rows.find((row) => row.id === "mirror")?.scored, false);
@@ -145,7 +145,7 @@ test("antics builds from an through antics, and quiz has no such run", () => {
   const rows = scoreWord("antics").rows.filter((row) => row.id === "building-blocks");
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.scored, true);
-  assert.equal(rows[0]?.points, 5);
+  assert.equal(rows[0]?.points, 11);
   assert.equal(rows[0]?.match, "an, ant, anti, antic, antics");
   assert.deepEqual(rows[0]?.highlight, [0, 1, 2, 3, 4, 5]);
   assert.equal(
@@ -162,7 +162,7 @@ test("schooled weaves shoe and cold, and a word that does not split misses", () 
   const rows = scoreWord("schooled").rows.filter((row) => row.id === "woven-together");
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.scored, true);
-  assert.equal(rows[0]?.points, 6);
+  assert.equal(rows[0]?.points, 15);
   assert.equal(rows[0]?.match, "shoe and cold");
   assert.deepEqual(rows[0]?.highlight, [0, 1, 2, 3, 4, 5, 6, 7]);
   const reason = rows[0]?.reason ?? "";
@@ -179,14 +179,14 @@ test("hoping and hopping each name the other, and a word with no pair misses", (
   // One card for every hit, priced by how rare that many hits is.
   const hoping = scoreWord("hoping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
   assert.equal(hoping.length, 1);
-  assert.equal(hoping[0]?.points, 9);
+  assert.equal(hoping[0]?.points, 27);
   assert.equal(hoping[0]?.match, "hooping, hopping");
   assert.deepEqual(hoping[0]?.highlight, [1, 2]);
   assert.match(hoping[0]?.reason ?? "", /hopping/);
 
   const hopping = scoreWord("hopping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
   assert.equal(hopping.length, 1);
-  assert.equal(hopping[0]?.points, 5);
+  assert.equal(hopping[0]?.points, 11);
   assert.equal(hopping[0]?.match, "hoping");
   assert.deepEqual(hopping[0]?.highlight, [2, 3]);
   assert.match(hopping[0]?.reason ?? "", /hoping/);
@@ -201,7 +201,7 @@ test("cat steps C to bat, and A does not wrap around to Z", () => {
   const steps = cat.rows.filter((row) => row.id === "alphabet-step");
   assert.equal(steps.length, 1);
   assert.equal(steps[0]?.scored, true);
-  assert.equal(steps[0]?.points, 3);
+  assert.equal(steps[0]?.points, 5);
   assert.equal(steps[0]?.match, "bat");
   assert.deepEqual(steps[0]?.highlight, [0]);
   assert.match(steps[0]?.reason ?? "", /bat/);
@@ -222,9 +222,9 @@ test("feedback collects A through F, and a 5-letter stretch misses", () => {
   const feedback = scoreWord("feedback");
   const row = feedback.rows.find((entry) => entry.id === "letter-collector");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 9);
+  assert.equal(row?.points, 27);
   assert.equal(row?.points, FACTOR_MULTIPLIERS["letter-collector"]);
-  assert.equal(row?.name, "Letter collector ×9");
+  assert.equal(row?.name, "Letter collector ×27");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6]);
   assert.equal(
     row?.reason,
@@ -272,9 +272,9 @@ test("hijack and first step up the alphabet, and a short or descending run misse
   const hij = hijack.rows.find((entry) => entry.id === "alphabet-staircase");
   assert.equal(hijack.rows.filter((entry) => entry.id === "alphabet-staircase").length, 1);
   assert.equal(hij?.scored, true);
-  assert.equal(hij?.points, 6);
+  assert.equal(hij?.points, 15);
   assert.equal(hij?.points, FACTOR_MULTIPLIERS["alphabet-staircase"]);
-  assert.equal(hij?.name, "Alphabet staircase ×6");
+  assert.equal(hij?.name, "Alphabet staircase ×15");
   assert.deepEqual(hij?.highlight, [0, 1, 2]);
   assert.equal(
     hij?.reason,
@@ -334,9 +334,9 @@ test("civic, mix, and dim are Roman words, and a letter outside that set misses"
     const rows = scored.rows.filter((entry) => entry.id === "roman-word");
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.scored, true);
-    assert.equal(rows[0]?.points, 11);
+    assert.equal(rows[0]?.points, 36);
     assert.equal(rows[0]?.points, FACTOR_MULTIPLIERS["roman-word"]);
-    assert.equal(rows[0]?.name, "Roman word ×11");
+    assert.equal(rows[0]?.name, "Roman word ×36");
     assert.deepEqual(
       rows[0]?.highlight,
       Array.from({ length: word.length }, (_, index) => index),
@@ -386,9 +386,9 @@ test("banana and silicon split into element symbols, and jazz does not", () => {
     const rows = scored.rows.filter((entry) => entry.id === "periodic-spelling");
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.scored, true);
-    assert.equal(rows[0]?.points, 2);
+    assert.equal(rows[0]?.points, 3);
     assert.equal(rows[0]?.points, FACTOR_MULTIPLIERS["periodic-spelling"]);
-    assert.equal(rows[0]?.name, "Periodic spelling ×2");
+    assert.equal(rows[0]?.name, "Periodic spelling ×3");
     assert.equal(
       rows[0]?.reason,
       `The whole word splits into chemical element symbols: ${partition}.`,
@@ -419,8 +419,8 @@ test("a lonely word has no insert, delete, or substitute neighbour", () => {
   const lonely = scoreWord("syzygy");
   const row = lonely.rows.find((entry) => entry.id === "lonely-word");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 2);
-  assert.equal(row?.name, "Lonely word ×2");
+  assert.equal(row?.points, 3);
+  assert.equal(row?.name, "Lonely word ×3");
   assert.equal(row?.points, FACTOR_MULTIPLIERS["lonely-word"]);
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
   assert.match(row?.reason ?? "", /insertion, deletion, or substitution/);
@@ -469,19 +469,19 @@ test("salt swaps into slat, and identical neighbours do not", () => {
   assert.equal(pairs[0]?.match, "cared, arced");
   assert.deepEqual(pairs[0]?.highlight, [0, 1, 2]);
   // Two swaps is far rarer than one.
-  assert.equal(pairs[0]?.points, 10);
+  assert.equal(pairs[0]?.points, 32);
 });
 
 test("kayak multiplies mirror", () => {
   const scored = scoreWord("kayak");
   assert.equal(scored.tileSum, 16);
-  assert.equal(scored.lengthMultiplier, 2);
-  assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
+  assert.equal(scored.lengthMultiplier, 3);
+  assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 32);
   assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
-  assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 4);
+  assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 8);
   // Alphabet twins is ordinary, so it does not score.
   assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, null);
-  assert.equal(scored.total, 16 * 2 * 10 * 2 * 2 * 4);
+  assert.equal(scored.total, 16 * 3 * 32 * 2 * 2 * 8);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -490,7 +490,7 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.tileSum, 17);
   assert.equal(scored.lengthMultiplier, 1);
-  assert.equal(scored.rows.find((row) => row.id === "quiet-letters")?.points, 7);
+  assert.equal(scored.rows.find((row) => row.id === "quiet-letters")?.points, 19);
   assert.equal(scored.total, product(scored));
 });
 
@@ -531,8 +531,8 @@ test("bookends matches the first two letters to the last two", () => {
   const church = scoreWord("church");
   const row = church.rows.find((entry) => entry.id === "bookends");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 8);
-  assert.equal(row?.name, "Bookends ×8");
+  assert.equal(row?.points, 23);
+  assert.equal(row?.name, "Bookends ×23");
   assert.deepEqual(row?.highlight, [0, 1, 4, 5]);
   assert.match(row?.reason ?? "", /ch/);
 
@@ -587,8 +587,8 @@ test("inside out moves the first letter to the end", () => {
   const stable = scoreWord("stable");
   const row = stable.rows.find((entry) => entry.id === "inside-out");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 7);
-  assert.equal(row?.name, "Inside out ×7");
+  assert.equal(row?.points, 19);
+  assert.equal(row?.name, "Inside out ×19");
   assert.equal(row?.reason, "Move the first letter to the end and you get another word: tables.");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
 
@@ -601,8 +601,8 @@ test("shrinking word follows a deletion chain of at least 5", () => {
   const row = scored.rows.find((entry) => entry.id === "shrinking-word");
   const chain = "startling → starling → staring → string → sting → ting → tin → in";
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 4);
-  assert.equal(row?.name, "Shrinking word ×4");
+  assert.equal(row?.points, 8);
+  assert.equal(row?.name, "Shrinking word ×8");
   assert.equal(row?.reason, `Each step deletes one letter and is still a dictionary word. ${chain}`);
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const steps = chain.split(" → ");
@@ -632,8 +632,8 @@ test("front or back needs both trimmed words", () => {
   const start = scoreWord("start");
   const row = start.rows.find((entry) => entry.id === "front-or-back");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 5);
-  assert.equal(row?.name, "Front or back ×5");
+  assert.equal(row?.points, 11);
+  assert.equal(row?.name, "Front or back ×11");
   assert.equal(
     row?.reason,
     "Drop the first letter and a word remains, and drop the last letter and a word remains: tart and star.",
@@ -648,8 +648,8 @@ test("letter sandwich scores the exact middle word", () => {
   const there = scoreWord("there");
   const row = there.rows.find((entry) => entry.id === "letter-sandwich");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 4);
-  assert.equal(row?.name, "Letter sandwich ×4");
+  assert.equal(row?.points, 8);
+  assert.equal(row?.name, "Letter sandwich ×8");
   assert.equal(row?.reason, "Take off the first and last letters and a dictionary word is left: her.");
   assert.deepEqual(row?.highlight, [1, 2, 3]);
 
@@ -665,8 +665,8 @@ test("even company needs every letter exactly twice", () => {
   const scored = scoreWord("reappear");
   const row = scored.rows.find((entry) => entry.id === "even-company");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 10);
-  assert.equal(row?.name, "Even company ×10");
+  assert.equal(row?.points, 32);
+  assert.equal(row?.name, "Even company ×32");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.match(row?.reason ?? "", /r, e, a, p each appear twice/);
 
@@ -733,8 +733,8 @@ test("double twins sit together and a run of three is not a pair", () => {
   const coffee = scoreWord("coffee");
   const doubled = coffee.rows.find((entry) => entry.id === "double-twins");
   assert.equal(doubled?.scored, true);
-  assert.equal(doubled?.points, 9);
-  assert.equal(doubled?.name, "Double twins ×9");
+  assert.equal(doubled?.points, 27);
+  assert.equal(doubled?.name, "Double twins ×27");
   assert.deepEqual(doubled?.highlight, [2, 3, 4, 5]);
   assert.match(doubled?.reason ?? "", /ffee is 2 pairs/);
   assert.equal(coffee.rows.find((entry) => entry.id === "triple-twins")?.scored, false);
@@ -752,8 +752,8 @@ test("double twins sit together and a run of three is not a pair", () => {
   const bookkeeper = scoreWord("bookkeeper");
   const triple = bookkeeper.rows.find((entry) => entry.id === "triple-twins");
   assert.equal(triple?.scored, true);
-  assert.equal(triple?.points, 14);
-  assert.equal(triple?.name, "Triple twins ×14");
+  assert.equal(triple?.points, 52);
+  assert.equal(triple?.name, "Triple twins ×52");
   assert.deepEqual(triple?.highlight, [1, 2, 3, 4, 5, 6]);
   assert.match(triple?.reason ?? "", /ookkee is 3 pairs/);
   // Triple twins covers the lower two.
@@ -775,7 +775,7 @@ test("double twins sit together and a run of three is not a pair", () => {
 test("bookkeeper pays only the highest twins card", () => {
   const scored = scoreWord("bookkeeper");
   assert.equal(scored.rows.find((row) => row.id === "twins")?.points, null);
-  assert.equal(scored.rows.find((row) => row.id === "triple-twins")?.points, 14);
+  assert.equal(scored.rows.find((row) => row.id === "triple-twins")?.points, 52);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, null);
   assert.deepEqual(
     scored.tiles.map((tile) => tile.twin),
@@ -787,8 +787,8 @@ test("backwards alphabet runs down the whole word", () => {
   const pool = scoreWord("pool");
   const row = pool.rows.find((entry) => entry.id === "backwards-alphabet");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 8);
-  assert.equal(row?.name, "Backwards alphabet ×8");
+  assert.equal(row?.points, 23);
+  assert.equal(row?.name, "Backwards alphabet ×23");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3]);
   assert.equal(pool.rows.find((entry) => entry.id === "alphabet-soup")?.scored, false);
 
@@ -807,15 +807,15 @@ test("backwards alphabet runs down the whole word", () => {
 
 test("almost is alphabet soup", () => {
   const scored = scoreWord("almost");
-  assert.equal(scored.rows.find((row) => row.id === "alphabet-soup")?.points, 8);
+  assert.equal(scored.rows.find((row) => row.id === "alphabet-soup")?.points, 23);
 });
 
 test("banana is a one vowel wonder", () => {
   const scored = scoreWord("banana");
   const row = scored.rows.find((entry) => entry.id === "one-vowel-wonder");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 5);
-  assert.equal(row?.name, "One vowel wonder ×5");
+  assert.equal(row?.points, 11);
+  assert.equal(row?.name, "One vowel wonder ×11");
   assert.deepEqual(row?.highlight, [1, 3, 5]);
   assert.match(row?.reason ?? "", /Every vowel is A/);
 
@@ -829,8 +829,8 @@ test("banana is in perfect balance", () => {
   const scored = scoreWord("banana");
   const row = scored.rows.find((entry) => entry.id === "perfect-balance");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 3);
-  assert.equal(row?.name, "Perfect balance ×3");
+  assert.equal(row?.points, 5);
+  assert.equal(row?.name, "Perfect balance ×5");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
   assert.match(row?.reason ?? "", /3 vowels and 3 consonants/);
 
@@ -850,8 +850,8 @@ test("banana alternates and book does not", () => {
   const scored = scoreWord("banana");
   const row = scored.rows.find((entry) => entry.id === "alternator");
   assert.equal(row?.scored, true);
-  assert.equal(row?.points, 4);
-  assert.equal(row?.name, "Alternator ×4");
+  assert.equal(row?.points, 8);
+  assert.equal(row?.name, "Alternator ×8");
   assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
 
   const book = scoreWord("book");
@@ -870,28 +870,28 @@ test("chain length sets the multiplier and a run of 1 misses", () => {
   const scored = scoreWord("strengths");
   const consonants = scored.rows.find((entry) => entry.id === "consonant-chain");
   assert.equal(consonants?.scored, true);
-  assert.equal(consonants?.points, 6);
-  assert.equal(consonants?.name, "Consonant chain ×6");
+  assert.equal(consonants?.points, 15);
+  assert.equal(consonants?.name, "Consonant chain ×15");
   assert.deepEqual(consonants?.highlight, [4, 5, 6, 7, 8]);
   assert.match(consonants?.reason ?? "", /ngths is 5 consonants/);
   assert.equal(scored.rows.find((entry) => entry.id === "vowel-chain")?.scored, false);
 
   const strength = scoreWord("strength");
-  assert.equal(strength.rows.find((entry) => entry.id === "consonant-chain")?.points, 4);
+  assert.equal(strength.rows.find((entry) => entry.id === "consonant-chain")?.points, 8);
   assert.match(strength.rows.find((entry) => entry.id === "consonant-chain")?.reason ?? "", /4 consonants/);
 
   const doubled = scoreWord("cryptanalysts");
   assert.deepEqual(doubled.rows.find((entry) => entry.id === "consonant-chain")?.highlight, [0, 1, 2, 3, 4]);
 
   const rhythm = scoreWord("rhythm");
-  assert.equal(rhythm.rows.find((entry) => entry.id === "consonant-chain")?.points, 8);
+  assert.equal(rhythm.rows.find((entry) => entry.id === "consonant-chain")?.points, 23);
   assert.deepEqual(rhythm.rows.find((entry) => entry.id === "consonant-chain")?.highlight, [0, 1, 2, 3, 4, 5]);
   assert.equal(rhythm.rows.find((entry) => entry.id === "vowel-chain")?.scored, false);
 
   const vowels = scoreWord("cooeeing");
   const vowelRow = vowels.rows.find((entry) => entry.id === "vowel-chain");
-  assert.equal(vowelRow?.points, 14);
-  assert.equal(vowelRow?.name, "Vowel chain ×14");
+  assert.equal(vowelRow?.points, 52);
+  assert.equal(vowelRow?.name, "Vowel chain ×52");
   assert.deepEqual(vowelRow?.highlight, [1, 2, 3, 4, 5]);
   assert.match(vowelRow?.reason ?? "", /ooeei is 5 vowels/);
   // A run of 2 consonants is ordinary, so it is matched but does not score.
@@ -899,7 +899,7 @@ test("chain length sets the multiplier and a run of 1 misses", () => {
   assert.equal(vowels.rows.find((entry) => entry.id === "consonant-chain")?.matched, true);
 
   const book = scoreWord("book");
-  assert.equal(book.rows.find((entry) => entry.id === "vowel-chain")?.points, 2);
+  assert.equal(book.rows.find((entry) => entry.id === "vowel-chain")?.points, 3);
   assert.deepEqual(book.rows.find((entry) => entry.id === "vowel-chain")?.highlight, [1, 2]);
   assert.equal(book.rows.find((entry) => entry.id === "consonant-chain")?.scored, false);
 
@@ -914,11 +914,11 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   const scored = scoreWord("facetious");
   assert.equal(scored.lengthMultiplier, 1);
   assert.equal(scored.tileSum, 14);
-  assert.equal(scored.rows.find((row) => row.id === "vowel-sweep")?.points, 6);
-  assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 4);
-  assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 11);
+  assert.equal(scored.rows.find((row) => row.id === "vowel-sweep")?.points, 15);
+  assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 8);
+  assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 36);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
-  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
+  assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 3);
   assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 3);
   assert.equal(scored.total, product(scored));
 });
@@ -929,16 +929,16 @@ test("aa can be all vowels without counting as a mirror", () => {
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "bone-dry")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "twins")?.scored, true);
-  assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 4);
-  assert.equal(scored.rows.find((row) => row.id === "flat-type")?.points, 4);
+  assert.equal(scored.rows.find((row) => row.id === "vowel-rich")?.points, 8);
+  assert.equal(scored.rows.find((row) => row.id === "flat-type")?.points, 8);
   assert.equal(scored.total, product(scored));
 });
 
 test("neighbours, endings, and spelling slips pay only when they hit", () => {
-  assert.equal(scoreWord("ab").rows.find((row) => row.id === "next-door")?.points, 3);
-  assert.equal(scoreWord("fishing").rows.find((row) => row.id === "ing")?.points, 3);
-  assert.equal(scoreWord("faqir").rows.find((row) => row.id === "lone-q")?.points, 11);
-  assert.equal(scoreWord("know").rows.find((row) => row.id === "quiet-letters")?.points, 7);
+  assert.equal(scoreWord("ab").rows.find((row) => row.id === "next-door")?.points, 5);
+  assert.equal(scoreWord("fishing").rows.find((row) => row.id === "ing")?.points, 5);
+  assert.equal(scoreWord("faqir").rows.find((row) => row.id === "lone-q")?.points, 36);
+  assert.equal(scoreWord("know").rows.find((row) => row.id === "quiet-letters")?.points, 19);
 
   const weird = scoreWord("weird");
   assert.equal(weird.rows.find((row) => row.id === "i-before-e")?.scored, true);
@@ -961,8 +961,8 @@ test("origins come from Wiktionary, and a silence is a miss", () => {
   assert.equal(echo.rows.find((row) => row.id === "from-latin")?.matched, true);
   assert.match(echo.rows.find((row) => row.id === "from-latin")?.detail ?? "", /Only the rarest root scores, and that is Greek\./);
   assert.equal(echo.tileSum, 9);
-  assert.equal(echo.lengthMultiplier, 3);
-  assert.equal(echo.rows.find((row) => row.id === "no-repeats")?.points, 2);
+  assert.equal(echo.lengthMultiplier, 5);
+  assert.equal(echo.rows.find((row) => row.id === "no-repeats")?.points, 3);
   assert.equal(echo.total, product(echo));
 
   const philosophy = scoreWord("philosophy");
