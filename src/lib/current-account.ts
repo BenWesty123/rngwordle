@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { appDb } from "@/lib/app-db"
-import { accountForSession, rollForDay, SESSION_COOKIE, type SavedRoll } from "@/lib/accounts"
+import { accountForSession, rollForDay, SESSION_COOKIE, SESSION_MS, type SavedRoll } from "@/lib/accounts"
 import { utcDateKey } from "@/lib/day"
 
 export type CurrentAccount = {
@@ -27,6 +27,17 @@ export function sessionCookieOptions(secure: boolean) {
     sameSite: "lax" as const,
     path: "/",
     secure,
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: SESSION_MS / 1000,
+  }
+}
+
+/** The secret a tab waits on while its login link is out. Only the tab that asked has it. */
+export function loginWaitCookieOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    secure,
+    maxAge: 30 * 60,
   }
 }

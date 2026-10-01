@@ -27,6 +27,18 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS login_waits (
+  wait_hash TEXT PRIMARY KEY,
+  link_token TEXT NOT NULL,
+  device TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  approved_at INTEGER,
+  claimed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS login_waits_link ON login_waits (link_token);
+
 CREATE TABLE IF NOT EXISTS friendships (
   id TEXT PRIMARY KEY,
   requester_id TEXT NOT NULL REFERENCES accounts(id),

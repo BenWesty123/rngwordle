@@ -1,12 +1,16 @@
-import { randomBytes, randomUUID } from "node:crypto"
+import { createHash, randomBytes, randomUUID } from "node:crypto"
 import type { AppDatabase } from "@/lib/sql"
 import { utcDateKey } from "@/lib/day"
 
 export const ANONYMOUS_NAME = "Anonymous"
 export const LOGIN_LINK_MS = 30 * 60 * 1000
 /** Skip another login email to the same address inside this window. */
-export const LOGIN_RESEND_MS = 3 * 60 * 1000
-export const SESSION_MS = 30 * 24 * 60 * 60 * 1000
+export const LOGIN_RESEND_MS = 60 * 1000
+/** A year. Playing renews it, so a regular player never has to log in again. */
+export const SESSION_MS = 365 * 24 * 60 * 60 * 1000
+/** Renew a session at most once a day. */
+const SESSION_RENEW_MS = 24 * 60 * 60 * 1000
+export const LOGIN_WAIT_COOKIE = "rngworlde_login_wait"
 export const SESSION_COOKIE = "rngworlde_session"
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/
 
@@ -179,6 +183,23 @@ export async function createLoginLink(
   return { token }
 }
 
+/** Milliseconds until another link can be sent to this address, or 0. */
+export async function loginResendWait(db: AppDatabase, email: string, now = Date.now()): Promise<number> {
+  const normalized = normalizeEmail(email)
+  if (!normalized) return 0
+  const row = await db.get<{ created_at: number }>(
+    `SELECT login_links.created_at AS created_at
+     FROM login_links
+     JOIN accounts ON accounts.id = login_links.account_id
+     WHERE accounts.email = ?
+     ORDER BY login_links.created_at DESC
+     LIMIT 1`,
+    normalized,
+  )
+  if (!row) return 0
+  return Math.max(0, row.created_at + LOGIN_RESEND_MS - now)
+}
+
 export async function loginLinkSentRecently(db: AppDatabase, email: string, now = Date.now()): Promise<boolean> {
   const normalized = normalizeEmail(email)
   if (!normalized) return false
@@ -251,6 +272,153 @@ export async function consumeLoginLink(
   }
   const account = await db.get<{ username: string | null }>("SELECT username FROM accounts WHERE id = ?", link.account_id)
   return { accountId: link.account_id, username: account?.username ?? null, sessionToken }
+}
+
+function hashSecret(secret: string): string {
+  return createHash("sha256").update(secret).digest("base64url")
+}
+
+/**
+ * The tab that asked for a login link waits on this. Tapping the link approves it,
+ * so that tab logs in too, even when the link opened in another app or device.
+ * Only a hash of the secret is stored.
+ */
+export async function createLoginWait(
+  db: AppDatabase,
+  linkToken: string,
+  device: string,
+  now = Date.now(),
+): Promise<string> {
+  const secret = randomBytes(32).toString("base64url")
+  await db.run(
+    "INSERT INTO login_waits (wait_hash, link_token, device, created_at, expires_at, approved_at, claimed_at) VALUES (?, ?, ?, ?, ?, NULL, NULL)",
+    hashSecret(secret),
+    linkToken,
+    device.slice(0, 80),
+    now,
+    now + LOGIN_LINK_MS,
+  )
+  return secret
+}
+
+/** The device that asked for this link, for the confirm screen. */
+export async function loginWaitFor(
+  db: AppDatabase,
+  linkToken: string,
+): Promise<{ device: string; createdAt: number; waitHash: string } | null> {
+  const row = await db.get<{ device: string; created_at: number; wait_hash: string }>(
+    "SELECT device, created_at, wait_hash FROM login_waits WHERE link_token = ? ORDER BY created_at DESC LIMIT 1",
+    linkToken,
+  )
+  return row ? { device: row.device, createdAt: row.created_at, waitHash: row.wait_hash } : null
+}
+
+/** True when this wait secret belongs to the link, so the browser that asked is the one opening it. */
+export async function isOwnLoginWait(db: AppDatabase, linkToken: string, secret: string | undefined): Promise<boolean> {
+  if (!secret) return false
+  const row = await db.get<{ link_token: string }>(
+    "SELECT link_token FROM login_waits WHERE wait_hash = ?",
+    hashSecret(secret),
+  )
+  return row?.link_token === linkToken
+}
+
+/**
+ * The link was used: approve the tab waiting on it. When the same browser opened
+ * the link, it already has the session, so its wait is marked claimed instead.
+ */
+export async function approveLoginWaits(
+  db: AppDatabase,
+  linkToken: string,
+  ownSecret: string | undefined,
+  now = Date.now(),
+): Promise<void> {
+  await db.run("UPDATE login_waits SET approved_at = ? WHERE link_token = ? AND approved_at IS NULL", now, linkToken)
+  if (ownSecret) {
+    await db.run(
+      "UPDATE login_waits SET claimed_at = ? WHERE wait_hash = ? AND link_token = ? AND claimed_at IS NULL",
+      now,
+      hashSecret(ownSecret),
+      linkToken,
+    )
+  }
+}
+
+/**
+ * The waiting tab checks in. Once the link is used it gets its own session, once.
+ * "done" with no session means this browser already has one from opening the link.
+ */
+export async function claimLoginWait(
+  db: AppDatabase,
+  secret: string,
+  now = Date.now(),
+): Promise<{ status: "waiting" | "expired" } | { status: "done"; sessionToken: string | null }> {
+  const waitHash = hashSecret(secret)
+  const wait = await db.get<{ link_token: string; expires_at: number; approved_at: number | null; claimed_at: number | null }>(
+    "SELECT link_token, expires_at, approved_at, claimed_at FROM login_waits WHERE wait_hash = ?",
+    waitHash,
+  )
+  if (!wait) return { status: "expired" }
+  if (wait.claimed_at != null) return { status: "done", sessionToken: null }
+  if (wait.approved_at == null) return { status: wait.expires_at < now ? "expired" : "waiting" }
+  const sessionToken = randomBytes(32).toString("base64url")
+  const [claimed] = await db.batch([
+    {
+      sql: "UPDATE login_waits SET claimed_at = ? WHERE wait_hash = ? AND claimed_at IS NULL AND approved_at IS NOT NULL",
+      params: [now, waitHash],
+    },
+    {
+      sql: `INSERT INTO sessions (token, account_id, created_at, expires_at)
+            SELECT ?, login_links.account_id, ?, ?
+            FROM login_waits JOIN login_links ON login_links.token = login_waits.link_token
+            WHERE login_waits.wait_hash = ? AND login_waits.claimed_at = ?`,
+      params: [sessionToken, now, now + SESSION_MS, waitHash, now],
+    },
+  ])
+  if (!claimed || claimed.changes !== 1) return { status: "done", sessionToken: null }
+  return { status: "done", sessionToken }
+}
+
+/** Push a session's expiry a year out, at most once a day. True when it moved. */
+export async function renewSession(db: AppDatabase, token: string, now = Date.now()): Promise<boolean> {
+  const result = await db.run(
+    "UPDATE sessions SET expires_at = ? WHERE token = ? AND expires_at >= ? AND expires_at < ?",
+    now + SESSION_MS,
+    token,
+    now,
+    now + SESSION_MS - SESSION_RENEW_MS,
+  )
+  return result.changes === 1
+}
+
+/** "Chrome on Windows", from a user agent, for the login confirm screen. */
+export function describeDevice(userAgent: string | null): string {
+  const agent = userAgent ?? ""
+  const browser = /Edg\//.test(agent)
+    ? "Edge"
+    : /OPR\/|Opera/.test(agent)
+      ? "Opera"
+      : /Firefox\//.test(agent)
+        ? "Firefox"
+        : /Chrome\/|CriOS/.test(agent)
+          ? "Chrome"
+          : /Safari\//.test(agent)
+            ? "Safari"
+            : "A browser"
+  const system = /iPhone/.test(agent)
+    ? "iPhone"
+    : /iPad/.test(agent)
+      ? "iPad"
+      : /Android/.test(agent)
+        ? "Android"
+        : /Mac OS X|Macintosh/.test(agent)
+          ? "Mac"
+          : /Windows/.test(agent)
+            ? "Windows"
+            : /Linux/.test(agent)
+              ? "Linux"
+              : null
+  return system ? `${browser} on ${system}` : browser
 }
 
 export async function accountForSession(db: AppDatabase, token: string, now = Date.now()): Promise<AccountRow | null> {

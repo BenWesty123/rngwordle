@@ -22,6 +22,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useAccount } from "@/components/account-provider"
+
+/** How often the waiting tab checks whether its link was tapped. */
+const WAIT_POLL_MS = 2000
 
 const LINK_ERRORS: Record<string, string> = {
   missing: "That link does not match a login.",
@@ -29,7 +33,7 @@ const LINK_ERRORS: Record<string, string> = {
   expired: "That link expired. Ask for a new one.",
 }
 
-type Phase = "form" | "sending" | "sent"
+type Phase = "form" | "sending" | "sent" | "done"
 
 type LoginDialogContextValue = {
   openLogin: (errorCode?: string) => void
@@ -48,6 +52,12 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<Phase>("form")
   const [sent, setSent] = useState<"email" | "dev" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Secrets for the links this tab has asked for. Tapping any of them logs this tab in.
+  const [waits, setWaits] = useState<string[]>([])
+  const [resendAt, setResendAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  const { refresh } = useAccount()
+  const router = useRouter()
   const requestId = useRef(0)
   const clearQueryRef = useRef<() => void>(() => {})
   const rememberClear = useCallback((clear: () => void) => {
@@ -68,8 +78,72 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
     if (!next) clearQueryRef.current()
   }
 
+  // Wait for the link to be tapped, in this browser, another app, or another device.
+  useEffect(() => {
+    if (waits.length === 0) return
+    let stopped = false
+    async function check() {
+      const results = await Promise.all(
+        waits.map(async (wait) => {
+          try {
+            const response = await fetch("/api/auth/wait", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ wait }),
+            })
+            const body = (await response.json()) as { status?: string }
+            return { wait, status: body.status ?? "waiting" }
+          } catch {
+            return { wait, status: "waiting" }
+          }
+        }),
+      )
+      if (stopped) return
+      if (results.some((result) => result.status === "done")) {
+        setWaits([])
+        setPhase("done")
+        await refresh()
+        router.refresh()
+        window.setTimeout(() => setOpen(false), 1400)
+        return
+      }
+      const expired = new Set(results.filter((result) => result.status === "expired").map((result) => result.wait))
+      if (expired.size > 0) setWaits((current) => current.filter((wait) => !expired.has(wait)))
+    }
+    const id = window.setInterval(() => void check(), WAIT_POLL_MS)
+    // Coming back from the email app: check straight away.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", onVisible)
+    return () => {
+      stopped = true
+      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", onVisible)
+    }
+  }, [waits, refresh, router])
+
+  // Tick the resend countdown.
+  useEffect(() => {
+    if (resendAt === null) return
+    const id = window.setInterval(() => {
+      const current = Date.now()
+      setNow(current)
+      if (current >= resendAt) window.clearInterval(id)
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [resendAt])
+
+  const resendIn = resendAt === null ? 0 : Math.max(0, Math.ceil((resendAt - now) / 1000))
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    await sendLink()
+  }
+
+  async function sendLink() {
     const trimmed = email.trim()
     if (trimmed.length < 3 || trimmed.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError("Enter an email address.")
@@ -86,11 +160,22 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: trimmed }),
       })
-      const body = (await response.json()) as { ok?: boolean; dev?: boolean; limited?: boolean; error?: string }
+      const body = (await response.json()) as {
+        ok?: boolean
+        dev?: boolean
+        limited?: boolean
+        retryAfter?: number
+        wait?: string
+        error?: string
+      }
       if (id !== requestId.current) return
+      const startedAt = Date.now()
+      setNow(startedAt)
+      if (typeof body.retryAfter === "number") setResendAt(startedAt + body.retryAfter * 1000)
       if (body.limited) {
-        setError("Wait a few minutes before asking for another link.")
-        setPhase("form")
+        // A link is already on its way; keep waiting for it.
+        setSent((current) => current ?? "email")
+        setPhase("sent")
         return
       }
       if (!response.ok || !body.ok) {
@@ -98,6 +183,7 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
         setPhase("form")
         return
       }
+      if (body.wait) setWaits((current) => [...current, body.wait!])
       setSent(body.dev ? "dev" : "email")
       setPhase("sent")
     } catch {
@@ -129,17 +215,37 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
             <p className="py-6 text-sm text-foreground" role="status">
               Sending the login link…
             </p>
+          ) : phase === "done" ? (
+            <p className="py-6 text-base text-foreground" role="status">
+              You&apos;re logged in.
+            </p>
           ) : phase === "sent" && sent ? (
             <div role="status">
               <p className="text-sm text-pretty text-foreground">
                 {sent === "dev"
                   ? "This dev server does not send mail. The login link is in the server log, not in this popup."
-                  : "Check your inbox for a login link. It works once, then expires. If you did not get it, wait a few minutes before asking again."}
+                  : `We sent a link to ${email.trim()}. Tap it on any device and this page logs in by itself.`}
               </p>
-              <p className="mt-3 text-sm text-muted-foreground">After it logs you in, pick a username.</p>
-              <DialogClose render={<Button variant="outline" className="mt-5 h-12 w-full text-base" />}>
-                Close
-              </DialogClose>
+              <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="relative flex size-2" aria-hidden>
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+                  <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                </span>
+                Waiting for you to tap the link…
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 text-base"
+                  disabled={resendIn > 0}
+                  onClick={() => void sendLink()}
+                >
+                  {resendIn > 0 ? `Resend in ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}` : "Resend email"}
+                </Button>
+                <DialogClose render={<Button variant="outline" className="h-12 text-base" />}>Close</DialogClose>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">Not there? Check spam, or resend. You can close this; it still logs in.</p>
             </div>
           ) : (
             <form className="grid gap-4" noValidate onSubmit={(event) => void onSubmit(event)}>

@@ -11,6 +11,15 @@ import {
   listBoard,
   listTotals,
   loginLinkSentRecently,
+  loginResendWait,
+  createLoginWait,
+  approveLoginWaits,
+  claimLoginWait,
+  isOwnLoginWait,
+  accountForSession,
+  renewSession,
+  describeDevice,
+  SESSION_MS,
   normalizeUsername,
   periodStart,
   saveAnonymousRoll,
@@ -42,17 +51,18 @@ test("login links use the browser host, not the bind address", () => {
   assert.equal(publicOrigin(bound), "http://0.0.0.0:4721")
 })
 
-test("the same address does not get another login email for a few minutes", async () => {
+test("the same address waits a minute before another login email", async () => {
   const db = databaseFromSqlite(openDatabase(":memory:"))
   const now = Date.parse("2026-09-26T12:00:00.000Z")
   assert.equal(await loginLinkSentRecently(db, "ada@example.com", now), false)
   const created = await createLoginLink(db, "ada@example.com", now)
   assert.ok(!("error" in created))
   if ("error" in created) return
-  assert.equal(await loginLinkSentRecently(db, "Ada@Example.com", now + 60_000), true)
-  assert.equal(await loginLinkSentRecently(db, "ada@example.com", now + 3 * 60 * 1000), false)
-  await deleteLoginLink(db, created.token)
+  assert.equal(await loginLinkSentRecently(db, "Ada@Example.com", now + 30_000), true)
+  assert.equal(await loginResendWait(db, "ada@example.com", now + 15_000), 45_000)
   assert.equal(await loginLinkSentRecently(db, "ada@example.com", now + 60_000), false)
+  await deleteLoginLink(db, created.token)
+  assert.equal(await loginLinkSentRecently(db, "ada@example.com", now + 30_000), false)
 })
 
 test("usernames are 3 to 20 letters, numbers, or underscores", () => {
@@ -440,3 +450,84 @@ function d1ThatRejectsScriptExec(raw: DatabaseSync): D1Binding {
     },
   }
 }
+
+test("the tab that asked logs in once the link is tapped anywhere else", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  const wait = await createLoginWait(db, created.token, "Chrome on Windows", now)
+  assert.equal(await isOwnLoginWait(db, created.token, wait), true)
+  assert.equal(await isOwnLoginWait(db, created.token, "someone-else"), false)
+  assert.deepEqual(await claimLoginWait(db, wait, now + 1000), { status: "waiting" })
+
+  // The link opens on a phone: that browser logs in, and the waiting tab is approved.
+  const phone = await consumeLoginLink(db, created.token, now + 5000)
+  assert.ok(!("error" in phone))
+  await approveLoginWaits(db, created.token, undefined, now + 5000)
+  const claimed = await claimLoginWait(db, wait, now + 6000)
+  assert.equal(claimed.status, "done")
+  assert.ok(claimed.status === "done" && claimed.sessionToken)
+  if (claimed.status !== "done" || !claimed.sessionToken) return
+  assert.equal((await accountForSession(db, claimed.sessionToken, now + 7000))?.email, "ada@example.com")
+  // It only hands out one session.
+  assert.deepEqual(await claimLoginWait(db, wait, now + 8000), { status: "done", sessionToken: null })
+})
+
+test("opening the link in the browser that asked needs no second session", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  const wait = await createLoginWait(db, created.token, "Safari on iPhone", now)
+  await consumeLoginLink(db, created.token, now + 1000)
+  await approveLoginWaits(db, created.token, wait, now + 1000)
+  assert.deepEqual(await claimLoginWait(db, wait, now + 2000), { status: "done", sessionToken: null })
+})
+
+test("an unused wait expires with its link", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  const wait = await createLoginWait(db, created.token, "Firefox on Linux", now)
+  assert.deepEqual(await claimLoginWait(db, wait, now + 31 * 60 * 1000), { status: "expired" })
+  assert.deepEqual(await claimLoginWait(db, "not-a-real-wait-secret", now), { status: "expired" })
+})
+
+test("sessions last a year and renew at most once a day", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-09-26T12:00:00.000Z")
+  const created = await createLoginLink(db, "ada@example.com", now)
+  assert.ok(!("error" in created))
+  if ("error" in created) return
+  const session = await consumeLoginLink(db, created.token, now)
+  assert.ok(!("error" in session))
+  if ("error" in session) return
+  assert.equal(SESSION_MS, 365 * 24 * 60 * 60 * 1000)
+  assert.ok(await accountForSession(db, session.sessionToken, now + 300 * 24 * 60 * 60 * 1000))
+  assert.equal(await renewSession(db, session.sessionToken, now + 60 * 60 * 1000), false)
+  const later = now + 200 * 24 * 60 * 60 * 1000
+  assert.equal(await renewSession(db, session.sessionToken, later), true)
+  assert.ok(await accountForSession(db, session.sessionToken, later + 360 * 24 * 60 * 60 * 1000))
+  assert.equal(await renewSession(db, session.sessionToken, later + 2 * SESSION_MS), false)
+})
+
+test("devices are described for the login confirm screen", () => {
+  assert.equal(
+    describeDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"),
+    "Chrome on Windows",
+  )
+  assert.equal(
+    describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"),
+    "Safari on iPhone",
+  )
+  assert.equal(describeDevice(null), "A browser")
+})

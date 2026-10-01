@@ -1,4 +1,4 @@
--- Accounts, one-time login links, sessions, and saved rolls.
+-- Accounts, one-time login links, the tabs waiting on them, sessions, and saved rolls.
 -- A roll with no account is anonymous. SQLite treats those null account ids as distinct,
 -- so each anonymous generate can add a row. A real account stays unique per UTC day.
 -- Score is a digit string so rank can use length(score), then the digits.
@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS login_waits (
+  wait_hash TEXT PRIMARY KEY,
+  link_token TEXT NOT NULL,
+  device TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  approved_at INTEGER,
+  claimed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS login_waits_link ON login_waits (link_token);
 
 CREATE TABLE IF NOT EXISTS friendships (
   id TEXT PRIMARY KEY,
