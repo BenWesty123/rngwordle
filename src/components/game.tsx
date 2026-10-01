@@ -223,7 +223,7 @@ export function Game() {
   );
 }
 
-const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,rgba(240,226,200,0.12),transparent_55%)]";
+const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
 
 type TodayTop = { word: string; username: string; score: string };
 
@@ -712,7 +712,7 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
     <article
       className={cn(
         "relative rounded-2xl border bg-card px-4 pt-5 pb-4",
-        featured ? "card-pop border-amber-200/40 shadow-lg" : "border-border",
+        featured ? "card-pop border-amber-600/40 shadow-lg dark:border-amber-200/40" : "border-border",
       )}
       aria-live={featured ? "polite" : undefined}
     >
@@ -762,19 +762,19 @@ function factorRarity(points: number): "Common" | "Uncommon" | "Rare" | "Epic" |
 }
 
 const RARITY_BADGE = {
-  Common: "border-zinc-300/40 bg-zinc-300/10 text-zinc-100",
-  Uncommon: "border-emerald-300/45 bg-emerald-300/15 text-emerald-100",
-  Rare: "border-sky-300/50 bg-sky-300/15 text-sky-100",
-  Epic: "border-violet-300/50 bg-violet-300/15 text-violet-100",
-  Legendary: "border-amber-200/60 bg-amber-200/15 text-amber-100",
+  Common: "border-zinc-500/40 bg-zinc-500/10 text-zinc-700 dark:border-zinc-300/40 dark:bg-zinc-300/10 dark:text-zinc-100",
+  Uncommon: "border-emerald-600/45 bg-emerald-600/10 text-emerald-800 dark:border-emerald-300/45 dark:bg-emerald-300/15 dark:text-emerald-100",
+  Rare: "border-sky-600/45 bg-sky-600/10 text-sky-800 dark:border-sky-300/50 dark:bg-sky-300/15 dark:text-sky-100",
+  Epic: "border-violet-600/45 bg-violet-600/10 text-violet-800 dark:border-violet-300/50 dark:bg-violet-300/15 dark:text-violet-100",
+  Legendary: "border-amber-600/55 bg-amber-500/15 text-amber-800 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-100",
 } as const;
 
 const RARITY_STAMP = {
-  Common: "border-zinc-300/70 text-zinc-100",
-  Uncommon: "border-emerald-300/80 text-emerald-200",
-  Rare: "border-sky-300/80 text-sky-200",
-  Epic: "border-violet-300/80 text-violet-200",
-  Legendary: "border-amber-200/90 text-amber-100",
+  Common: "border-zinc-500/70 text-zinc-700 dark:border-zinc-300/70 dark:text-zinc-100",
+  Uncommon: "border-emerald-600/80 text-emerald-700 dark:border-emerald-300/80 dark:text-emerald-200",
+  Rare: "border-sky-600/80 text-sky-700 dark:border-sky-300/80 dark:text-sky-200",
+  Epic: "border-violet-600/80 text-violet-700 dark:border-violet-300/80 dark:text-violet-200",
+  Legendary: "border-amber-600/90 text-amber-700 dark:border-amber-200/90 dark:text-amber-100",
 } as const;
 
 function FactorBadge({ points }: { points: number }) {
@@ -799,8 +799,8 @@ function scatter(index: number, salt: number): number {
 }
 
 const CONFETTI_COLORS: Record<"mythic" | "epic", string[]> = {
-  mythic: ["#fcd34d", "#fbbf24", "#fef3c7", "#f59e0b", "#ffffff"],
-  epic: ["#c4b5fd", "#a78bfa", "#f0abfc", "#fcd34d", "#ffffff"],
+  mythic: ["#fcd34d", "#fbbf24", "#d97706", "#f59e0b", "#b45309"],
+  epic: ["#c4b5fd", "#8b5cf6", "#e879f9", "#fcd34d", "#6d28d9"],
 };
 
 function Confetti({ tier }: { tier: "mythic" | "epic" }) {
@@ -834,10 +834,11 @@ function Confetti({ tier }: { tier: "mythic" | "epic" }) {
 }
 
 const SPARKLES: Partial<Record<TierId, { count: number; color: string; reach: number }>> = {
-  mythic: { count: 16, color: "#fde68a", reach: 150 },
-  epic: { count: 14, color: "#ddd6fe", reach: 130 },
-  rare: { count: 12, color: "#bae6fd", reach: 110 },
-  uncommon: { count: 8, color: "#a7f3d0", reach: 80 },
+  // Mid-tone colours so the sparkles show on both Daylight and Card Table.
+  mythic: { count: 16, color: "#f59e0b", reach: 150 },
+  epic: { count: 14, color: "#8b5cf6", reach: 130 },
+  rare: { count: 12, color: "#0ea5e9", reach: 110 },
+  uncommon: { count: 8, color: "#10b981", reach: 80 },
 };
 
 function SparkleBurst({ tier }: { tier: TierId }) {

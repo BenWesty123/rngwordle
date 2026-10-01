@@ -28,17 +28,30 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#141210",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5eedf" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f2a1f" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
+
+/**
+ * Runs before first paint: a saved choice wins, otherwise the system setting.
+ * The server renders dark; this swaps to Daylight without a flash.
+ */
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("rwgdle.theme");var d=t?t==="dark":!window.matchMedia("(prefers-color-scheme: light)").matches;document.documentElement.classList.toggle("dark",d)}catch(e){}})()`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-dvh bg-background text-foreground">
         <AccountProvider>
           <LoginDialogProvider>{children}</LoginDialogProvider>

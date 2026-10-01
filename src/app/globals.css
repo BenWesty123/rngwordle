@@ -49,25 +49,26 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Daylight: the light theme. Paper, ink and terracotta. */
 :root {
-  --background: oklch(0.16 0.008 70);
-  --foreground: oklch(0.95 0.018 90);
-  --card: oklch(0.21 0.01 68);
-  --card-foreground: oklch(0.95 0.018 90);
-  --popover: oklch(0.21 0.01 68);
-  --popover-foreground: oklch(0.95 0.018 90);
-  --primary: oklch(0.92 0.03 90);
-  --primary-foreground: oklch(0.2 0.012 70);
-  --secondary: oklch(0.27 0.012 65);
-  --secondary-foreground: oklch(0.95 0.018 90);
-  --muted: oklch(0.27 0.012 65);
-  --muted-foreground: oklch(0.78 0.02 80);
-  --accent: oklch(0.32 0.03 75);
-  --accent-foreground: oklch(0.95 0.018 90);
+  --background: #f5eedf;
+  --foreground: #2a2118;
+  --card: #fffaf0;
+  --card-foreground: #2a2118;
+  --popover: #fffaf0;
+  --popover-foreground: #2a2118;
+  --primary: #c2410c;
+  --primary-foreground: #fff7ed;
+  --secondary: #ebe0c8;
+  --secondary-foreground: #2a2118;
+  --muted: #ebe0c8;
+  --muted-foreground: #6b5c48;
+  --accent: #e6d8bb;
+  --accent-foreground: #2a2118;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.02 90 / 14%);
-  --input: oklch(0.92 0.02 90 / 16%);
-  --ring: oklch(0.8 0.06 85);
+  --border: rgb(42 33 24 / 14%);
+  --input: rgb(42 33 24 / 18%);
+  --ring: #c2410c;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -82,27 +83,33 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Game extras: page glow, score flash, tile shadow. */
+  --glow: rgb(194 65 12 / 9%);
+  --pop: #c2410c;
+  --tile-shadow: rgb(90 60 20 / 22%);
+  color-scheme: light;
 }
 
+/* Card Table: the dark theme. Green felt and gold. */
 .dark {
-  --background: oklch(0.16 0.008 70);
-  --foreground: oklch(0.95 0.018 90);
-  --card: oklch(0.21 0.01 68);
-  --card-foreground: oklch(0.95 0.018 90);
-  --popover: oklch(0.21 0.01 68);
-  --popover-foreground: oklch(0.95 0.018 90);
-  --primary: oklch(0.92 0.03 90);
-  --primary-foreground: oklch(0.2 0.012 70);
-  --secondary: oklch(0.27 0.012 65);
-  --secondary-foreground: oklch(0.95 0.018 90);
-  --muted: oklch(0.27 0.012 65);
-  --muted-foreground: oklch(0.78 0.02 80);
-  --accent: oklch(0.32 0.03 75);
-  --accent-foreground: oklch(0.95 0.018 90);
+  --background: #0f2a1f;
+  --foreground: #f1f5ec;
+  --card: #163829;
+  --card-foreground: #f1f5ec;
+  --popover: #163829;
+  --popover-foreground: #f1f5ec;
+  --primary: #f4d06f;
+  --primary-foreground: #1f1a08;
+  --secondary: #1d4635;
+  --secondary-foreground: #f1f5ec;
+  --muted: #1d4635;
+  --muted-foreground: #a9c4b3;
+  --accent: #23523e;
+  --accent-foreground: #f1f5ec;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.92 0.02 90 / 14%);
-  --input: oklch(0.92 0.02 90 / 16%);
-  --ring: oklch(0.8 0.06 85);
+  --border: rgb(241 245 236 / 14%);
+  --input: rgb(241 245 236 / 16%);
+  --ring: #f4d06f;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -116,6 +123,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --glow: rgb(167 243 208 / 13%);
+  --pop: #f4d06f;
+  --tile-shadow: rgb(0 0 0 / 40%);
+  color-scheme: dark;
 }
 
 @layer base {
@@ -210,7 +221,7 @@
     inset 0 1px 0 rgb(255 255 255 / 0.65),
     inset 0 -2px 0 rgb(120 80 30 / 0.22),
     0 3px 0 oklch(0.5 0.07 58),
-    0 6px 12px rgb(0 0 0 / 0.4);
+    0 6px 12px var(--tile-shadow);
 }
 
 .tile-rare {
@@ -269,7 +280,7 @@
 @keyframes score-pop {
   0% {
     transform: scale(1.28);
-    color: oklch(0.9 0.14 85);
+    color: var(--pop);
   }
   60% {
     transform: scale(0.96);

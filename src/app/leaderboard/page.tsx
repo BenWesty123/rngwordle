@@ -27,9 +27,9 @@ const TOTAL_VIEWS: Array<{ id: TotalsView; label: string; empty: string; note: s
 ]
 
 const MEDALS = [
-  { ring: "from-amber-100 via-amber-300 to-amber-500", card: "border-amber-200/50 shadow-[0_0_40px_-12px_rgba(252,211,77,0.45)]", label: "1st" },
-  { ring: "from-zinc-100 via-zinc-300 to-zinc-500", card: "border-zinc-300/35", label: "2nd" },
-  { ring: "from-orange-200 via-orange-400 to-orange-700", card: "border-orange-300/35", label: "3rd" },
+  { ring: "from-amber-100 via-amber-300 to-amber-500", card: "border-amber-500/50 shadow-[0_0_40px_-12px_rgba(217,119,6,0.4)] dark:border-amber-200/50 dark:shadow-[0_0_40px_-12px_rgba(252,211,77,0.45)]", label: "1st" },
+  { ring: "from-zinc-100 via-zinc-300 to-zinc-500", card: "border-zinc-400/50 dark:border-zinc-300/35", label: "2nd" },
+  { ring: "from-orange-200 via-orange-400 to-orange-700", card: "border-orange-400/50 dark:border-orange-300/35", label: "3rd" },
 ] as const
 
 function boardHref(totals: boolean, view: string, friends: boolean): string {
@@ -95,7 +95,7 @@ function TierBadge({ score, small = false }: { score: string; small?: boolean })
 }
 
 function YouChip() {
-  return <span className="ml-1.5 rounded-full bg-amber-200/20 px-1.5 py-px align-middle text-[10px] font-medium text-amber-100">You</span>
+  return <span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-px align-middle text-[10px] font-medium text-amber-800 dark:bg-amber-200/20 dark:text-amber-100">You</span>
 }
 
 function RollPodium({ rows, me }: { rows: BoardRow[]; me: string | null }) {
@@ -169,7 +169,7 @@ function TotalsPodium({ rows, me }: { rows: TotalsRow[]; me: string | null }) {
 function rowClass(mine: boolean): string {
   return cn(
     "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
-    mine ? "bg-amber-200/[0.07] ring-1 ring-amber-200/30" : "odd:bg-card/40 hover:bg-card/80",
+    mine ? "bg-amber-500/[0.08] ring-1 ring-amber-600/30 dark:bg-amber-200/[0.07] dark:ring-amber-200/30" : "odd:bg-card/40 hover:bg-card/80",
   )
 }
 
@@ -212,7 +212,7 @@ export default async function LeaderboardPage({
 
   return (
     <div className="relative min-h-dvh">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-[radial-gradient(ellipse_at_top,rgba(252,211,77,0.13),transparent_60%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]" />
       <div className="relative mx-auto flex min-h-dvh w-full flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
         <SiteHeader />
         <main className="mx-auto w-full max-w-2xl">
