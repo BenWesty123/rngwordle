@@ -10,7 +10,6 @@ import {
   planRollSound,
 } from "./score-sound";
 import { scoreWord } from "./scoring";
-import { standingFor } from "./standing";
 
 test("one-point letters are a single note", () => {
   const notes = letterNotes(1, 0);
@@ -58,11 +57,8 @@ function voicesAtEnd(run: { frequency: number; delay: number }[]): number {
 
 test("air ends in a rare chord and kayak ends low and thin", () => {
   const air = scoreWord("air");
-  const book = scoreWord("bookkeeper");
   const kayak = scoreWord("kayak");
-  assert.equal(standingFor(air.total).tier.id, "epic");
-  assert.equal(standingFor(book.total).tier.id, "uncommon");
-  assert.equal(standingFor(kayak.total).tier.id, "uncommon");
+  assert.ok(air.total > kayak.total);
   const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const kayakHits = kayak.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const strong = planRollSound(airHits, "rare");

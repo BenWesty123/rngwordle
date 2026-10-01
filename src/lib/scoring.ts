@@ -149,16 +149,22 @@ export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
 ) as Record<FactorId, number>;
 
 /**
- * Factors that can hit more than once. Each entry is how many words have at
- * least k hits, for k = 1, 2, 3, … The factor is one card, priced by how rare
- * that many hits is, instead of multiplying once per hit.
+ * Inside and Anagram pay a card for every hit, so more hidden words or more
+ * anagrams always score higher. Each hit multiplies by this.
+ */
+export const PER_HIT_MULTIPLIERS = {
+  inside: 2,
+  anagram: 2,
+} as const satisfies Partial<Record<FactorId, number>>;
+
+export type PerHitFactorId = keyof typeof PER_HIT_MULTIPLIERS;
+
+/**
+ * The other factors that can hit more than once. Each entry is how many words
+ * have at least k hits, for k = 1, 2, 3, … The factor is one card, priced by
+ * how rare that many hits is.
  */
 export const STACK_MATCHES = {
-  inside: [
-    167370, 154329, 135049, 112076, 88460, 66821, 48456, 33658, 22733, 14971, 9538, 5955, 3710, 2226, 1290, 745,
-    415, 226, 143, 73, 37, 16, 12, 7, 2,
-  ],
-  anagram: [28648, 9490, 3778, 1734, 794, 392, 133, 69, 33, 23, 12],
   "alphabet-step": [16735, 2950, 542, 93, 9, 1],
   "swap-shop": [2815, 90, 1],
   "double-or-nothing": [5429, 130, 1],
@@ -719,6 +725,31 @@ export function scoreWord(word: string): ScoredWord {
   for (const factor of factors) {
     const multiplier = FACTOR_MULTIPLIERS[factor.id];
     const stacked = stackedHits(factor.id, normalized);
+    if (stacked && factor.id in PER_HIT_MULTIPLIERS) {
+      const id = factor.id as PerHitFactorId;
+      if (stacked.length === 0) {
+        rows.push({ id: factor.id, name: factor.name, detail: factor.missDetail, points: null, scored: false });
+        continue;
+      }
+      const points = PER_HIT_MULTIPLIERS[id];
+      for (const hit of stacked) {
+        const next = running * points;
+        const reason = stackReason(id, [hit]);
+        rows.push({
+          id: factor.id,
+          name: `${factor.name} ×${points}`,
+          detail: `${reason} ${running.toLocaleString("en-US")} × ${points} = ${next.toLocaleString("en-US")}.`,
+          points,
+          scored: true,
+          matched: true,
+          match: hit.match,
+          highlight: hit.highlight,
+          reason,
+        });
+        running = next;
+      }
+      continue;
+    }
     if (stacked) {
       const id = factor.id as StackedFactorId;
       const points = stackMultiplier(id, stacked.length);
@@ -875,7 +906,7 @@ function listWords(hits: StackHit[]): string {
   return more > 0 ? `${shown.join(", ")}, and ${more} more` : shown.join(", ");
 }
 
-function stackReason(id: StackedFactorId, hits: StackHit[]): string {
+function stackReason(id: StackedFactorId | PerHitFactorId, hits: StackHit[]): string {
   const one = hits.length === 1;
   const list = listWords(hits);
   switch (id) {

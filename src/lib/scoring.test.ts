@@ -9,7 +9,7 @@ import {
   isPerfectlyShared,
   isRomanWord,
   lengthMultiplier,
-  stackMultiplier,
+  PER_HIT_MULTIPLIERS,
   letterCollector,
   periodicSpelling,
   rarityMultiplier,
@@ -477,12 +477,11 @@ test("kayak multiplies mirror", () => {
   assert.equal(scored.tileSum, 16);
   assert.equal(scored.lengthMultiplier, 2);
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
-  // Two hidden words and alphabet twins are ordinary, so neither scores.
-  assert.equal(scored.rows.find((row) => row.id === "inside")?.scored, false);
-  assert.equal(scored.rows.find((row) => row.id === "inside")?.matched, true);
+  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
   assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 4);
+  // Alphabet twins is ordinary, so it does not score.
   assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, null);
-  assert.equal(scored.total, 16 * 2 * 10 * 4);
+  assert.equal(scored.total, 16 * 2 * 10 * 2 * 2 * 4);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -495,28 +494,37 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.total, product(scored));
 });
 
-test("stop pays one Anagram card, priced by how many anagrams it has", () => {
+test("stop pays Anagram once per other word with the same letters", () => {
   const scored = scoreWord("stop");
   const hits = scored.rows.filter((row) => row.id === "anagram" && row.scored);
-  assert.equal(hits.length, 1);
-  assert.equal(hits[0]?.match, "opts, post, pots, spot, tops");
-  assert.equal(hits[0]?.points, stackMultiplier("anagram", 5));
-  assert.equal(hits[0]?.points, 7);
-  assert.equal(hits[0]?.highlight?.length, scored.word.length);
+  assert.deepEqual(
+    hits.map((row) => row.match),
+    ["opts", "post", "pots", "spot", "tops"],
+  );
+  assert.ok(hits.every((row) => row.points === PER_HIT_MULTIPLIERS.anagram));
+  assert.equal(PER_HIT_MULTIPLIERS.anagram, 2);
+  assert.ok(hits.every((row) => row.highlight?.length === scored.word.length));
   assert.equal(scoreWord("echo").rows.find((row) => row.id === "anagram")?.points, null);
-  assert.equal(stackMultiplier("anagram", 1), 2);
-  assert.equal(stackMultiplier("anagram", 11), 12);
 });
 
-test("Inside scores only when a word hides more words than usual", () => {
-  // Four hidden words is ordinary: most words have at least that many.
-  const headlamp = scoreWord("headlamp").rows.find((row) => row.id === "inside");
-  assert.equal(headlamp?.scored, false);
-  assert.equal(headlamp?.matched, true);
-  assert.match(headlamp?.detail ?? "", /4 dictionary words/);
-  assert.equal(stackMultiplier("inside", 6), 1);
-  assert.equal(stackMultiplier("inside", 7), 2);
-  assert.equal(stackMultiplier("inside", 25), 15);
+test("headlamp pays Inside once per nested dictionary word", () => {
+  const scored = scoreWord("headlamp");
+  const hits = scored.rows.filter((row) => row.id === "inside" && row.scored);
+  assert.deepEqual(
+    hits.map((row) => row.match),
+    ["head", "lamp", "lam", "amp"],
+  );
+  assert.ok(hits.every((row) => row.points === PER_HIT_MULTIPLIERS.inside));
+  assert.deepEqual(
+    hits.map((row) => row.highlight),
+    [
+      [0, 1, 2, 3],
+      [4, 5, 6, 7],
+      [4, 5, 6],
+      [5, 6, 7],
+    ],
+  );
+  assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.scored, false);
 });
 
 test("bookends matches the first two letters to the last two", () => {
@@ -911,7 +919,7 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 11);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(scored.rows.find((row) => row.id === "inside")?.scored, false);
+  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 3);
   assert.equal(scored.total, product(scored));
 });
 
