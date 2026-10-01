@@ -52,6 +52,12 @@ export function parseFound(text: string): FoundCards {
   }
 }
 
+/** Cards this roll scored that this browser has never seen. Call before rememberCards. */
+export function unseenCards(scored: ScoredWord): string[] {
+  const found = parseFound(read());
+  return [...new Set(scored.rows.filter((row) => row.scored && row.id !== "tiles" && !found[row.id]).map((row) => row.id))];
+}
+
 /** Remember every card this roll scored. Earlier finds keep their first word. */
 export function rememberCards(scored: ScoredWord): void {
   const found = parseFound(read());

@@ -1,5 +1,6 @@
 import { appDb } from "@/lib/app-db"
-import { saveAnonymousRoll, saveDailyRoll, scoreDigits, SESSION_COOKIE, accountForSession } from "@/lib/accounts"
+import { listRollWords, saveAnonymousRoll, saveDailyRoll, scoreDigits, SESSION_COOKIE, accountForSession } from "@/lib/accounts"
+import { newCards } from "@/lib/cards"
 import { randomWord } from "@/lib/dictionary"
 import { scoreWord } from "@/lib/scoring"
 import { serverDictionary } from "@/lib/server-dictionary"
@@ -24,6 +25,8 @@ export async function POST() {
     const word = randomWord(list)
     return { word, score: scoreDigits(scoreWord(word).total) }
   }
+  // A player's earlier rolls, so the response can say which cards this one unlocks.
+  const earlier = account ? await listRollWords(db, account.id) : null
   let result: Awaited<ReturnType<typeof saveDailyRoll>>
   try {
     result = account ? await saveDailyRoll(db, account.id, now, draw) : await saveAnonymousRoll(db, now, draw)
@@ -40,5 +43,7 @@ export async function POST() {
     playedAt: result.roll.playedAt,
     created: result.created,
     scored: scoreWord(result.roll.word),
+    // Guests track their collection in the browser, so only players get this.
+    newCards: earlier && result.created ? newCards(result.roll.word, earlier) : earlier ? [] : undefined,
   })
 }

@@ -1,3 +1,4 @@
+import { cardKey } from "@/lib/card-key"
 import { cardRarity, type CardRarity } from "@/lib/card-rarity"
 import {
   CONSONANT_CHAIN_MULTIPLIERS,
@@ -37,6 +38,30 @@ export type Card = {
   /** What it pays, such as ×19, ×2 each, or ×5+. */
   value: string
   rarity: CardRarity
+}
+
+/**
+ * What the collection page gets for one card. A locked card carries only its
+ * opaque key, rarity, theme, and name length; card is filled in once found.
+ */
+export type CatalogEntry = {
+  key: string
+  rarity: CardRarity
+  category: CardCategory
+  nameLength: number
+  card?: Card
+}
+
+export function catalogEntry(card: Card, found: boolean): CatalogEntry {
+  const entry: CatalogEntry = { key: cardKey(card.id), rarity: card.rarity, category: card.category, nameLength: card.name.length }
+  if (found) entry.card = card
+  return entry
+}
+
+/** Cards a player has found that were not there before this word. */
+export function newCards(word: string, earlierWords: readonly string[]): string[] {
+  const earlier = new Set(earlierWords.flatMap((earlierWord) => cardsInWord(earlierWord)))
+  return cardsInWord(word).filter((id) => !earlier.has(id))
 }
 
 const INFO: Record<string, { category: CardCategory; blurb: string }> = {

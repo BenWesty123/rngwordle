@@ -1,15 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Lock } from "lucide-react"
 import { useLocalCards } from "@/lib/card-collection"
+import { cardKey } from "@/lib/card-key"
 import { RARITY_BADGE, RARITY_BORDER, RARITY_ORDER } from "@/lib/card-rarity"
-import type { Card, CardCategory } from "@/lib/cards"
+import type { Card, CardCategory, CatalogEntry } from "@/lib/cards"
 import { cn } from "@/lib/utils"
 
-/** Cards from a player's saved rolls: card id → first word that earned it, and how many rolls did. */
+/** Cards from a player's saved rolls, by card key: the first word that earned it, and how many rolls did. */
 export type SavedFinds = Record<string, { first: string; count: number }>
+
+type Found = { first: string; count: number }
 
 const CATEGORY_ORDER: CardCategory[] = [
   "Mirrors and flips",
@@ -24,25 +27,60 @@ const CATEGORY_ORDER: CardCategory[] = [
 type Filter = "all" | "found" | "missing"
 
 export function CardBook({
-  catalog,
+  entries,
   saved,
   rollCount,
   signedIn,
 }: {
-  catalog: Card[]
+  entries: CatalogEntry[]
   saved: SavedFinds
   rollCount: number
   signedIn: boolean
 }) {
   const local = useLocalCards()
   const [filter, setFilter] = useState<Filter>("all")
+  const [fetched, setFetched] = useState<Record<string, Card>>({})
 
-  const found = (id: string): { first: string; count: number } | null =>
-    saved[id] ?? (local[id] ? { first: local[id]!, count: 1 } : null)
+  // Cards found in this browser, by key, so they can be matched to locked entries.
+  const localByKey: Record<string, { id: string; first: string }> = {}
+  for (const [id, first] of Object.entries(local)) localByKey[cardKey(id)] = { id, first }
 
-  const foundCount = catalog.filter((card) => found(card.id)).length
-  const share = catalog.length > 0 ? foundCount / catalog.length : 0
-  const shown = catalog.filter((card) => (filter === "all" ? true : filter === "found" ? found(card.id) : !found(card.id)))
+  // The page only sends details for cards found on the account. Ask for the rest found here.
+  const missingIds = entries
+    .filter((entry) => !entry.card && !fetched[entry.key] && localByKey[entry.key])
+    .map((entry) => localByKey[entry.key]!.id)
+    .sort()
+    .join(",")
+  useEffect(() => {
+    if (!missingIds) return
+    let cancel = false
+    fetch(`/api/cards?ids=${encodeURIComponent(missingIds)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
+      .then((body: { cards?: Card[] }) => {
+        if (cancel || !body.cards) return
+        const next: Record<string, Card> = {}
+        for (const card of body.cards) next[cardKey(card.id)] = card
+        setFetched((current) => ({ ...current, ...next }))
+      })
+      .catch(() => {
+        // Those cards stay locked until the next visit.
+      })
+    return () => {
+      cancel = true
+    }
+  }, [missingIds])
+
+  const found = (entry: CatalogEntry): Found | null => {
+    const fromAccount = saved[entry.key]
+    if (fromAccount) return fromAccount
+    const here = localByKey[entry.key]
+    return here ? { first: here.first, count: 1 } : null
+  }
+  const details = (entry: CatalogEntry): Card | undefined => entry.card ?? fetched[entry.key]
+
+  const foundCount = entries.filter((entry) => found(entry)).length
+  const share = entries.length > 0 ? foundCount / entries.length : 0
+  const shown = entries.filter((entry) => (filter === "all" ? true : filter === "found" ? found(entry) : !found(entry)))
 
   return (
     <main className="mx-auto w-full max-w-5xl">
@@ -60,7 +98,7 @@ export function CardBook({
         <div className="flex items-baseline justify-between">
           <p className="font-mono text-3xl tabular-nums">
             {foundCount}
-            <span className="text-lg text-muted-foreground"> / {catalog.length}</span>
+            <span className="text-lg text-muted-foreground"> / {entries.length}</span>
           </p>
           <p className="text-sm text-muted-foreground">{Math.round(share * 100)}% found</p>
         </div>
@@ -68,15 +106,15 @@ export function CardBook({
           className="mt-2 h-2.5 overflow-hidden rounded-full bg-secondary"
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={catalog.length}
+          aria-valuemax={entries.length}
           aria-valuenow={foundCount}
         >
           <div className="h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${share * 100}%` }} />
         </div>
         <ul className="mt-4 flex flex-wrap justify-center gap-2">
           {RARITY_ORDER.map((rarity) => {
-            const all = catalog.filter((card) => card.rarity === rarity)
-            const have = all.filter((card) => found(card.id)).length
+            const all = entries.filter((entry) => entry.rarity === rarity)
+            const have = all.filter((entry) => found(entry)).length
             return (
               <li key={rarity} className={cn("rounded-full border px-2.5 py-1 text-xs tabular-nums", RARITY_BADGE[rarity])}>
                 {rarity} {have}/{all.length}
@@ -118,11 +156,11 @@ export function CardBook({
 
       {CATEGORY_ORDER.map((category) => {
         const cards = shown
-          .filter((card) => card.category === category)
+          .filter((entry) => entry.category === category)
           .sort((left, right) => RARITY_ORDER.indexOf(left.rarity) - RARITY_ORDER.indexOf(right.rarity))
         if (cards.length === 0) return null
-        const have = catalog.filter((card) => card.category === category && found(card.id)).length
-        const total = catalog.filter((card) => card.category === category).length
+        const have = entries.filter((entry) => entry.category === category && found(entry)).length
+        const total = entries.filter((entry) => entry.category === category).length
         return (
           <section key={category} className="mt-10" aria-label={category}>
             <h2 className="flex items-baseline justify-between border-b border-border pb-2">
@@ -132,11 +170,15 @@ export function CardBook({
               </span>
             </h2>
             <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {cards.map((card) => (
-                <li key={card.id}>
-                  <CollectedCard card={card} found={found(card.id)} />
-                </li>
-              ))}
+              {cards.map((entry) => {
+                const card = details(entry)
+                const foundHere = found(entry)
+                return (
+                  <li key={entry.key}>
+                    {card && foundHere ? <CollectedCard card={card} found={foundHere} /> : <LockedCard entry={entry} />}
+                  </li>
+                )
+              })}
             </ul>
           </section>
         )
@@ -145,8 +187,7 @@ export function CardBook({
   )
 }
 
-function CollectedCard({ card, found }: { card: Card; found: { first: string; count: number } | null }) {
-  if (!found) return <LockedCard card={card} />
+function CollectedCard({ card, found }: { card: Card; found: Found }) {
   return (
     <article
       className={cn("relative flex h-full flex-col rounded-2xl border bg-card px-4 pt-4 pb-3.5 shadow-sm", RARITY_BORDER[card.rarity])}
@@ -172,17 +213,17 @@ function CollectedCard({ card, found }: { card: Card; found: { first: string; co
  * A card not found yet shows only its rarity. The name, value, and how to earn it
  * stay hidden behind blurred bars, so a roll is the only way to learn what it is.
  */
-function LockedCard({ card }: { card: Card }) {
-  // Bar widths follow the hidden text's length, so the grid doesn't look stamped out.
-  const nameWidth = `${Math.min(85, 30 + card.name.length * 3)}%`
+function LockedCard({ entry }: { entry: CatalogEntry }) {
+  // Bar widths follow the hidden name's length, so the grid doesn't look stamped out.
+  const nameWidth = `${Math.min(85, 30 + entry.nameLength * 3)}%`
   return (
     <article
       className="relative flex h-full min-h-36 flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card/30 px-4 pt-4 pb-3.5"
-      aria-label={`Locked ${card.rarity} card`}
+      aria-label={`Locked ${entry.rarity} card`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium opacity-70", RARITY_BADGE[card.rarity])}>
-          {card.rarity}
+        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium opacity-70", RARITY_BADGE[entry.rarity])}>
+          {entry.rarity}
         </span>
         <span className="font-mono text-sm font-semibold text-muted-foreground tabular-nums" aria-hidden>
           ×?

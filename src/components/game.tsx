@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useAccount } from "@/components/account-provider";
 import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
@@ -10,7 +11,7 @@ import { utcDateKey } from "@/lib/day";
 import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
-import { rememberCards } from "@/lib/card-collection";
+import { rememberCards, unseenCards } from "@/lib/card-collection";
 import { buildShareText, formatStanding } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
 import { tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
@@ -40,6 +41,8 @@ export function Game() {
   const [dealt, setDealt] = useState(false);
   const [rollError, setRollError] = useState<string | null>(null);
   const [replayKey, setReplayKey] = useState(0);
+  // Cards a fresh roll unlocked for the first time, for the "New card!" ribbon.
+  const [freshCards, setFreshCards] = useState<{ word: string; ids: string[] } | null>(null);
   const spinTimer = useRef<number | null>(null);
   const { account, refresh, rememberToday } = useAccount();
   const snapshot = useSyncExternalStore(subscribeRoll, readRollSnapshot, serverRollSnapshot);
@@ -101,6 +104,7 @@ export function Game() {
         score?: string;
         playedAt?: number;
         scored?: ScoredWord;
+        newCards?: string[];
         error?: string;
       };
       if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
@@ -108,6 +112,8 @@ export function Game() {
         setRollError(body.error ?? "That roll didn't save.");
         return;
       }
+      // Players get new cards from the server, which knows every past roll. Guests check this browser.
+      setFreshCards({ word: body.word, ids: body.newCards ?? (body.scored ? unseenCards(body.scored) : []) });
       if (body.scored) primeScore(body.scored);
       if (account.status === "guest") writeRoll({ date: utcDateKey(), word: body.word });
       else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
@@ -206,6 +212,7 @@ export function Game() {
               daily={daily}
               replayKey={replayKey}
               rollError={rollError}
+              freshCards={freshCards?.word === roll.word ? freshCards.ids : []}
             />
           </>
         ) : roll && scoredState === "error" ? (
@@ -346,6 +353,7 @@ function Result({
   daily,
   replayKey,
   rollError,
+  freshCards,
 }: {
   roll: StoredRoll;
   scored: ScoredWord;
@@ -357,6 +365,7 @@ function Result({
   daily: boolean;
   replayKey: number;
   rollError: string | null;
+  freshCards: string[];
 }) {
   const spinning = spinWord !== null;
   const share = buildShareText({
@@ -394,6 +403,7 @@ function Result({
           copied={copied}
           copyError={copyError}
           onCopy={onCopy}
+          freshCards={freshCards}
         />
       ) : null}
     </div>
@@ -452,14 +462,20 @@ function ScoreReveal({
   copied,
   copyError,
   onCopy,
+  freshCards,
 }: {
   scored: ScoredWord;
   share: string;
   copied: boolean;
   copyError: boolean;
   onCopy: (text: string) => void;
+  freshCards: string[];
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
+  // The ribbon goes on the first card of each newly unlocked kind (Inside can show several).
+  const ribbonAt = new Set(
+    freshCards.map((id) => steps.findIndex((step) => step.id === id)).filter((index) => index >= 0),
+  );
   const stepsRef = useRef(steps);
   const tilesRef = useRef(scored.tiles);
   const wordRef = useRef(scored.word);
@@ -682,13 +698,24 @@ function ScoreReveal({
                     data-pile-key={`${row.id}-${stepIndex}`}
                     className={cn("relative", isNewest && "z-10")}
                   >
-                    <MultiplierCard tiles={scored.tiles} row={row} featured={isNewest} />
+                    <MultiplierCard tiles={scored.tiles} row={row} featured={isNewest} isNew={ribbonAt.has(stepIndex)} />
                   </li>
                 );
               })}
           </ol>
         ) : null}
       </section>
+
+      {done && ribbonAt.size > 0 ? (
+        <Link
+          href="/cards"
+          className="row-in mx-auto mt-8 flex w-full max-w-xl items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-medium transition-colors hover:bg-primary/15"
+        >
+          <Sparkles className="size-4 text-primary" aria-hidden />
+          {ribbonAt.size === 1 ? "1 new card unlocked" : `${ribbonAt.size} new cards unlocked`}
+          <span className="text-muted-foreground">· View collection →</span>
+        </Link>
+      ) : null}
 
       {done ? (
         <section className="row-in mx-auto mt-10 w-full max-w-xl" aria-label="Share">
@@ -714,7 +741,18 @@ function ScoreReveal({
 }
 
 
-function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: LedgerRow; featured?: boolean }) {
+function MultiplierCard({
+  tiles,
+  row,
+  featured = false,
+  isNew = false,
+}: {
+  tiles: Tile[];
+  row: LedgerRow;
+  featured?: boolean;
+  /** First time this player has ever found this card. */
+  isNew?: boolean;
+}) {
   const lit = new Set(row.highlight ?? []);
   const partial = lit.size > 0 && lit.size < tiles.length;
   const rarity = row.points != null && row.points > 1 ? cardRarity(row.points) : null;
@@ -726,6 +764,17 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
       )}
       aria-live={featured ? "polite" : undefined}
     >
+      {isNew ? (
+        <span
+          className={cn(
+            "absolute -top-3 left-3 inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] leading-none font-semibold tracking-wide text-primary-foreground uppercase shadow-md",
+            featured && "ribbon-in",
+          )}
+        >
+          <Sparkles className="size-3" aria-hidden />
+          New card!
+        </span>
+      ) : null}
       {rarity ? (
         <span
           aria-hidden

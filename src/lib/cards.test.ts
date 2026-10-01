@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cardCatalog, cardsInWord } from "./cards";
+import { cardCatalog, cardsInWord, catalogEntry, newCards } from "./cards";
 import { FACTOR_MATCHES } from "./scoring";
 
 test("every scoring card is in the collection, except ones that can never score", () => {
@@ -20,4 +20,21 @@ test("a word's cards are the ones it scored", () => {
   assert.ok(cards.includes("bingo"));
   assert.equal(cards.includes("tiles"), false);
   assert.equal(new Set(cards).size, cards.length);
+});
+
+test("new cards are the ones no earlier roll scored", () => {
+  assert.deepEqual(newCards("cabbage", []), cardsInWord("cabbage"));
+  assert.deepEqual(newCards("cabbage", ["cabbage"]), []);
+  const afterBaggage = newCards("cabbage", ["baggage"]);
+  assert.ok(afterBaggage.includes("bingo") === false);
+  assert.ok(afterBaggage.length < cardsInWord("cabbage").length);
+});
+
+test("locked entries carry no card details", () => {
+  const card = cardCatalog().find((entry) => entry.id === "sheet-music")!;
+  const locked = catalogEntry(card, false);
+  assert.equal(locked.card, undefined);
+  assert.equal(JSON.stringify(locked).includes("sheet"), false);
+  assert.equal(JSON.stringify(locked).includes("Sheet"), false);
+  assert.equal(catalogEntry(card, true).card?.name, "Sheet music");
 });
