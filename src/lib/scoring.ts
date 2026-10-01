@@ -145,6 +145,10 @@ export const FACTOR_MATCHES = {
   bingo: 23109,
   "u-to-a": 6,
   "a-to-z": 2,
+  "morse-mirror": 680,
+  "keyboard-walk": 50,
+  "looking-glass": 21,
+  "all-dots": 28,
 } as const;
 
 export type FactorId = keyof typeof FACTOR_MATCHES;
@@ -303,6 +307,7 @@ export function scoreWord(word: string): ScoredWord {
   const animals = hiddenWords(normalized, ANIMAL_WORDS);
   const neighbours = length <= POPULAR_MAX_LENGTH ? neighbourCount(normalized) : 0;
   const uToA = hasReverseVowelOrder(normalized);
+  const morse = morseCode(normalized);
   const consonantChain = longestRun(normalized, false);
   const vowelChain = longestRun(normalized, true);
 
@@ -837,6 +842,36 @@ export function scoreWord(word: string): ScoredWord {
       missDetail: "U, O, I, E, and A do not line up in reverse order.",
     },
     {
+      id: "morse-mirror",
+      name: "Morse mirror",
+      hit: morse !== null && length >= 3 && morse === [...morse].reverse().join(""),
+      hitDetail: `In Morse code it reads the same backwards: ${morse}.`,
+      missDetail: "Its Morse code does not read the same backwards.",
+    },
+    {
+      id: "all-dots",
+      name: "All dots",
+      hit: length >= 3 && usesOnly(normalized, MORSE_DOTS),
+      hitDetail: `Every letter is only dots in Morse code: ${morse}.`,
+      missDetail: "A letter has a dash in Morse code. Only E, I, S, and H are all dots.",
+    },
+    {
+      id: "keyboard-walk",
+      name: "Keyboard walk",
+      hit: keyboardWalk(normalized),
+      hitDetail: "Each letter sits right next to the one before it on the keyboard.",
+      missDetail: "Two letters in a row are not neighbours on the keyboard.",
+    },
+    {
+      id: "looking-glass",
+      name: "Looking glass",
+      hit: palindrome && usesOnly(normalized, MIRROR_CAPITALS),
+      hitDetail: `Hold ${normalized.toUpperCase()} up to a mirror and it reads exactly the same.`,
+      missDetail: palindrome
+        ? "A capital letter flips into a different shape in a mirror."
+        : "In a mirror it reads backwards.",
+    },
+    {
       id: "a-to-z",
       name: "A to Z",
       hit: length >= 2 && normalized.startsWith("a") && normalized.endsWith("z"),
@@ -1085,6 +1120,8 @@ function coveredFactors(factors: Array<{ id: FactorId; name: string; hit: boolea
   } else if (hit.has("double-twins")) {
     covered.set("twins", "Double twins already covers this.");
   }
+  if (hit.has("looking-glass")) covered.set("mirror", "Looking glass already covers this.");
+  if (hit.has("all-dots")) covered.set("morse-mirror", "All dots already covers this.");
   if (hit.has("no-repeats")) covered.set("perfectly-shared", "No repeats already covers this.");
   else if (hit.has("even-company")) covered.set("perfectly-shared", "Even company already covers this.");
   const origins = factors.filter((factor) => factor.hit && ORIGIN_IDS.has(factor.id));
@@ -1200,6 +1237,44 @@ function neighbourCount(word: string): number {
   }
   found.delete(word);
   return found.size;
+}
+
+const MORSE: Record<string, string> = {
+  a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.", h: "....", i: "..", j: ".---", k: "-.-",
+  l: ".-..", m: "--", n: "-.", o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-", v: "...-",
+  w: ".--", x: "-..-", y: "-.--", z: "--..",
+};
+const MORSE_DOTS = new Set("eish");
+
+/** The word in Morse code, letters run together. */
+function morseCode(word: string): string | null {
+  let code = "";
+  for (const letter of word) {
+    const symbol = MORSE[letter];
+    if (symbol === undefined) return null;
+    code += symbol;
+  }
+  return code;
+}
+
+/** Capitals that look the same in a mirror. */
+const MIRROR_CAPITALS = new Set("ahimotuvwxy");
+
+/** QWERTY key positions. Each row sits half a key to the right of the one above. */
+const KEY_POSITIONS: Record<string, { x: number; y: number }> = Object.fromEntries(
+  ["qwertyuiop", "asdfghjkl", "zxcvbnm"].flatMap((row, y) => [...row].map((letter, x) => [letter, { x: x + y * 0.5, y }])),
+);
+
+/** At least 4 letters, and every letter touches the one before it on the keyboard. */
+function keyboardWalk(word: string): boolean {
+  if (word.length < 4) return false;
+  for (let index = 1; index < word.length; index += 1) {
+    const from = KEY_POSITIONS[word[index - 1]!];
+    const to = KEY_POSITIONS[word[index]!];
+    if (!from || !to || word[index] === word[index - 1]) return false;
+    if (Math.abs(from.y - to.y) > 1 || Math.abs(from.x - to.x) > 1) return false;
+  }
+  return true;
 }
 
 const REVERSE_VOWEL_ORDER = "uoiea";

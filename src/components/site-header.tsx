@@ -26,6 +26,9 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
         <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/leaderboard" aria-current={path.startsWith("/leaderboard") ? "page" : undefined} />}>
           Leaderboard
         </Button>
+        <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/cards" aria-current={path === "/cards" ? "page" : undefined} />}>
+          Cards
+        </Button>
         {account.status === "player" ? (
           <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/friends" aria-current={path === "/friends" ? "page" : undefined} />}>
             Friends

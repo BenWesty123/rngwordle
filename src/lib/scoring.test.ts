@@ -1085,3 +1085,20 @@ test("popular, bingo, U to A, and A to Z", () => {
   assert.equal(scoreWord("abuzz").rows.find((row) => row.id === "a-to-z")?.scored, true);
   assert.deepEqual(scoreWord("abuzz").rows.find((row) => row.id === "a-to-z")?.highlight, [0, 4]);
 });
+
+test("morse mirror, all dots, keyboard walk, and looking glass", () => {
+  const card = (word: string, id: string) => scoreWord(word).rows.find((row) => row.id === id);
+  assert.equal(card("abate", "morse-mirror")?.scored, true);
+  assert.match(card("abate", "morse-mirror")?.reason ?? "", /\.--\.\.\.\.--\./);
+  // All dots is always a Morse palindrome, so it takes that card's place.
+  assert.equal(card("hisses", "all-dots")?.scored, true);
+  assert.equal(card("hisses", "morse-mirror")?.scored, false);
+  assert.equal(card("hisses", "morse-mirror")?.matched, true);
+  assert.equal(card("desert", "keyboard-walk")?.scored, true);
+  assert.equal(card("dessert", "keyboard-walk")?.scored, false);
+  // Looking glass is a stricter Mirror, so it takes Mirror's place.
+  assert.equal(card("otto", "looking-glass")?.scored, true);
+  assert.equal(card("otto", "mirror")?.scored, false);
+  assert.equal(card("kayak", "looking-glass")?.scored, false);
+  assert.equal(card("kayak", "mirror")?.scored, true);
+});

@@ -10,6 +10,7 @@ import { utcDateKey } from "@/lib/day";
 import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
+import { rememberCards } from "@/lib/card-collection";
 import { buildShareText, formatStanding } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
 import { tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
@@ -25,6 +26,7 @@ import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 import { TileBox } from "@/components/tile";
 import { TIER_STYLE } from "@/lib/tier-style";
+import { cardRarity, RARITY_BADGE, RARITY_STAMP } from "@/lib/card-rarity";
 
 const TILE_REVEAL_MS = 460;
 const BOX_REVEAL_MS = 1450;
@@ -154,6 +156,11 @@ export function Game() {
 
   const scoredState = useScored(roll?.word ?? null);
   const scored = scoredState && scoredState !== "error" ? scoredState : null;
+
+  // Every card a shown roll scores goes into this browser's collection.
+  useEffect(() => {
+    if (scored) rememberCards(scored);
+  }, [scored]);
   const standing = scored ? standingFor(scored.total) : null;
   const glow = EMPTY_GLOW;
 
@@ -710,7 +717,7 @@ function ScoreReveal({
 function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: LedgerRow; featured?: boolean }) {
   const lit = new Set(row.highlight ?? []);
   const partial = lit.size > 0 && lit.size < tiles.length;
-  const rarity = row.points != null && row.points > 1 ? factorRarity(row.points) : null;
+  const rarity = row.points != null && row.points > 1 ? cardRarity(row.points) : null;
   return (
     <article
       className={cn(
@@ -756,33 +763,8 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
   );
 }
 
-/** Bands follow the scoring curve: a base rarity of 2, 3, 5, 8 raised to the power 1.5. */
-function factorRarity(points: number): "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" {
-  if (points <= 3) return "Common";
-  if (points <= 5) return "Uncommon";
-  if (points <= 11) return "Rare";
-  if (points <= 23) return "Epic";
-  return "Legendary";
-}
-
-const RARITY_BADGE = {
-  Common: "border-zinc-500/40 bg-zinc-500/10 text-zinc-700 dark:border-zinc-300/40 dark:bg-zinc-300/10 dark:text-zinc-100",
-  Uncommon: "border-emerald-600/45 bg-emerald-600/10 text-emerald-800 dark:border-emerald-300/45 dark:bg-emerald-300/15 dark:text-emerald-100",
-  Rare: "border-sky-600/45 bg-sky-600/10 text-sky-800 dark:border-sky-300/50 dark:bg-sky-300/15 dark:text-sky-100",
-  Epic: "border-violet-600/45 bg-violet-600/10 text-violet-800 dark:border-violet-300/50 dark:bg-violet-300/15 dark:text-violet-100",
-  Legendary: "border-amber-600/55 bg-amber-500/15 text-amber-800 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-100",
-} as const;
-
-const RARITY_STAMP = {
-  Common: "border-zinc-500/70 text-zinc-700 dark:border-zinc-300/70 dark:text-zinc-100",
-  Uncommon: "border-emerald-600/80 text-emerald-700 dark:border-emerald-300/80 dark:text-emerald-200",
-  Rare: "border-sky-600/80 text-sky-700 dark:border-sky-300/80 dark:text-sky-200",
-  Epic: "border-violet-600/80 text-violet-700 dark:border-violet-300/80 dark:text-violet-200",
-  Legendary: "border-amber-600/90 text-amber-700 dark:border-amber-200/90 dark:text-amber-100",
-} as const;
-
 function FactorBadge({ points }: { points: number }) {
-  const label = factorRarity(points);
+  const label = cardRarity(points);
   return (
     <span
       className={cn(

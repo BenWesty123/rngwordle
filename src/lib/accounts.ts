@@ -296,6 +296,15 @@ export async function setUsername(
   return { username }
 }
 
+/** Every word this account has rolled, oldest first. One a day, so the list stays short. */
+export async function listRollWords(db: AppDatabase, accountId: string): Promise<string[]> {
+  const rows = await db.all<{ word: string }>(
+    "SELECT word FROM rolls WHERE account_id = ? ORDER BY played_at ASC",
+    accountId,
+  )
+  return rows.map((row) => row.word)
+}
+
 export async function rollForDay(db: AppDatabase, accountId: string, utcDay: string): Promise<SavedRoll | null> {
   const row = await db.get<{ username: string; word: string; score: string; played_at: number; utc_day: string }>(
     "SELECT username, word, score, played_at, utc_day FROM rolls WHERE account_id = ? AND utc_day = ?",
