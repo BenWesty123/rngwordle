@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { SCORING_VERSION } from "@/lib/standing";
 import type { ScoredWord } from "@/lib/tiles";
 
 /**
@@ -23,7 +24,7 @@ function subscribe(listener: () => void): () => void {
 function load(word: string) {
   if (cache.has(word) || pending.has(word)) return;
   pending.add(word);
-  fetch(`/api/score?word=${encodeURIComponent(word)}`)
+  fetch(`/api/score?word=${encodeURIComponent(word)}&v=${SCORING_VERSION}`)
     .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
     .then((body: { scored?: ScoredWord }) => {
       if (!body.scored) throw new Error("missing");
