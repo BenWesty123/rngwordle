@@ -73,14 +73,15 @@ export function Game() {
     return () => window.clearTimeout(id);
   }, [copied]);
 
-  function startSpin(word: string) {
+  /** Shuffle the tiles before the reveal. A short settle when the bag already shook while dealing. */
+  function startSpin(word: string, frames = 14) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
     setSpinWord(flickerWord(word.length));
     let frame = 0;
     spinTimer.current = window.setInterval(() => {
       frame += 1;
-      if (frame >= 14) {
+      if (frame >= frames) {
         if (spinTimer.current !== null) window.clearInterval(spinTimer.current);
         spinTimer.current = null;
         setSpinWord(null);
@@ -97,6 +98,8 @@ export function Game() {
     setDealt(true);
     setDealing(true);
     setRollError(null);
+    // The bag starts shaking on the click; any wait for the server shakes with it.
+    const startedAt = performance.now();
     try {
       const response = await fetch("/api/rolls", { method: "POST" });
       const body = (await response.json()) as {
@@ -120,7 +123,7 @@ export function Game() {
       setReplayKey((key) => key + 1);
       setCopied(false);
       setCopyError(false);
-      startSpin(body.word);
+      startSpin(body.word, performance.now() - startedAt >= 500 ? 6 : 14);
     } catch {
       setDealt(false);
       setRollError("That roll didn't save.");
@@ -198,6 +201,8 @@ export function Game() {
               Try again
             </Button>
           </div>
+        ) : dealing ? (
+          <ShakingBag length={roll?.word.length ?? 8} label="Shaking the bag…" />
         ) : roll && scored && standing ? (
           <>
             {account.status === "needs-name" ? <UsernameForm compact /> : null}
@@ -222,9 +227,11 @@ export function Game() {
               Try again
             </Button>
           </div>
-        ) : roll || dealt ? (
+        ) : roll ? (
+          <ShakingBag length={roll.word.length} label="Finding your roll…" />
+        ) : dealt ? (
           <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
-            {dealt ? "Dealing…" : "Loading your roll…"}
+            Dealing…
           </p>
         ) : (
           <>
@@ -238,6 +245,32 @@ export function Game() {
 }
 
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
+
+/**
+ * Rattling tiles while the server deals or a saved roll loads. Laid out like the
+ * reveal's own shuffle, so the hand-over to the real word doesn't jump.
+ */
+function ShakingBag({ length, label }: { length: number; label: string }) {
+  const reduce = useReducedMotion();
+  const [letters, setLetters] = useState(() => flickerWord(length));
+  useEffect(() => {
+    if (reduce) return;
+    const id = window.setInterval(() => setLetters(flickerWord(length)), 45);
+    return () => window.clearInterval(id);
+  }, [length, reduce]);
+  return (
+    <div className="flex flex-1 flex-col pt-2" role="status">
+      <h1 className="text-center text-sm text-muted-foreground">{label}</h1>
+      {reduce ? null : (
+        <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
+          {tilesFor(letters).map((tile, index) => (
+            <TileBox key={index} tile={tile} length={length} shaking />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 type TodayTop = { word: string; username: string; score: string };
 
