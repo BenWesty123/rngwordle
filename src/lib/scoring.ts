@@ -135,17 +135,49 @@ export const FACTOR_MATCHES = {
 
 export type FactorId = keyof typeof FACTOR_MATCHES;
 
+/**
+ * round(3 × log10(list size / matches)). A property that about a third of
+ * words have, or more, comes out at ×1 and does not score.
+ */
 export function rarityMultiplier(matches: number, wordCount = LIST_SIZE): number {
   if (matches <= 0 || wordCount <= 0) return 2;
-  return Math.max(2, Math.round(3 * Math.log10(wordCount / matches)));
+  return Math.max(1, Math.round(3 * Math.log10(wordCount / matches)));
 }
 
 export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
-  (Object.keys(FACTOR_MATCHES) as FactorId[]).map((id) => [
-    id,
-    id === "anagram" ? 4 : rarityMultiplier(FACTOR_MATCHES[id]),
-  ]),
+  (Object.keys(FACTOR_MATCHES) as FactorId[]).map((id) => [id, rarityMultiplier(FACTOR_MATCHES[id])]),
 ) as Record<FactorId, number>;
+
+/**
+ * Factors that can hit more than once. Each entry is how many words have at
+ * least k hits, for k = 1, 2, 3, … The factor is one card, priced by how rare
+ * that many hits is, instead of multiplying once per hit.
+ */
+export const STACK_MATCHES = {
+  inside: [
+    167370, 154329, 135049, 112076, 88460, 66821, 48456, 33658, 22733, 14971, 9538, 5955, 3710, 2226, 1290, 745,
+    415, 226, 143, 73, 37, 16, 12, 7, 2,
+  ],
+  anagram: [28648, 9490, 3778, 1734, 794, 392, 133, 69, 33, 23, 12],
+  "alphabet-step": [16735, 2950, 542, 93, 9, 1],
+  "swap-shop": [2815, 90, 1],
+  "double-or-nothing": [5429, 130, 1],
+} as const satisfies Partial<Record<FactorId, readonly number[]>>;
+
+export type StackedFactorId = keyof typeof STACK_MATCHES;
+
+export function stackMultiplier(id: StackedFactorId, hits: number): number {
+  if (hits <= 0) return 1;
+  const table = STACK_MATCHES[id];
+  return rarityMultiplier(table[Math.min(hits, table.length) - 1]!);
+}
+
+/** Fewest hits that score at all. */
+export function stackThreshold(id: StackedFactorId): number {
+  const table = STACK_MATCHES[id];
+  for (let hits = 1; hits <= table.length; hits += 1) if (stackMultiplier(id, hits) > 1) return hits;
+  return table.length;
+}
 
 /**
  * Multiplier for a consonant run of this length. Built from how many ENABLE
@@ -153,7 +185,8 @@ export const FACTOR_MULTIPLIERS: Record<FactorId, number> = Object.fromEntries(
  * A run of 1 does not score.
  */
 export const CONSONANT_CHAIN_MULTIPLIERS: Record<number, number> = {
-  2: 2,
+  // 88% of words have a run of 2, so it does not score.
+  2: 1,
   3: 3,
   4: 4,
   5: 6,
@@ -171,11 +204,19 @@ export const VOWEL_CHAIN_MULTIPLIERS: Record<number, number> = {
   5: 14,
 };
 
+/** How many bundled words have each length. */
+export const LENGTH_COUNTS: Record<number, number> = {
+  2: 96, 3: 972, 4: 3903, 5: 8636, 6: 15232, 7: 23109, 8: 28420, 9: 24873, 10: 20302, 11: 15504, 12: 11358,
+  13: 7827, 14: 5127, 15: 3192, 16: 1943, 17: 1127, 18: 594, 19: 329, 20: 160, 21: 62, 22: 30, 23: 13, 24: 9,
+  25: 2, 27: 2, 28: 1,
+};
+
+const COMMONEST_LENGTH_COUNT = Math.max(...Object.values(LENGTH_COUNTS));
+
+/** Priced by rarity against the most common length (8 letters), the same in both directions. */
 export function lengthMultiplier(length: number): number {
-  if (length === LENGTH_CENTER) return 1;
-  const distance = Math.abs(length - LENGTH_CENTER);
-  if (length < LENGTH_CENTER) return 2 ** distance;
-  return 1 + distance;
+  const count = LENGTH_COUNTS[length] ?? 1;
+  return Math.max(1, Math.round(3 * Math.log10(COMMONEST_LENGTH_COUNT / count)));
 }
 
 export function scoreWord(word: string): ScoredWord {
@@ -673,150 +714,42 @@ export function scoreWord(word: string): ScoredWord {
     },
   ];
 
+  const covered = coveredFactors(factors);
+
   for (const factor of factors) {
     const multiplier = FACTOR_MULTIPLIERS[factor.id];
-    if (factor.id === "inside") {
-      const hits = insideSlices(normalized);
-      if (hits.length === 0) {
+    const stacked = stackedHits(factor.id, normalized);
+    if (stacked) {
+      const id = factor.id as StackedFactorId;
+      const points = stackMultiplier(id, stacked.length);
+      if (points <= 1) {
         rows.push({
           id: factor.id,
           name: factor.name,
-          detail: factor.missDetail,
+          detail:
+            stacked.length === 0
+              ? factor.missDetail
+              : `${stackReason(id, stacked)} That's common here: it takes ${stackThreshold(id)} to score.`,
           points: null,
           scored: false,
+          matched: stacked.length > 0,
         });
         continue;
       }
-      for (const hit of hits) {
-        const next = running * multiplier;
-        rows.push({
-          id: factor.id,
-          name: `${factor.name} ×${multiplier}`,
-          detail: `A dictionary word of at least 3 letters is hidden in this one: ${hit.text}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
-          points: multiplier,
-          scored: true,
-          match: hit.text,
-          highlight: everyIndex(hit.text.length).map((index) => index + hit.start),
-          reason: `A dictionary word of at least 3 letters is hidden in this one: ${hit.text}.`,
-        });
-        running = next;
-      }
-      continue;
-    }
-    if (factor.id === "alphabet-step") {
-      const hits = alphabetStepHits(normalized);
-      if (hits.length === 0) {
-        rows.push({
-          id: factor.id,
-          name: factor.name,
-          detail: factor.missDetail,
-          points: null,
-          scored: false,
-        });
-        continue;
-      }
-      for (const hit of hits) {
-        const next = running * multiplier;
-        rows.push({
-          id: factor.id,
-          name: `${factor.name} ×${multiplier}`,
-          detail: `Change one letter to the next or previous letter in the alphabet and you get another word: ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
-          points: multiplier,
-          scored: true,
-          match: hit.word,
-          highlight: [hit.index],
-          reason: `Change one letter to the next or previous letter in the alphabet and you get another word: ${hit.word}.`,
-        });
-        running = next;
-      }
-      continue;
-    }
-    if (factor.id === "double-or-nothing") {
-      const hits = doubleOrNothingHits(normalized);
-      if (hits.length === 0) {
-        rows.push({
-          id: factor.id,
-          name: factor.name,
-          detail: factor.missDetail,
-          points: null,
-          scored: false,
-        });
-        continue;
-      }
-      for (const hit of hits) {
-        const next = running * multiplier;
-        const reason =
-          hit.highlight.length === 1
-            ? `Double one letter and you get another word: ${hit.word}.`
-            : `Collapse a doubled letter back to one and you get another word: ${hit.word}.`;
-        rows.push({
-          id: factor.id,
-          name: `${factor.name} ×${multiplier}`,
-          detail: `${reason} ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
-          points: multiplier,
-          scored: true,
-          match: hit.word,
-          highlight: hit.highlight,
-          reason,
-        });
-        running = next;
-      }
-      continue;
-    }
-    if (factor.id === "swap-shop") {
-      const hits = swapShopHits(normalized);
-      if (hits.length === 0) {
-        rows.push({
-          id: factor.id,
-          name: factor.name,
-          detail: factor.missDetail,
-          points: null,
-          scored: false,
-        });
-        continue;
-      }
-      for (const hit of hits) {
-        const next = running * multiplier;
-        rows.push({
-          id: factor.id,
-          name: `${factor.name} ×${multiplier}`,
-          detail: `Swap two neighbouring letters and you get another word: ${hit.word}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
-          points: multiplier,
-          scored: true,
-          match: hit.word,
-          highlight: [hit.index, hit.index + 1],
-          reason: `Swap two neighbouring letters and you get another word: ${hit.word}.`,
-        });
-        running = next;
-      }
-      continue;
-    }
-    if (factor.id === "anagram") {
-      const hits = anagramsOf(normalized);
-      if (hits.length === 0) {
-        rows.push({
-          id: factor.id,
-          name: factor.name,
-          detail: factor.missDetail,
-          points: null,
-          scored: false,
-        });
-        continue;
-      }
-      for (const hit of hits) {
-        const next = running * multiplier;
-        rows.push({
-          id: factor.id,
-          name: `${factor.name} ×${multiplier}`,
-          detail: `Another word uses these exact letters: ${hit}. ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
-          points: multiplier,
-          scored: true,
-          match: hit,
-          highlight: everyIndex(normalized.length),
-          reason: `Another word uses these exact letters: ${hit}.`,
-        });
-        running = next;
-      }
+      const next = running * points;
+      const reason = stackReason(id, stacked);
+      rows.push({
+        id: factor.id,
+        name: `${factor.name} ×${points}`,
+        detail: `${reason} ${running.toLocaleString("en-US")} × ${points} = ${next.toLocaleString("en-US")}.`,
+        points,
+        scored: true,
+        matched: true,
+        match: stacked.map((hit) => hit.match).join(", "),
+        highlight: [...new Set(stacked.flatMap((hit) => hit.highlight))].sort((left, right) => left - right),
+        reason,
+      });
+      running = next;
       continue;
     }
     if (factor.id === "consonant-chain" || factor.id === "vowel-chain") {
@@ -835,6 +768,17 @@ export function scoreWord(word: string): ScoredWord {
         factor.id === "consonant-chain" ? CONSONANT_CHAIN_MULTIPLIERS : VOWEL_CHAIN_MULTIPLIERS,
         run.length,
       );
+      if (chainPoints <= 1) {
+        rows.push({
+          id: factor.id,
+          name: factor.name,
+          detail: `${chainReason(normalized, run, factor.id === "consonant-chain" ? "consonants" : "vowels")} Most words have a run this long, so it does not score.`,
+          points: null,
+          scored: false,
+          matched: true,
+        });
+        continue;
+      }
       const next = running * chainPoints;
       const reason = chainReason(
         normalized,
@@ -847,6 +791,7 @@ export function scoreWord(word: string): ScoredWord {
         detail: `${reason} ${running.toLocaleString("en-US")} × ${chainPoints} = ${next.toLocaleString("en-US")}.`,
         points: chainPoints,
         scored: true,
+        matched: true,
         match: normalized.slice(run.start, run.end),
         highlight: Array.from({ length: run.length }, (_, offset) => run.start + offset),
         reason,
@@ -864,6 +809,18 @@ export function scoreWord(word: string): ScoredWord {
       });
       continue;
     }
+    const coveredBy = covered.get(factor.id);
+    if (coveredBy || multiplier <= 1) {
+      rows.push({
+        id: factor.id,
+        name: factor.name,
+        detail: `${factor.hitDetail.trim()} ${coveredBy ?? "Most words have this, so it does not score."}`,
+        points: null,
+        scored: false,
+        matched: true,
+      });
+      continue;
+    }
     const next = running * multiplier;
     rows.push({
       id: factor.id,
@@ -871,6 +828,7 @@ export function scoreWord(word: string): ScoredWord {
       detail: `${factor.hitDetail} ${running.toLocaleString("en-US")} × ${multiplier} = ${next.toLocaleString("en-US")}.`,
       points: multiplier,
       scored: true,
+      matched: true,
       highlight: factorHighlight(factor.id, normalized),
       reason: factor.hitDetail.trim(),
       match: factor.match,
@@ -887,6 +845,96 @@ export function scoreWord(word: string): ScoredWord {
     rows,
     total: running,
   };
+}
+
+type StackHit = { match: string; highlight: number[] };
+
+function stackedHits(id: FactorId, word: string): StackHit[] | null {
+  switch (id) {
+    case "inside":
+      return insideSlices(word).map((hit) => ({
+        match: hit.text,
+        highlight: everyIndex(hit.text.length).map((index) => index + hit.start),
+      }));
+    case "anagram":
+      return anagramsOf(word).map((other) => ({ match: other, highlight: everyIndex(word.length) }));
+    case "alphabet-step":
+      return alphabetStepHits(word).map((hit) => ({ match: hit.word, highlight: [hit.index] }));
+    case "swap-shop":
+      return swapShopHits(word).map((hit) => ({ match: hit.word, highlight: [hit.index, hit.index + 1] }));
+    case "double-or-nothing":
+      return doubleOrNothingHits(word).map((hit) => ({ match: hit.word, highlight: hit.highlight }));
+    default:
+      return null;
+  }
+}
+
+function listWords(hits: StackHit[]): string {
+  const shown = hits.slice(0, 8).map((hit) => hit.match);
+  const more = hits.length - shown.length;
+  return more > 0 ? `${shown.join(", ")}, and ${more} more` : shown.join(", ");
+}
+
+function stackReason(id: StackedFactorId, hits: StackHit[]): string {
+  const one = hits.length === 1;
+  const list = listWords(hits);
+  switch (id) {
+    case "inside":
+      return one
+        ? `A dictionary word of at least 3 letters is hidden in this one: ${list}.`
+        : `${hits.length} dictionary words of at least 3 letters are hidden in this one: ${list}.`;
+    case "anagram":
+      return one
+        ? `Another word uses these exact letters: ${list}.`
+        : `${hits.length} other words use these exact letters: ${list}.`;
+    case "alphabet-step":
+      return one
+        ? `Change one letter to the next or previous letter in the alphabet and you get another word: ${list}.`
+        : `${hits.length} words are one alphabet step away, changing a letter to its neighbour: ${list}.`;
+    case "swap-shop":
+      return one
+        ? `Swap two neighbouring letters and you get another word: ${list}.`
+        : `${hits.length} different swaps of neighbouring letters make words: ${list}.`;
+    case "double-or-nothing":
+      return one
+        ? `Double a letter, or undo a doubled pair, and you get another word: ${list}.`
+        : `${hits.length} words are a doubled or undoubled letter away: ${list}.`;
+  }
+}
+
+const ORIGIN_IDS = new Set<FactorId>(
+  (Object.keys(FACTOR_MATCHES) as FactorId[]).filter((id) => id.startsWith("from-")),
+);
+
+/**
+ * Hits that would pay twice for one property, each mapped to why it does not score.
+ * Twins, Double twins, Triple twins: only the highest scores.
+ * Perfectly shared: No repeats and Even company already cover those words.
+ * Origins: one family tree, so only the rarest root scores.
+ */
+function coveredFactors(factors: Array<{ id: FactorId; name: string; hit: boolean }>): Map<FactorId, string> {
+  const hit = new Set(factors.filter((factor) => factor.hit).map((factor) => factor.id));
+  const covered = new Map<FactorId, string>();
+  if (hit.has("triple-twins")) {
+    covered.set("double-twins", "Triple twins already covers this.");
+    covered.set("twins", "Triple twins already covers this.");
+  } else if (hit.has("double-twins")) {
+    covered.set("twins", "Double twins already covers this.");
+  }
+  if (hit.has("no-repeats")) covered.set("perfectly-shared", "No repeats already covers this.");
+  else if (hit.has("even-company")) covered.set("perfectly-shared", "Even company already covers this.");
+  const origins = factors.filter((factor) => factor.hit && ORIGIN_IDS.has(factor.id));
+  if (origins.length > 1) {
+    const rarest = origins.reduce((best, factor) =>
+      FACTOR_MATCHES[factor.id] < FACTOR_MATCHES[best.id] ? factor : best,
+    );
+    for (const factor of origins) {
+      if (factor !== rarest) {
+        covered.set(factor.id, `Only the rarest root scores, and that is ${rarest.name.replace(/^From /, "")}.`);
+      }
+    }
+  }
+  return covered;
 }
 
 function hasFact(word: string, tag: string): boolean {
@@ -1376,13 +1424,11 @@ function isTautonym(word: string): boolean {
 }
 
 function lengthReason(length: number): string {
-  if (length === LENGTH_CENTER) {
-    return `${length} letters is the average in this dictionary, so length stays at ×1.`;
-  }
-  const distance = Math.abs(length - LENGTH_CENTER);
-  const direction = length < LENGTH_CENTER ? "shorter" : "longer";
-  const step = distance === 1 ? "step" : "steps";
-  return `Length multiplies by how far the word sits from ${LENGTH_CENTER} letters, the average length here. ${length} letters, ${distance} ${step} ${direction} than ${LENGTH_CENTER}.`;
+  const count = LENGTH_COUNTS[length] ?? 0;
+  const share = (count / LIST_SIZE) * 100;
+  const shown = share >= 1 ? share.toFixed(0) : share >= 0.1 ? share.toFixed(1) : share.toFixed(2);
+  const words = count === 1 ? "word has" : "words have";
+  return `Only ${count.toLocaleString("en-US")} ${words} ${length} letters (${shown}% of the dictionary). Rarer lengths multiply more.`;
 }
 
 function lengthDetail(length: number, multiplier: number, before: number, after: number): string {

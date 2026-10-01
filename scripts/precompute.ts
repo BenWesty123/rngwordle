@@ -67,7 +67,8 @@ function median(values: number[]): number {
 
 const medianAt = (length: number) => median(byLength.get(length) ?? []);
 const middle = medianAt(LENGTH_CENTER);
-for (const length of [2, 3, 6, 12, 15, 20]) {
+// Length is priced by rarity, so the rare lengths at both ends should beat the middle.
+for (const length of [2, 3, 15, 20]) {
   const edge = medianAt(length);
   if (!(edge > middle)) {
     throw new Error(
@@ -80,7 +81,8 @@ const factorHits = new Map<string, number>();
 for (const entry of scored) {
   const seen = new Set<string>();
   for (const row of entry.rows) {
-    if (!row.scored || row.id === "tiles" || row.id === "length" || seen.has(row.id)) continue;
+    // A property can hold without scoring (too common, or a rarer card covers it). Count it either way.
+    if (!(row.scored || row.matched) || row.id === "tiles" || row.id === "length" || seen.has(row.id)) continue;
     seen.add(row.id);
     factorHits.set(row.id, (factorHits.get(row.id) ?? 0) + 1);
   }

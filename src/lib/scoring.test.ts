@@ -9,26 +9,27 @@ import {
   isPerfectlyShared,
   isRomanWord,
   lengthMultiplier,
+  stackMultiplier,
   letterCollector,
   periodicSpelling,
   rarityMultiplier,
   scoreWord,
 } from "./scoring";
 
-test("nine-letter words sit at ×1", () => {
-  assert.equal(lengthMultiplier(9), 1);
+test("common lengths sit at ×1", () => {
+  for (const length of [6, 7, 8, 9, 10, 11, 12]) assert.equal(lengthMultiplier(length), 1);
 });
 
-test("length multipliers follow the short-double and long-step curve", () => {
-  assert.equal(lengthMultiplier(8), 2);
-  assert.equal(lengthMultiplier(10), 2);
-  assert.equal(lengthMultiplier(7), 4);
-  assert.equal(lengthMultiplier(11), 3);
-  assert.equal(lengthMultiplier(6), 8);
-  assert.equal(lengthMultiplier(12), 4);
-  assert.equal(lengthMultiplier(5), 16);
-  assert.equal(lengthMultiplier(2), 128);
-  assert.equal(lengthMultiplier(15), 7);
+test("length is priced by rarity, the same in both directions", () => {
+  assert.equal(lengthMultiplier(5), 2);
+  assert.equal(lengthMultiplier(4), 3);
+  assert.equal(lengthMultiplier(3), 4);
+  assert.equal(lengthMultiplier(2), 7);
+  assert.equal(lengthMultiplier(13), 2);
+  assert.equal(lengthMultiplier(15), 3);
+  assert.equal(lengthMultiplier(20), 7);
+  assert.equal(lengthMultiplier(28), 13);
+  assert.equal(lengthMultiplier(2), lengthMultiplier(20));
 });
 
 test("rarer factors get larger multipliers", () => {
@@ -100,13 +101,15 @@ test("rarer factors get larger multipliers", () => {
 test("quiz is scrabble tiles times length times contraband", () => {
   const scored = scoreWord("quiz");
   assert.equal(scored.tileSum, 22);
-  assert.equal(scored.lengthMultiplier, 32);
+  assert.equal(scored.lengthMultiplier, 3);
   assert.equal(scored.rows.find((row) => row.id === "contraband")?.points, 3);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
   assert.equal(scored.rows.find((row) => row.id === "perfect-balance")?.points, 3);
   assert.equal(scored.rows.find((row) => row.id === "vowel-chain")?.points, 2);
-  assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.points, 2);
-  assert.equal(scored.total, 22 * 32 * 3 * 2 * 3 * 2 * 2);
+  // No repeats already pays for this.
+  assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.points, null);
+  assert.equal(scored.rows.find((row) => row.id === "perfectly-shared")?.matched, true);
+  assert.equal(scored.total, 22 * 3 * 3 * 2 * 3 * 2);
   assert.equal(product(scored), scored.total);
 });
 
@@ -173,11 +176,13 @@ test("schooled weaves shoe and cold, and a word that does not split misses", () 
 });
 
 test("hoping and hopping each name the other, and a word with no pair misses", () => {
+  // One card for every hit, priced by how rare that many hits is.
   const hoping = scoreWord("hoping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
-  const toHopping = hoping.find((row) => row.match === "hopping");
-  assert.equal(toHopping?.points, 5);
-  assert.deepEqual(toHopping?.highlight, [2]);
-  assert.match(toHopping?.reason ?? "", /hopping/);
+  assert.equal(hoping.length, 1);
+  assert.equal(hoping[0]?.points, 9);
+  assert.equal(hoping[0]?.match, "hooping, hopping");
+  assert.deepEqual(hoping[0]?.highlight, [1, 2]);
+  assert.match(hoping[0]?.reason ?? "", /hopping/);
 
   const hopping = scoreWord("hopping").rows.filter((row) => row.id === "double-or-nothing" && row.scored);
   assert.equal(hopping.length, 1);
@@ -445,7 +450,7 @@ test("salt swaps into slat, and identical neighbours do not", () => {
   const swaps = salt.rows.filter((row) => row.id === "swap-shop");
   assert.equal(swaps.length, 1);
   assert.equal(swaps[0]?.scored, true);
-  assert.equal(swaps[0]?.points, 5);
+  assert.equal(swaps[0]?.points, FACTOR_MULTIPLIERS["swap-shop"]);
   assert.equal(swaps[0]?.match, "slat");
   assert.deepEqual(swaps[0]?.highlight, [1, 2]);
   assert.match(swaps[0]?.reason ?? "", /slat/);
@@ -460,25 +465,24 @@ test("salt swaps into slat, and identical neighbours do not", () => {
 
   const acred = scoreWord("acred");
   const pairs = acred.rows.filter((row) => row.id === "swap-shop" && row.scored);
-  assert.deepEqual(
-    pairs.map((row) => ({ word: row.match, highlight: row.highlight })),
-    [
-      { word: "cared", highlight: [0, 1] },
-      { word: "arced", highlight: [1, 2] },
-    ],
-  );
-  assert.ok(pairs.every((row) => row.points === 5));
+  assert.equal(pairs.length, 1);
+  assert.equal(pairs[0]?.match, "cared, arced");
+  assert.deepEqual(pairs[0]?.highlight, [0, 1, 2]);
+  // Two swaps is far rarer than one.
+  assert.equal(pairs[0]?.points, 10);
 });
 
 test("kayak multiplies mirror", () => {
   const scored = scoreWord("kayak");
   assert.equal(scored.tileSum, 16);
-  assert.equal(scored.lengthMultiplier, 16);
+  assert.equal(scored.lengthMultiplier, 2);
   assert.equal(scored.rows.find((row) => row.id === "mirror")?.points, 10);
-  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 2);
+  // Two hidden words and alphabet twins are ordinary, so neither scores.
+  assert.equal(scored.rows.find((row) => row.id === "inside")?.scored, false);
+  assert.equal(scored.rows.find((row) => row.id === "inside")?.matched, true);
   assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 4);
-  assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, 2);
-  assert.equal(scored.total, 16 * 16 * 10 * 2 * 2 * 4 * 2);
+  assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, null);
+  assert.equal(scored.total, 16 * 2 * 10 * 4);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -486,56 +490,33 @@ test("rhythm is bone dry and y is not a vowel", () => {
   assert.equal(scored.rows.find((row) => row.id === "bone-dry")?.scored, true);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.tileSum, 17);
-  assert.equal(scored.lengthMultiplier, 8);
+  assert.equal(scored.lengthMultiplier, 1);
   assert.equal(scored.rows.find((row) => row.id === "quiet-letters")?.points, 7);
   assert.equal(scored.total, product(scored));
 });
 
-test("stop pays Anagram once per other word with the same letters", () => {
+test("stop pays one Anagram card, priced by how many anagrams it has", () => {
   const scored = scoreWord("stop");
   const hits = scored.rows.filter((row) => row.id === "anagram" && row.scored);
-  assert.deepEqual(
-    hits.map((row) => row.match),
-    ["opts", "post", "pots", "spot", "tops"],
-  );
-  assert.ok(hits.every((row) => row.points === 4));
-  assert.ok(hits.every((row) => row.highlight?.length === scored.word.length));
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0]?.match, "opts, post, pots, spot, tops");
+  assert.equal(hits[0]?.points, stackMultiplier("anagram", 5));
+  assert.equal(hits[0]?.points, 7);
+  assert.equal(hits[0]?.highlight?.length, scored.word.length);
   assert.equal(scoreWord("echo").rows.find((row) => row.id === "anagram")?.points, null);
-  assert.equal(FACTOR_MULTIPLIERS.anagram, 4);
+  assert.equal(stackMultiplier("anagram", 1), 2);
+  assert.equal(stackMultiplier("anagram", 11), 12);
 });
 
-test("headlamp pays Inside once per nested dictionary word", () => {
-  const scored = scoreWord("headlamp");
-  const hits = scored.rows.filter((row) => row.id === "inside" && row.scored);
-  assert.deepEqual(
-    hits.map((row) => row.match),
-    ["head", "lamp", "lam", "amp"],
-  );
-  assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.match, undefined);
-  assert.equal(hits.length, 4);
-  assert.ok(hits.every((row) => row.points === FACTOR_MULTIPLIERS.inside));
-  assert.deepEqual(
-    hits.map((row) => row.highlight),
-    [
-      [0, 1, 2, 3],
-      [4, 5, 6, 7],
-      [4, 5, 6],
-      [5, 6, 7],
-    ],
-  );
-  const length = scored.rows.find((row) => row.id === "length");
-  assert.deepEqual(length?.highlight, [0, 1, 2, 3, 4, 5, 6, 7]);
-  assert.equal(scoreWord("cat").rows.find((row) => row.id === "inside")?.points, null);
-  assert.deepEqual(
-    scoreWord("quiz").rows.find((row) => row.id === "contraband")?.highlight,
-    [0, 3],
-  );
-  assert.deepEqual(
-    scoreWord("bookkeeper").rows.find((row) => row.id === "twins")?.highlight,
-    [1, 2, 3, 4, 5, 6],
-  );
-  assert.deepEqual(scoreWord("echo").rows.find((row) => row.id === "no-repeats")?.highlight, [0, 1, 2, 3]);
-  assert.match(scoreWord("echo").rows.find((row) => row.id === "from-greek")?.reason ?? "", /Greek/);
+test("Inside scores only when a word hides more words than usual", () => {
+  // Four hidden words is ordinary: most words have at least that many.
+  const headlamp = scoreWord("headlamp").rows.find((row) => row.id === "inside");
+  assert.equal(headlamp?.scored, false);
+  assert.equal(headlamp?.matched, true);
+  assert.match(headlamp?.detail ?? "", /4 dictionary words/);
+  assert.equal(stackMultiplier("inside", 6), 1);
+  assert.equal(stackMultiplier("inside", 7), 2);
+  assert.equal(stackMultiplier("inside", 25), 15);
 });
 
 test("bookends matches the first two letters to the last two", () => {
@@ -560,24 +541,26 @@ test("bookends matches the first two letters to the last two", () => {
 });
 
 test("alphabet twins share a letter set with different counts", () => {
+  // 74% of words have an alphabet twin, so it is detected but does not score.
   const banana = scoreWord("banana");
   const row = banana.rows.find((entry) => entry.id === "alphabet-twins");
-  assert.equal(row?.scored, true);
-  assert.equal(row?.points, 2);
-  assert.equal(row?.name, "Alphabet twins ×2");
-  assert.equal(
-    row?.reason,
-    "Another word uses these same letters, but not the same number of each. ban, nab.",
+  assert.equal(row?.scored, false);
+  assert.equal(row?.matched, true);
+  assert.equal(row?.points, null);
+  assert.equal(FACTOR_MULTIPLIERS["alphabet-twins"], 1);
+  assert.match(
+    row?.detail ?? "",
+    /Another word uses these same letters, but not the same number of each. ban, nab./,
   );
-  assert.deepEqual(row?.highlight, [0, 1, 2, 3, 4, 5]);
 
   const tone = scoreWord("tone");
   const toneRow = tone.rows.find((entry) => entry.id === "alphabet-twins");
-  const tonePartners = (toneRow?.reason ?? "")
+  const tonePartners = (toneRow?.detail ?? "")
+    .replace(/ Most words have this, so it does not score\.$/, "")
     .replace(/^.*\. /, "")
     .replace(/\.$/, "")
     .split(", ");
-  assert.equal(toneRow?.scored, true);
+  assert.equal(toneRow?.matched, true);
   assert.ok(tonePartners.includes("nonet"));
   assert.equal(tonePartners.includes("note"), false);
   assert.equal(tonePartners.includes("ten"), false);
@@ -585,8 +568,8 @@ test("alphabet twins share a letter set with different counts", () => {
   const start = scoreWord("start");
   const startRow = start.rows.find((entry) => entry.id === "alphabet-twins");
   assert.match(
-    startRow?.reason ?? "",
-    /^Another word uses these same letters, but not the same number of each\. arts, attars, ratatats, rats, satara, sataras, star, stars, and 10 more\.$/,
+    startRow?.detail ?? "",
+    /^Another word uses these same letters, but not the same number of each\. arts, attars, ratatats, rats, satara, sataras, star, stars, and 10 more\. Most words have this, so it does not score\.$/,
   );
 
   assert.equal(scoreWord("quiz").rows.find((entry) => entry.id === "alphabet-twins")?.scored, false);
@@ -699,36 +682,21 @@ test("perfectly shared needs every distinct letter to share one count", () => {
   assert.equal(isPerfectlyShared(""), false);
   assert.equal(isPerfectlyShared("no-on"), false);
 
+  // No repeats and Even company already pay for these words, so Perfectly shared is matched but does not score.
   const cat = scoreWord("cat");
   const catRow = cat.rows.find((entry) => entry.id === "perfectly-shared");
   assert.equal(cat.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
-  assert.equal(catRow?.scored, true);
-  assert.equal(catRow?.points, 2);
-  assert.equal(catRow?.name, "Perfectly shared ×2");
-  assert.equal(catRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
-  assert.equal(
-    catRow?.reason,
-    "Every different letter appears the same number of times. c, a, t each occur once.",
-  );
-  assert.deepEqual(catRow?.highlight, [0, 1, 2]);
+  assert.equal(catRow?.scored, false);
+  assert.equal(catRow?.matched, true);
+  assert.match(catRow?.detail ?? "", /c, a, t each occur once\. No repeats already covers this\./);
   assert.equal(cat.total, product(cat));
-
-  const the = scoreWord("the");
-  assert.equal(the.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
-  assert.equal(the.rows.find((entry) => entry.id === "perfectly-shared")?.scored, true);
-  assert.deepEqual(the.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, [0, 1, 2]);
 
   const noon = scoreWord("noon");
   const noonRow = noon.rows.find((entry) => entry.id === "perfectly-shared");
-  assert.equal(noon.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
-  assert.equal(noonRow?.scored, true);
-  assert.equal(noonRow?.points, FACTOR_MULTIPLIERS["perfectly-shared"]);
-  assert.equal(
-    noonRow?.reason,
-    "Every different letter appears the same number of times. n, o each occur twice.",
-  );
-  assert.deepEqual(noonRow?.highlight, [0, 1, 2, 3]);
+  assert.equal(noonRow?.scored, false);
+  assert.match(noonRow?.detail ?? "", /n, o each occur twice\. Even company already covers this\./);
 
+  // deeded is the one word only Perfectly shared catches.
   const deeded = scoreWord("deeded");
   const deededRow = deeded.rows.find((entry) => entry.id === "perfectly-shared");
   assert.equal(deeded.rows.filter((entry) => entry.id === "perfectly-shared").length, 1);
@@ -746,12 +714,11 @@ test("perfectly shared needs every distinct letter to share one count", () => {
   assert.equal(book.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, undefined);
 
   const single = scoreWord("a");
-  assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.scored, true);
+  assert.equal(single.rows.find((entry) => entry.id === "perfectly-shared")?.matched, true);
   assert.equal(
-    single.rows.find((entry) => entry.id === "perfectly-shared")?.reason,
-    "Every different letter appears the same number of times. a occurs once.",
+    single.rows.find((entry) => entry.id === "perfectly-shared")?.detail,
+    "Every different letter appears the same number of times. a occurs once. No repeats already covers this.",
   );
-  assert.deepEqual(single.rows.find((entry) => entry.id === "perfectly-shared")?.highlight, [0]);
 });
 
 test("double twins sit together and a run of three is not a pair", () => {
@@ -770,7 +737,9 @@ test("double twins sit together and a run of three is not a pair", () => {
 
   const committee = scoreWord("committee");
   assert.deepEqual(committee.rows.find((entry) => entry.id === "double-twins")?.highlight, [5, 6, 7, 8]);
-  assert.equal(committee.rows.find((entry) => entry.id === "twins")?.scored, true);
+  // Double twins covers the plain twins.
+  assert.equal(committee.rows.find((entry) => entry.id === "twins")?.scored, false);
+  assert.equal(committee.rows.find((entry) => entry.id === "twins")?.matched, true);
 
   const bookkeeper = scoreWord("bookkeeper");
   const triple = bookkeeper.rows.find((entry) => entry.id === "triple-twins");
@@ -779,8 +748,10 @@ test("double twins sit together and a run of three is not a pair", () => {
   assert.equal(triple?.name, "Triple twins ×14");
   assert.deepEqual(triple?.highlight, [1, 2, 3, 4, 5, 6]);
   assert.match(triple?.reason ?? "", /ookkee is 3 pairs/);
-  assert.equal(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.points, 9);
-  assert.deepEqual(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.highlight, [1, 2, 3, 4, 5, 6]);
+  // Triple twins covers the lower two.
+  assert.equal(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.points, null);
+  assert.equal(bookkeeper.rows.find((entry) => entry.id === "double-twins")?.matched, true);
+  assert.equal(bookkeeper.rows.find((entry) => entry.id === "twins")?.points, null);
 
   const book = scoreWord("book");
   assert.equal(book.rows.find((entry) => entry.id === "double-twins")?.scored, false);
@@ -793,9 +764,10 @@ test("double twins sit together and a run of three is not a pair", () => {
   assert.equal(longRun.rows.find((entry) => entry.id === "triple-twins")?.scored, false);
 });
 
-test("bookkeeper pays the twins multiplier once", () => {
+test("bookkeeper pays only the highest twins card", () => {
   const scored = scoreWord("bookkeeper");
-  assert.equal(scored.rows.find((row) => row.id === "twins")?.points, 2);
+  assert.equal(scored.rows.find((row) => row.id === "twins")?.points, null);
+  assert.equal(scored.rows.find((row) => row.id === "triple-twins")?.points, 14);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, null);
   assert.deepEqual(
     scored.tiles.map((tile) => tile.twin),
@@ -914,7 +886,9 @@ test("chain length sets the multiplier and a run of 1 misses", () => {
   assert.equal(vowelRow?.name, "Vowel chain ×14");
   assert.deepEqual(vowelRow?.highlight, [1, 2, 3, 4, 5]);
   assert.match(vowelRow?.reason ?? "", /ooeei is 5 vowels/);
-  assert.equal(vowels.rows.find((entry) => entry.id === "consonant-chain")?.points, 2);
+  // A run of 2 consonants is ordinary, so it is matched but does not score.
+  assert.equal(vowels.rows.find((entry) => entry.id === "consonant-chain")?.points, null);
+  assert.equal(vowels.rows.find((entry) => entry.id === "consonant-chain")?.matched, true);
 
   const book = scoreWord("book");
   assert.equal(book.rows.find((entry) => entry.id === "vowel-chain")?.points, 2);
@@ -937,7 +911,7 @@ test("facetious sweeps the vowels and lines them up on a ×1 length", () => {
   assert.equal(scored.rows.find((row) => row.id === "a-to-u")?.points, 11);
   assert.equal(scored.rows.find((row) => row.id === "a-cappella")?.scored, false);
   assert.equal(scored.rows.find((row) => row.id === "no-repeats")?.points, 2);
-  assert.equal(scored.rows.filter((row) => row.id === "inside" && row.scored).length, 3);
+  assert.equal(scored.rows.find((row) => row.id === "inside")?.scored, false);
   assert.equal(scored.total, product(scored));
 });
 
@@ -972,32 +946,35 @@ test("neighbours, endings, and spelling slips pay only when they hit", () => {
 });
 
 test("origins come from Wiktionary, and a silence is a miss", () => {
+  // Only the rarest root scores; the others are matched.
   const echo = scoreWord("echo");
   assert.equal(echo.rows.find((row) => row.id === "from-greek")?.points, FACTOR_MULTIPLIERS["from-greek"]);
-  assert.equal(echo.rows.find((row) => row.id === "from-latin")?.scored, true);
+  assert.equal(echo.rows.find((row) => row.id === "from-latin")?.scored, false);
+  assert.equal(echo.rows.find((row) => row.id === "from-latin")?.matched, true);
+  assert.match(echo.rows.find((row) => row.id === "from-latin")?.detail ?? "", /Only the rarest root scores, and that is Greek\./);
   assert.equal(echo.tileSum, 9);
-  assert.equal(echo.lengthMultiplier, 32);
+  assert.equal(echo.lengthMultiplier, 3);
   assert.equal(echo.rows.find((row) => row.id === "no-repeats")?.points, 2);
   assert.equal(echo.total, product(echo));
 
   const philosophy = scoreWord("philosophy");
   assert.equal(philosophy.rows.find((row) => row.id === "from-greek")?.scored, true);
-  assert.equal(philosophy.rows.find((row) => row.id === "from-latin")?.scored, true);
-  assert.equal(philosophy.rows.find((row) => row.id === "from-french")?.scored, true);
+  assert.equal(philosophy.rows.find((row) => row.id === "from-latin")?.matched, true);
+  assert.equal(philosophy.rows.find((row) => row.id === "from-french")?.matched, true);
 
-  assert.equal(scoreWord("piano").rows.find((row) => row.id === "from-italian")?.scored, true);
-  assert.equal(scoreWord("they").rows.find((row) => row.id === "from-norse")?.scored, true);
-  assert.equal(scoreWord("aardvark").rows.find((row) => row.id === "from-dutch")?.scored, true);
-  assert.equal(scoreWord("algebra").rows.find((row) => row.id === "from-arabic")?.scored, true);
-  assert.equal(scoreWord("avatar").rows.find((row) => row.id === "from-sanskrit")?.scored, true);
-  assert.equal(scoreWord("shekel").rows.find((row) => row.id === "from-hebrew")?.scored, true);
-  assert.equal(scoreWord("ghoul").rows.find((row) => row.id === "from-persian")?.scored, true);
-  assert.equal(scoreWord("cheetah").rows.find((row) => row.id === "from-hindi")?.scored, true);
-  assert.equal(scoreWord("ginkgo").rows.find((row) => row.id === "from-east-asia")?.scored, true);
+  assert.equal(scoreWord("piano").rows.find((row) => row.id === "from-italian")?.matched, true);
+  assert.equal(scoreWord("they").rows.find((row) => row.id === "from-norse")?.matched, true);
+  assert.equal(scoreWord("aardvark").rows.find((row) => row.id === "from-dutch")?.matched, true);
+  assert.equal(scoreWord("algebra").rows.find((row) => row.id === "from-arabic")?.matched, true);
+  assert.equal(scoreWord("avatar").rows.find((row) => row.id === "from-sanskrit")?.matched, true);
+  assert.equal(scoreWord("shekel").rows.find((row) => row.id === "from-hebrew")?.matched, true);
+  assert.equal(scoreWord("ghoul").rows.find((row) => row.id === "from-persian")?.matched, true);
+  assert.equal(scoreWord("cheetah").rows.find((row) => row.id === "from-hindi")?.matched, true);
+  assert.equal(scoreWord("ginkgo").rows.find((row) => row.id === "from-east-asia")?.matched, true);
   assert.equal(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.scored, false);
   const cement = scoreWord("cement");
   assert.equal(cement.rows.find((row) => row.id === "from-french")?.scored, true);
-  assert.equal(cement.rows.find((row) => row.id === "from-latin")?.scored, true);
+  assert.equal(cement.rows.find((row) => row.id === "from-latin")?.matched, true);
   assert.equal(cement.rows.some((row) => row.id === "from-middle-english"), false);
   assert.match(scoreWord("gold").rows.find((row) => row.id === "from-greek")?.detail ?? "", /Wiktionary has no usable/);
 });
@@ -1005,7 +982,7 @@ test("origins come from Wiktionary, and a silence is a miss", () => {
 test("inflected forms inherit the lemma's origins", () => {
   const from = (word: string) =>
     scoreWord(word)
-      .rows.filter((row) => row.id.startsWith("from-") && row.scored)
+      .rows.filter((row) => row.id.startsWith("from-") && row.matched)
       .map((row) => row.id);
 
   assert.deepEqual(from("books"), from("book"));

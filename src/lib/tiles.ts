@@ -58,6 +58,8 @@ export type LedgerRow = {
   highlight?: number[];
   /** Why this card lit up, without the running-total math. */
   reason?: string;
+  /** The property holds, even if it does not score: too common, or a rarer card covers it. */
+  matched?: boolean;
 };
 
 export type ScoredWord = {

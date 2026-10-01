@@ -60,13 +60,13 @@ test("air ends in a rare chord and kayak ends low and thin", () => {
   const air = scoreWord("air");
   const book = scoreWord("bookkeeper");
   const kayak = scoreWord("kayak");
-  assert.equal(standingFor(air.total).tier.id, "rare");
-  assert.equal(standingFor(book.total).tier.id, "rare");
-  assert.equal(standingFor(kayak.total).tier.id, "common");
+  assert.equal(standingFor(air.total).tier.id, "epic");
+  assert.equal(standingFor(book.total).tier.id, "uncommon");
+  assert.equal(standingFor(kayak.total).tier.id, "uncommon");
   const airHits = air.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
   const kayakHits = kayak.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1).map((row) => row.points ?? 0);
-  const strong = planRollSound(airHits, standingFor(air.total).tier.id);
-  const weak = planRollSound(kayakHits, standingFor(kayak.total).tier.id);
+  const strong = planRollSound(airHits, "rare");
+  const weak = planRollSound(kayakHits, "common");
   const strongEnds = strong.runs.map((run) => melodyEnds(run).last);
   for (let index = 1; index < strongEnds.length; index += 1) assert.ok(strongEnds[index]! > strongEnds[index - 1]!);
   assert.ok(strong.verdict[0]!.frequency > strongEnds.at(-1)!);
@@ -87,7 +87,8 @@ test("air ends in a rare chord and kayak ends low and thin", () => {
     const ends = melodyEnds(strong.runs[1]!);
     return 12 * Math.log2(ends.last / ends.first);
   })();
-  assert.ok(Math.abs(lengthRise - 4) < 0.05);
+  // air's length is ×4 and Rewind is ×7: both climb 3 semitones.
+  assert.ok(Math.abs(lengthRise - 3) < 0.05);
   assert.ok(Math.abs(nextRise - 3) < 0.05);
   for (const note of [...strong.runs.flat(), ...strong.verdict, ...weak.runs.flat(), ...weak.verdict]) {
     assert.ok(note.frequency <= MULTIPLIER_CAP_HZ && note.frequency >= MULTIPLIER_FLOOR_HZ);
