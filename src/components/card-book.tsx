@@ -146,35 +146,63 @@ export function CardBook({
 }
 
 function CollectedCard({ card, found }: { card: Card; found: { first: string; count: number } | null }) {
+  if (!found) return <LockedCard card={card} />
   return (
     <article
-      className={cn(
-        "relative flex h-full flex-col rounded-2xl border px-4 pt-4 pb-3.5 transition-colors",
-        found ? cn("bg-card shadow-sm", RARITY_BORDER[card.rarity]) : "border-dashed border-border bg-card/30",
-      )}
-      data-found={found ? "" : undefined}
+      className={cn("relative flex h-full flex-col rounded-2xl border bg-card px-4 pt-4 pb-3.5 shadow-sm", RARITY_BORDER[card.rarity])}
+      data-found=""
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium", RARITY_BADGE[card.rarity], !found && "opacity-60")}>
+        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium", RARITY_BADGE[card.rarity])}>
           {card.rarity}
         </span>
-        <span className={cn("font-mono text-sm font-semibold tabular-nums", !found && "text-muted-foreground")}>{card.value}</span>
+        <span className="font-mono text-sm font-semibold tabular-nums">{card.value}</span>
       </div>
-      <h3 className={cn("mt-3 font-display text-xl leading-tight tracking-tight italic", !found && "text-muted-foreground")}>
-        {card.name}
-      </h3>
+      <h3 className="mt-3 font-display text-xl leading-tight tracking-tight italic">{card.name}</h3>
       <p className="mt-1 text-sm text-pretty text-muted-foreground">{card.blurb}</p>
       <p className="mt-auto pt-3 text-xs text-muted-foreground">
-        {found ? (
-          <>
-            First found in <span className="font-display text-sm text-foreground italic">{found.first}</span>
-            {found.count > 1 ? ` · ${found.count} rolls` : ""}
-          </>
-        ) : (
-          <span className="inline-flex items-center gap-1">
-            <Lock className="size-3" aria-hidden /> Not found yet
-          </span>
-        )}
+        First found in <span className="font-display text-sm text-foreground italic">{found.first}</span>
+        {found.count > 1 ? ` · ${found.count} rolls` : ""}
+      </p>
+    </article>
+  )
+}
+
+/**
+ * A card not found yet shows only its rarity. The name, value, and how to earn it
+ * stay hidden behind blurred bars, so a roll is the only way to learn what it is.
+ */
+function LockedCard({ card }: { card: Card }) {
+  // Bar widths follow the hidden text's length, so the grid doesn't look stamped out.
+  const nameWidth = `${Math.min(85, 30 + card.name.length * 3)}%`
+  return (
+    <article
+      className="relative flex h-full min-h-36 flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card/30 px-4 pt-4 pb-3.5"
+      aria-label={`Locked ${card.rarity} card`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium opacity-70", RARITY_BADGE[card.rarity])}>
+          {card.rarity}
+        </span>
+        <span className="font-mono text-sm font-semibold text-muted-foreground tabular-nums" aria-hidden>
+          ×?
+        </span>
+      </div>
+      <div aria-hidden className="mt-3.5 space-y-2 select-none">
+        <span className="block h-4 rounded-full bg-muted-foreground/25 blur-[3px]" style={{ width: nameWidth }} />
+        <span className="block h-2.5 w-full rounded-full bg-muted-foreground/15 blur-[3px]" />
+        <span className="block h-2.5 w-2/3 rounded-full bg-muted-foreground/15 blur-[3px]" />
+      </div>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-3 bottom-1 font-display text-6xl leading-none text-muted-foreground/15 italic select-none"
+      >
+        ?
+      </span>
+      <p className="mt-auto pt-3 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Lock className="size-3" aria-hidden /> Roll to unlock
+        </span>
       </p>
     </article>
   )
