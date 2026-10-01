@@ -8,7 +8,7 @@ import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
 import { flickerWord } from "@/lib/dictionary";
-import { armScoreAudio, playLetterPoints, playMultiplier, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
+import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
 import { buildShareText, formatStanding } from "@/lib/share";
 import { standingFor } from "@/lib/standing";
@@ -455,6 +455,7 @@ function ScoreReveal({
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
   const stepsRef = useRef(steps);
   const tilesRef = useRef(scored.tiles);
+  const wordRef = useRef(scored.word);
   const reduce = useReducedMotion();
   const [letters, setLetters] = useState(0);
   const [shown, setShown] = useState(0);
@@ -520,7 +521,9 @@ function ScoreReveal({
     const id = window.setInterval(() => {
       const boxes = stepsRef.current;
       if (heard < boxes.length) {
-        playMultiplier(heard);
+        // Sheet music plays the word as a tune instead of the usual chord.
+        if (boxes[heard]?.id === "sheet-music") playSheetMusic(wordRef.current);
+        else playMultiplier(heard);
         heard += 1;
         setShown(heard);
         setSettled(heard - 1);
@@ -753,11 +756,12 @@ function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: 
   );
 }
 
+/** Bands follow the scoring curve: a base rarity of 2, 3, 5, 8 raised to the power 1.5. */
 function factorRarity(points: number): "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" {
-  if (points <= 2) return "Common";
-  if (points === 3) return "Uncommon";
-  if (points <= 5) return "Rare";
-  if (points <= 8) return "Epic";
+  if (points <= 3) return "Common";
+  if (points <= 5) return "Uncommon";
+  if (points <= 11) return "Rare";
+  if (points <= 23) return "Epic";
   return "Legendary";
 }
 

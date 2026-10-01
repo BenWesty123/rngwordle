@@ -481,7 +481,10 @@ test("kayak multiplies mirror", () => {
   assert.equal(scored.rows.find((row) => row.id === "alternator")?.points, 8);
   // Alphabet twins is ordinary, so it does not score.
   assert.equal(scored.rows.find((row) => row.id === "alphabet-twins")?.points, null);
-  assert.equal(scored.total, 16 * 3 * 32 * 2 * 2 * 8);
+  // Kayak also alternates hands and hides a yak.
+  assert.equal(scored.rows.find((row) => row.id === "hand-to-hand")?.points, 15);
+  assert.equal(scored.rows.find((row) => row.id === "hidden-animal")?.points, 5);
+  assert.equal(scored.total, 16 * 3 * 32 * 2 * 2 * 8 * 15 * 5);
 });
 
 test("rhythm is bone dry and y is not a vowel", () => {
@@ -1031,3 +1034,54 @@ function product(scored: { tileSum: number; rows: { id: string; points: number |
     return total * row.points;
   }, scored.tileSum);
 }
+
+test("calculator words spell themselves on an upside-down calculator", () => {
+  const hello = scoreWord("hello").rows.find((row) => row.id === "calculator-word");
+  assert.equal(hello?.scored, true);
+  assert.match(hello?.reason ?? "", /Type 07734 on a calculator/);
+  assert.equal(scoreWord("cat").rows.find((row) => row.id === "calculator-word")?.scored, false);
+});
+
+test("upside down words read the same turned 180 degrees", () => {
+  assert.equal(scoreWord("solos").rows.find((row) => row.id === "upside-down")?.scored, true);
+  assert.equal(scoreWord("dollop").rows.find((row) => row.id === "upside-down")?.scored, true);
+  assert.equal(scoreWord("solo").rows.find((row) => row.id === "upside-down")?.scored, false);
+});
+
+test("keyboard rows and hands", () => {
+  const card = (word: string, id: string) => scoreWord(word).rows.find((row) => row.id === id)?.scored;
+  assert.equal(card("typewriter", "typewriter"), true);
+  assert.equal(card("alfalfa", "home-row"), true);
+  assert.equal(card("sweaterdresses", "left-handed"), true);
+  assert.equal(card("homophony", "right-handed"), true);
+  assert.equal(card("homophony", "left-handed"), false);
+  assert.equal(card("airman", "hand-to-hand"), true);
+  assert.equal(card("airmen", "hand-to-hand"), true);
+  assert.equal(card("salt", "hand-to-hand"), false);
+});
+
+test("sheet music words are all notes, and the tune plays each letter", () => {
+  assert.equal(scoreWord("cabbage").rows.find((row) => row.id === "sheet-music")?.scored, true);
+  assert.equal(scoreWord("cabbie").rows.find((row) => row.id === "sheet-music")?.scored, false);
+});
+
+test("hidden numbers and animals list what they find", () => {
+  const often = scoreWord("often").rows.find((row) => row.id === "hidden-number");
+  assert.equal(often?.scored, true);
+  assert.match(often?.reason ?? "", /ten/);
+  const million = scoreWord("million").rows.find((row) => row.id === "hidden-animal");
+  assert.equal(million?.matched, true);
+  assert.match(million?.detail ?? "", /lion/);
+  assert.deepEqual(scoreWord("scatter").rows.find((row) => row.id === "hidden-animal")?.highlight, [1, 2, 3]);
+  assert.equal(scoreWord("cat").rows.find((row) => row.id === "hidden-animal")?.matched, undefined);
+});
+
+test("popular, bingo, U to A, and A to Z", () => {
+  assert.equal(scoreWord("bares").rows.find((row) => row.id === "popular")?.matched, true);
+  assert.equal(scoreWord("aardwolf").rows.find((row) => row.id === "popular")?.matched, undefined);
+  assert.equal(scoreWord("abalone").rows.find((row) => row.id === "bingo")?.matched, true);
+  assert.equal(scoreWord("abalones").rows.find((row) => row.id === "bingo")?.matched, undefined);
+  assert.equal(scoreWord("subcontinental").rows.find((row) => row.id === "u-to-a")?.scored, true);
+  assert.equal(scoreWord("abuzz").rows.find((row) => row.id === "a-to-z")?.scored, true);
+  assert.deepEqual(scoreWord("abuzz").rows.find((row) => row.id === "a-to-z")?.highlight, [0, 4]);
+});

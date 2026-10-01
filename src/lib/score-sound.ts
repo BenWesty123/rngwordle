@@ -137,6 +137,21 @@ export function letterNotes(points: number, runningBefore: number): ScoreNote[] 
   return notes;
 }
 
+/** One octave from middle C, so Sheet music can play the word itself. */
+const NOTE_HZ: Record<string, number> = { c: 261.63, d: 293.66, e: 329.63, f: 349.23, g: 392.0, a: 440.0, b: 493.88 };
+
+/** The word's letters as a tune, squeezed to fit inside one card's reveal. */
+export function sheetMusicNotes(word: string): ScoreNote[] {
+  const letters = [...word.toLowerCase()].filter((letter) => letter in NOTE_HZ);
+  const gap = Math.min(0.2, 1.3 / Math.max(letters.length, 1));
+  return letters.map((letter, index) => ({
+    frequency: NOTE_HZ[letter]!,
+    delay: index * gap,
+    duration: Math.min(0.18, gap * 0.95),
+    gain: 0.09,
+  }));
+}
+
 type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 let context: AudioContext | null = null;
@@ -213,6 +228,11 @@ export function playLetterPoints(points: number, runningBefore: number): void {
 export function playVerdict(): void {
   if (!context || context.state !== "running" || plannedVerdict.length === 0) return;
   schedule(plannedVerdict, context.currentTime + 0.02);
+}
+
+export function playSheetMusic(word: string): void {
+  if (!context) return;
+  schedule(sheetMusicNotes(word), context.currentTime + 0.02);
 }
 
 export function playMultiplier(index: number): void {

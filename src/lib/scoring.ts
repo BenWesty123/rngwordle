@@ -131,6 +131,20 @@ export const FACTOR_MATCHES = {
   "from-gaulish": 279,
   "from-swedish": 214,
   "from-afrikaans": 100,
+  "calculator-word": 544,
+  "upside-down": 8,
+  typewriter: 571,
+  "home-row": 184,
+  "left-handed": 3381,
+  "right-handed": 426,
+  "hand-to-hand": 1626,
+  "sheet-music": 121,
+  "hidden-number": 3557,
+  "hidden-animal": 13436,
+  popular: 14466,
+  bingo: 23109,
+  "u-to-a": 6,
+  "a-to-z": 2,
 } as const;
 
 export type FactorId = keyof typeof FACTOR_MATCHES;
@@ -283,6 +297,12 @@ export function scoreWord(word: string): ScoredWord {
   const quiet = quietPatterns(normalized);
   const flat = isFlat(normalized);
   const alternator = alternates(normalized);
+  const calculator = calculatorDigits(normalized);
+  const upsideDown = readsUpsideDown(normalized);
+  const numbers = hiddenWords(normalized, NUMBER_WORDS);
+  const animals = hiddenWords(normalized, ANIMAL_WORDS);
+  const neighbours = length <= POPULAR_MAX_LENGTH ? neighbourCount(normalized) : 0;
+  const uToA = hasReverseVowelOrder(normalized);
   const consonantChain = longestRun(normalized, false);
   const vowelChain = longestRun(normalized, true);
 
@@ -723,6 +743,106 @@ export function scoreWord(word: string): ScoredWord {
       hitDetail: "No ascenders (b d f h k l t) and no descenders (g j p q y).",
       missDetail: "A letter climbs above the line or drops below it.",
     },
+    {
+      id: "calculator-word",
+      name: "Calculator word",
+      hit: calculator !== null,
+      hitDetail: calculator
+        ? `Type ${calculator} on a calculator and turn it upside down: it reads ${normalized.toUpperCase()}.`
+        : "",
+      missDetail: "An upside-down calculator can't spell it. Only O, I, Z, E, H, S, G, L, and B work.",
+    },
+    {
+      id: "upside-down",
+      name: "Upside down",
+      hit: upsideDown,
+      hitDetail: `Turn it upside down and it still reads ${normalized}.`,
+      missDetail: "Turned upside down, it no longer reads the same.",
+    },
+    {
+      id: "typewriter",
+      name: "Typewriter",
+      hit: length >= 3 && usesOnly(normalized, TOP_ROW),
+      hitDetail: "Every letter is on the top row of the keyboard: Q W E R T Y U I O P.",
+      missDetail: "A letter is off the top row of the keyboard.",
+    },
+    {
+      id: "home-row",
+      name: "Home row",
+      hit: length >= 3 && usesOnly(normalized, HOME_ROW),
+      hitDetail: "Every letter is on the keyboard's home row: A S D F G H J K L.",
+      missDetail: "A letter is off the keyboard's home row.",
+    },
+    {
+      id: "left-handed",
+      name: "Left handed",
+      hit: length >= 3 && usesOnly(normalized, LEFT_HAND),
+      hitDetail: "Touch-typed with the left hand alone: Q W E R T, A S D F G, Z X C V B.",
+      missDetail: "Touch-typing it needs the right hand too.",
+    },
+    {
+      id: "right-handed",
+      name: "Right handed",
+      hit: length >= 3 && usesOnly(normalized, RIGHT_HAND),
+      hitDetail: "Touch-typed with the right hand alone: Y U I O P, H J K L, N M.",
+      missDetail: "Touch-typing it needs the left hand too.",
+    },
+    {
+      id: "hand-to-hand",
+      name: "Hand to hand",
+      hit: handToHand(normalized),
+      hitDetail: "Touch-typing it, your hands take turns on every single letter.",
+      missDetail: "Touch-typing it, one hand types two letters in a row.",
+    },
+    {
+      id: "sheet-music",
+      name: "Sheet music",
+      hit: length >= 3 && usesOnly(normalized, MUSIC_NOTES),
+      hitDetail: `Every letter is a musical note, A to G. Listen: ${normalized.toUpperCase().split("").join(" ")}.`,
+      missDetail: "A letter is not a musical note (A to G).",
+    },
+    {
+      id: "hidden-number",
+      name: "Hidden number",
+      hit: numbers.length > 0,
+      hitDetail: `A number hides inside: ${numbers.map((hit) => hit.text).join(", ")}.`,
+      missDetail: "No number from one to twelve hides inside.",
+    },
+    {
+      id: "hidden-animal",
+      name: "Hidden animal",
+      hit: animals.length > 0,
+      hitDetail: `${animals.length === 1 ? "An animal hides" : "Animals hide"} inside: ${animals.map((hit) => hit.text).join(", ")}.`,
+      missDetail: "No animal hides inside.",
+    },
+    {
+      id: "popular",
+      name: "Popular",
+      hit: neighbours >= POPULAR_NEIGHBOURS,
+      hitDetail: `${neighbours} other words are one letter change, insertion, or deletion away.`,
+      missDetail: `Fewer than ${POPULAR_NEIGHBOURS} words are one letter change, insertion, or deletion away.`,
+    },
+    {
+      id: "bingo",
+      name: "Bingo",
+      hit: length === 7,
+      hitDetail: "Seven letters: a full Scrabble rack. Playing every tile at once is a bingo.",
+      missDetail: "Not seven letters, so it can't empty a Scrabble rack.",
+    },
+    {
+      id: "u-to-a",
+      name: "U to A",
+      hit: uToA,
+      hitDetail: "U, then O, then I, then E, then A: the vowels backwards, in order.",
+      missDetail: "U, O, I, E, and A do not line up in reverse order.",
+    },
+    {
+      id: "a-to-z",
+      name: "A to Z",
+      hit: length >= 2 && normalized.startsWith("a") && normalized.endsWith("z"),
+      hitDetail: "Starts with A and ends with Z: the whole alphabet, end to end.",
+      missDetail: "Does not start with A and end with Z.",
+    },
     ...originFactors(normalized),
     {
       id: "sound-word",
@@ -979,6 +1099,125 @@ function coveredFactors(factors: Array<{ id: FactorId; name: string; hit: boolea
     }
   }
   return covered;
+}
+
+const TOP_ROW = new Set("qwertyuiop");
+const HOME_ROW = new Set("asdfghjkl");
+const LEFT_HAND = new Set("qwertasdfgzxcvb");
+const RIGHT_HAND = new Set("yuiophjklnm");
+const MUSIC_NOTES = new Set("abcdefg");
+
+function usesOnly(word: string, letters: Set<string>): boolean {
+  return [...word].every((letter) => letters.has(letter));
+}
+
+/** At least 4 letters, and touch-typing switches hands on every letter. */
+function handToHand(word: string): boolean {
+  if (word.length < 4) return false;
+  for (let index = 1; index < word.length; index += 1) {
+    if (LEFT_HAND.has(word[index]!) === LEFT_HAND.has(word[index - 1]!)) return false;
+  }
+  return true;
+}
+
+/** Digits that show this word on an upside-down calculator: typed in reverse, 0=O 1=I 2=Z 3=E 4=h 5=S 6=g 7=L 8=B. */
+const CALCULATOR_DIGITS: Record<string, string> = { o: "0", i: "1", z: "2", e: "3", h: "4", s: "5", g: "6", l: "7", b: "8" };
+
+function calculatorDigits(word: string): string | null {
+  if (word.length < 3) return null;
+  let digits = "";
+  for (const letter of [...word].reverse()) {
+    const digit = CALCULATOR_DIGITS[letter];
+    if (digit === undefined) return null;
+    digits += digit;
+  }
+  return digits;
+}
+
+/** Letters that still read as a letter when turned 180°, and what they become. */
+const UPSIDE_DOWN: Record<string, string> = {
+  s: "s", z: "z", o: "o", x: "x", l: "l", n: "u", u: "n", d: "p", p: "d", b: "q", q: "b", m: "w", w: "m",
+};
+
+function readsUpsideDown(word: string): boolean {
+  if (word.length < 3) return false;
+  let turned = "";
+  for (const letter of [...word].reverse()) {
+    const flipped = UPSIDE_DOWN[letter];
+    if (flipped === undefined) return false;
+    turned += flipped;
+  }
+  return turned === word;
+}
+
+const NUMBER_WORDS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+
+const ANIMAL_WORDS = [
+  "ant", "ape", "asp", "bat", "bee", "cat", "cod", "cow", "doe", "dog", "eel", "elk", "emu", "ewe", "fox", "gnu",
+  "hen", "hog", "owl", "pig", "ram", "rat", "yak", "bear", "boar", "crab", "crow", "deer", "duck", "frog", "goat",
+  "hare", "lamb", "lion", "lynx", "mole", "moth", "mule", "newt", "puma", "seal", "slug", "swan", "toad", "wasp",
+  "wolf", "worm", "camel", "horse", "hyena", "llama", "moose", "mouse", "otter", "panda", "shark", "sheep", "skunk",
+  "snake", "squid", "tiger", "whale", "zebra", "donkey", "ferret", "monkey", "parrot", "rabbit", "turtle",
+];
+
+/** Each listed word hiding inside this one, but not the whole word. Overlaps all count. */
+function hiddenWords(word: string, list: readonly string[]): Array<{ text: string; start: number }> {
+  const hits: Array<{ text: string; start: number }> = [];
+  for (const text of list) {
+    if (text === word) continue;
+    let start = word.indexOf(text);
+    while (start !== -1) {
+      hits.push({ text, start });
+      start = word.indexOf(text, start + 1);
+    }
+  }
+  return hits.sort((left, right) => left.start - right.start || right.text.length - left.text.length);
+}
+
+/** Popular: at least this many different words are one edit away. */
+const POPULAR_NEIGHBOURS = 8;
+/** The longest Popular word in the list is 11 letters (mustinesses), so longer words skip the search. */
+const POPULAR_MAX_LENGTH = 11;
+
+/** Different dictionary words one insertion, deletion, or substitution away. */
+function neighbourCount(word: string): number {
+  const found = new Set<string>();
+  for (let index = 0; index <= word.length; index += 1) {
+    const prefix = word.slice(0, index);
+    const suffix = word.slice(index);
+    for (const letter of EDIT_ALPHABET) {
+      const inserted = prefix + letter + suffix;
+      if (ENABLE_WORDS.has(inserted)) found.add(inserted);
+      if (index < word.length && letter !== word[index]) {
+        const swapped = prefix + letter + word.slice(index + 1);
+        if (ENABLE_WORDS.has(swapped)) found.add(swapped);
+      }
+    }
+    if (index < word.length) {
+      const deleted = prefix + word.slice(index + 1);
+      if (deleted.length > 0 && ENABLE_WORDS.has(deleted)) found.add(deleted);
+    }
+  }
+  found.delete(word);
+  return found.size;
+}
+
+const REVERSE_VOWEL_ORDER = "uoiea";
+
+function hasReverseVowelOrder(word: string): boolean {
+  return uToAIndices(word).length === REVERSE_VOWEL_ORDER.length;
+}
+
+function uToAIndices(word: string): number[] {
+  const marks: number[] = [];
+  let cursor = 0;
+  for (let index = 0; index < word.length; index += 1) {
+    if (word[index] !== REVERSE_VOWEL_ORDER[cursor]) continue;
+    marks.push(index);
+    cursor += 1;
+    if (cursor === REVERSE_VOWEL_ORDER.length) break;
+  }
+  return marks;
 }
 
 function hasFact(word: string, tag: string): boolean {
@@ -1412,6 +1651,14 @@ function factorHighlight(id: FactorId, word: string): number[] {
     return [...word].flatMap((letter, index) => (VOWELS.has(letter) ? [index] : []));
   }
   if (id === "a-to-u") return aToUIndices(word);
+  if (id === "u-to-a") return uToAIndices(word);
+  if (id === "a-to-z") return [0, word.length - 1];
+  if (id === "hidden-number" || id === "hidden-animal") {
+    const hits = hiddenWords(word, id === "hidden-number" ? NUMBER_WORDS : ANIMAL_WORDS);
+    return [...new Set(hits.flatMap((hit) => everyIndex(hit.text.length).map((index) => index + hit.start)))].sort(
+      (left, right) => left - right,
+    );
+  }
   if (id === "consonant-chain" || id === "vowel-chain") {
     const run = longestRun(word, id === "vowel-chain");
     if (!run) return everyIndex(word.length);

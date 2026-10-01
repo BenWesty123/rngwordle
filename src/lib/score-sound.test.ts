@@ -9,6 +9,7 @@ import {
   multiplierRiseSemitones,
   planMultiplierRuns,
   planRollSound,
+  sheetMusicNotes,
 } from "./score-sound";
 import { scoreWord } from "./scoring";
 
@@ -109,4 +110,12 @@ test("notes inside a letter keep climbing from the points already counted", () =
   const notes = letterNotes(3, 5);
   const fromZero = letterNotes(3, 0);
   assert.ok(notes[0]!.frequency > fromZero[2]!.frequency);
+});
+
+test("sheet music plays the word's letters as notes", () => {
+  const notes = sheetMusicNotes("cabbage");
+  assert.equal(notes.length, 7);
+  assert.equal(notes[0]?.frequency, 261.63);
+  assert.equal(notes[1]?.frequency, 440);
+  assert.ok(notes.every((note, index) => index === 0 || note.delay > notes[index - 1]!.delay));
 });
