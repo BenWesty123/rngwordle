@@ -140,6 +140,9 @@ export function letterNotes(points: number, runningBefore: number): ScoreNote[] 
 type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 let context: AudioContext | null = null;
+/** Every note goes through this: a volume boost, then a limiter so stacked chords don't clip. */
+let master: AudioNode | null = null;
+const MASTER_VOLUME = 3;
 let active: OscillatorNode[] = [];
 let plannedRuns: ScoreNote[][] = [];
 let plannedVerdict: ScoreNote[] = [];
@@ -155,7 +158,7 @@ function schedule(notes: ScoreNote[], start: number): void {
     gain.gain.exponentialRampToValueAtTime(note.gain ?? 0.07, start + note.delay + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + note.delay + note.duration);
     oscillator.connect(gain);
-    gain.connect(context.destination);
+    gain.connect(master ?? context.destination);
     oscillator.start(start + note.delay);
     oscillator.stop(start + note.delay + note.duration + 0.02);
     active.push(oscillator);
@@ -168,7 +171,20 @@ function schedule(notes: ScoreNote[], start: number): void {
 export function armScoreAudio(): void {
   const Ctx = window.AudioContext ?? (window as AudioWindow).webkitAudioContext;
   if (!Ctx) return;
-  if (!context) context = new Ctx();
+  if (!context) {
+    context = new Ctx();
+    const volume = context.createGain();
+    volume.gain.value = MASTER_VOLUME;
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    volume.connect(limiter);
+    limiter.connect(context.destination);
+    master = volume;
+  }
   if (context.state === "suspended") void context.resume();
 }
 
