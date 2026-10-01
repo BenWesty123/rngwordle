@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { Check, Copy } from "lucide-react";
 import { useAccount } from "@/components/account-provider";
 import { SiteHeader } from "@/components/site-header";
@@ -287,7 +287,7 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
         />
       ) : null}
 
-      <article className="relative w-full max-w-md text-center" aria-label="Today's highest rated word">
+      <article className="relative w-full max-w-2xl text-center" aria-label="Today's highest rated word">
         <p className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Today&apos;s best roll</p>
         {topError ? (
           <div className="mt-6" role="alert">
@@ -314,7 +314,7 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
           <div className="row-in mt-5 flex flex-col items-center">
             <ul className="flex flex-wrap justify-center gap-1.5" aria-label={top.word}>
               {tiles.map((tile, index) => (
-                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} />
+                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} dropDelay={index * 70} />
               ))}
             </ul>
             <p className="mt-6 font-mono text-5xl leading-none tabular-nums sm:text-6xl">{top.score}</p>
@@ -387,18 +387,14 @@ function Result({
   return (
     <div className="flex flex-1 flex-col pt-2">
       <h1 className="text-center text-sm text-muted-foreground">
-        {spinning ? "Shuffling the tiles…" : daily ? "Today's saved roll" : "Your word"}
+        {spinning ? "Shaking the bag…" : daily ? "Today's saved roll" : "Your word"}
       </h1>
       {spinning ? (
-        <p
-          aria-hidden
-          className={cn(
-            "mt-4 text-center font-display leading-none tracking-tight break-all italic",
-            wordSize(spinWord.length),
-          )}
-        >
-          {spinWord}
-        </p>
+        <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
+          {tilesFor(spinWord).map((tile, index) => (
+            <TileBox key={index} tile={tile} length={spinWord.length} shaking />
+          ))}
+        </ul>
       ) : null}
 
       {rollError ? (
@@ -504,6 +500,7 @@ function ScoreReveal({
   const target = baseDone ? runningTotal(scored.tileSum, steps, visible) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
+  const finalTier = live.tier.id;
   const currentStep = baseDone && visible > settled ? (steps[visible - 1] ?? null) : null;
   const addedTile = !baseDone && visibleLetters > 0 ? scored.tiles[visibleLetters - 1] : null;
 
@@ -624,9 +621,10 @@ function ScoreReveal({
         )}
       />
 
+      <div className={cn(done && !reduce && (finalTier === "mythic" || finalTier === "epic") && "screen-shake")}>
       <ul
         ref={tileRowRef}
-        className="mt-3 flex flex-wrap justify-center gap-1.5"
+        className={cn("mt-3 flex flex-wrap justify-center gap-1.5", done && finalTier === "trash" && "tiles-slump")}
         aria-label="Scrabble tiles"
         data-tiles={visibleLetters}
         data-tile-count={scored.tiles.length}
@@ -642,11 +640,14 @@ function ScoreReveal({
       </ul>
       <WordDefinition word={scored.word} show={baseDone} reduce={reduce} />
 
-      <div className="mt-3 text-center">
+      <div className="mt-5 text-center">
         <p className="sr-only">Score</p>
-        <p key={`${visibleLetters}-${visible}`} className={cn("score-rise font-mono tabular-nums leading-none", scoreSize(display))}>
-          {display.toLocaleString("en-US")}
-        </p>
+        <div className="relative inline-block">
+          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-mono tabular-nums leading-none", scoreSize(display))}>
+            {display.toLocaleString("en-US")}
+          </p>
+          {done && !reduce ? <SparkleBurst tier={finalTier} /> : null}
+        </div>
         <p className="mt-2 text-sm text-foreground" aria-live="polite">
           {currentStep && !done
             ? currentStep.name
@@ -677,6 +678,8 @@ function ScoreReveal({
           {formatStanding(live.beaten)}
         </p>
       </div>
+      </div>
+      {done && !reduce && (finalTier === "mythic" || finalTier === "epic") ? <Confetti tier={finalTier} /> : null}
 
       <section className="mx-auto mt-3 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
         {baseDone && visible > 0 ? (
@@ -728,46 +731,80 @@ function TileBox({
   tile,
   length,
   lit = false,
+  dim = false,
   fresh = false,
+  shaking = false,
+  small = false,
+  dropDelay,
 }: {
   tile: Tile;
   length: number;
   lit?: boolean;
+  dim?: boolean;
   fresh?: boolean;
+  shaking?: boolean;
+  /** Multiplier cards use a smaller tile so long words stay on one line. */
+  small?: boolean;
+  /** Stagger for a row that drops in all at once, in ms. */
+  dropDelay?: number;
 }) {
   return (
     <li
       className={cn(
-        "relative flex items-center justify-center rounded-[4px] border bg-card font-display uppercase",
-        length > 16 ? "h-8 w-7 text-sm" : "h-11 w-9 text-lg sm:h-12 sm:w-10",
-        tile.rare ? "border-amber-200/70 text-amber-100" : "border-foreground/15 text-foreground",
-        tile.twin && "ring-1 ring-foreground/30 ring-inset",
-        lit && "bg-amber-200/25 text-amber-100",
-        fresh && "score-rise ring-1 ring-amber-200/80",
+        "tile-face relative flex items-center justify-center rounded-[5px] font-display uppercase transition-[transform,opacity,filter] duration-300",
+        length > 16 ? "h-8 w-7 text-base" : small ? "h-9 w-7 text-lg sm:w-8" : "h-11 w-9 text-xl sm:h-12 sm:w-10 sm:text-2xl",
+        tile.rare && "tile-rare",
+        tile.twin && "ring-2 ring-[oklch(0.5_0.07_58/0.35)] ring-inset",
+        lit && "tile-lit",
+        dim && "tile-dim",
+        (fresh || dropDelay != null) && "tile-drop",
+        shaking && "tile-jiggle",
       )}
+      style={dropDelay != null ? { animationDelay: `${dropDelay}ms` } : shaking ? { animationDelay: `${-tile.value * 37}ms` } : undefined}
       title={tile.rare ? "Rare letter" : tile.twin ? "Double letter" : undefined}
       data-letter={tile.letter}
       data-points={tile.value}
     >
       {tile.letter}
-      <span className="absolute top-0.5 right-1 font-mono text-[9px] text-muted-foreground">{tile.value}</span>
+      <span className="absolute right-1 bottom-0.5 font-mono text-[9px] leading-none not-italic opacity-60">{tile.value}</span>
     </li>
   );
 }
 
 function MultiplierCard({ tiles, row, featured = false }: { tiles: Tile[]; row: LedgerRow; featured?: boolean }) {
   const lit = new Set(row.highlight ?? []);
+  const partial = lit.size > 0 && lit.size < tiles.length;
+  const rarity = row.points != null && row.points > 1 ? factorRarity(row.points) : null;
   return (
     <article
       className={cn(
-        "rounded-2xl border bg-card px-4 py-4",
+        "relative rounded-2xl border bg-card px-4 pt-5 pb-4",
         featured ? "card-pop border-amber-200/40 shadow-lg" : "border-border",
       )}
       aria-live={featured ? "polite" : undefined}
     >
+      {rarity ? (
+        <span
+          aria-hidden
+          className={cn(
+            "stamp absolute -top-3 right-3 rounded-md border-2 bg-background px-2 py-0.5 font-mono text-lg leading-none font-bold tabular-nums",
+            RARITY_STAMP[rarity],
+            featured && "stamp-in",
+          )}
+        >
+          ×{row.points}
+        </span>
+      ) : null}
       <ul className="flex flex-wrap justify-center gap-1.5" aria-label={`${row.name} tiles`}>
         {tiles.map((tile, index) => (
-          <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} lit={lit.has(index)} />
+          <TileBox
+            key={`${tile.letter}-${index}`}
+            tile={tile}
+            length={tiles.length}
+            lit={partial && lit.has(index)}
+            dim={partial && !lit.has(index)}
+            small
+          />
         ))}
       </ul>
       <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
@@ -799,6 +836,14 @@ const RARITY_BADGE = {
   Legendary: "border-amber-200/60 bg-amber-200/15 text-amber-100",
 } as const;
 
+const RARITY_STAMP = {
+  Common: "border-zinc-300/70 text-zinc-100",
+  Uncommon: "border-emerald-300/80 text-emerald-200",
+  Rare: "border-sky-300/80 text-sky-200",
+  Epic: "border-violet-300/80 text-violet-200",
+  Legendary: "border-amber-200/90 text-amber-100",
+} as const;
+
 function FactorBadge({ points }: { points: number }) {
   const label = factorRarity(points);
   return (
@@ -814,6 +859,85 @@ function FactorBadge({ points }: { points: number }) {
   );
 }
 
+/** Stable scatter for decorative pieces, so render stays pure. */
+function scatter(index: number, salt: number): number {
+  const x = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+const CONFETTI_COLORS: Record<"mythic" | "epic", string[]> = {
+  mythic: ["#fcd34d", "#fbbf24", "#fef3c7", "#f59e0b", "#ffffff"],
+  epic: ["#c4b5fd", "#a78bfa", "#f0abfc", "#fcd34d", "#ffffff"],
+};
+
+function Confetti({ tier }: { tier: "mythic" | "epic" }) {
+  const count = tier === "mythic" ? 90 : 60;
+  const colors = CONFETTI_COLORS[tier];
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+      {Array.from({ length: count }, (_, index) => {
+        const wide = scatter(index, 4) > 0.5;
+        return (
+          <span
+            key={index}
+            className="confetti-piece rounded-[1px]"
+            style={
+              {
+                left: `${scatter(index, 1) * 100}%`,
+                width: wide ? 10 : 6,
+                height: wide ? 6 : 12,
+                background: colors[index % colors.length],
+                "--dx": `${(scatter(index, 2) - 0.5) * 220}px`,
+                "--spin": `${(scatter(index, 3) - 0.5) * 1440}deg`,
+                "--fall": `${2 + scatter(index, 5) * 1.8}s`,
+                "--delay": `${scatter(index, 6) * 0.5}s`,
+              } as CSSProperties
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+const SPARKLES: Partial<Record<TierId, { count: number; color: string; reach: number }>> = {
+  mythic: { count: 16, color: "#fde68a", reach: 150 },
+  epic: { count: 14, color: "#ddd6fe", reach: 130 },
+  rare: { count: 12, color: "#bae6fd", reach: 110 },
+  uncommon: { count: 8, color: "#a7f3d0", reach: 80 },
+};
+
+function SparkleBurst({ tier }: { tier: TierId }) {
+  const burst = SPARKLES[tier];
+  if (!burst) return null;
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0">
+      {Array.from({ length: burst.count }, (_, index) => {
+        const angle = (index / burst.count) * Math.PI * 2 + scatter(index, 7) * 0.4;
+        const reach = burst.reach * (0.6 + scatter(index, 8) * 0.4);
+        return (
+          <span
+            key={index}
+            className="sparkle text-lg leading-none"
+            style={
+              {
+                color: burst.color,
+                textShadow: `0 0 10px ${burst.color}`,
+                "--dx": `${Math.cos(angle) * reach}px`,
+                "--dy": `${Math.sin(angle) * reach * 0.6}px`,
+                "--spin": `${(scatter(index, 9) - 0.5) * 360}deg`,
+                "--delay": `${scatter(index, 10) * 0.15}s`,
+              } as CSSProperties
+            }
+          >
+            ✦
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function runningTotal(tileSum: number, steps: LedgerRow[], count: number): number {
   let total = tileSum;
   for (let index = 0; index < count; index += 1) total *= steps[index]?.points ?? 1;
@@ -825,12 +949,4 @@ function scoreSize(total: number): string {
   if (digits <= 3) return "text-5xl sm:text-6xl";
   if (digits <= 5) return "text-4xl sm:text-5xl";
   return "text-3xl sm:text-4xl";
-}
-
-function wordSize(length: number): string {
-  if (length <= 6) return "text-6xl sm:text-8xl";
-  if (length <= 10) return "text-5xl sm:text-7xl";
-  if (length <= 14) return "text-4xl sm:text-6xl";
-  if (length <= 18) return "text-3xl sm:text-5xl";
-  return "text-2xl break-all sm:text-4xl";
 }
