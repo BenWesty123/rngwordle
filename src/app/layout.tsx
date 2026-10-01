@@ -22,7 +22,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "RWGdle",
+  title: "RWGdle · Random Word Generator",
   description:
     "A random English word, scored from Scrabble tiles, a length multiplier, and a handful of bonuses. Your roll, not a shared puzzle.",
 };

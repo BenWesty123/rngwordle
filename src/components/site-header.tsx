@@ -13,10 +13,13 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
   const path = usePathname()
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-      <Link href="/" className="text-sm tracking-[0.14em] text-muted-foreground">
-        RWGdle
+      <Link href="/" className="group flex flex-col leading-none" aria-label="RWGdle, Random Word Generator, home">
+        <span className="font-display text-2xl tracking-tight text-foreground italic transition-colors group-hover:text-amber-100">
+          RWGdle
+        </span>
+        <span className="mt-1 text-[10px] tracking-[0.22em] text-muted-foreground uppercase">Random Word Generator</span>
       </Link>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <Button variant="ghost" className="h-9 px-2.5" nativeButton={false} render={<Link href="/leaderboard" aria-current={path.startsWith("/leaderboard") ? "page" : undefined} />}>
           Leaderboard
         </Button>
