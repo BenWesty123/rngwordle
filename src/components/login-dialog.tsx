@@ -273,6 +273,12 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
               <Button type="submit" className="h-12 w-full text-base">
                 Email me a link
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Your email is only used to log you in.{" "}
+                <a href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+                  Privacy
+                </a>
+              </p>
             </form>
           )}
         </DialogContent>

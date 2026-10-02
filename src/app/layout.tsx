@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { AccountProvider } from "@/components/account-provider";
 import { LoginDialogProvider } from "@/components/login-dialog";
@@ -62,7 +63,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-dvh bg-background text-foreground">
         <AccountProvider>
-          <LoginDialogProvider>{children}</LoginDialogProvider>
+          <LoginDialogProvider>
+            {children}
+            <footer className="pb-6 text-center text-xs text-muted-foreground">
+              <Link href="/privacy" className="underline-offset-4 hover:text-foreground hover:underline">
+                Privacy
+              </Link>
+            </footer>
+          </LoginDialogProvider>
         </AccountProvider>
       </body>
     </html>

@@ -1,4 +1,6 @@
 export const LOGIN_FROM = "login@rwgdle.app"
+/** Shown beside the address in the inbox: RWGdle <login@rwgdle.app>. */
+export const LOGIN_FROM_NAME = "RWGdle"
 
 export type LoginEmail = {
   to: string
@@ -101,8 +103,10 @@ ${tileRow()}
   return { to: input.to, from: LOGIN_FROM, subject: "Log in to RWGdle", html, text }
 }
 
+type Sender = string | { email: string; name: string }
+
 type EmailBinding = {
-  send: (message: LoginEmail) => Promise<unknown>
+  send: (message: Omit<LoginEmail, "from"> & { from: Sender }) => Promise<unknown>
 }
 
 export async function sendLoginEmail(message: LoginEmail): Promise<void> {
@@ -110,11 +114,11 @@ export async function sendLoginEmail(message: LoginEmail): Promise<void> {
   const { env } = await getCloudflareContext({ async: true })
   const binding = (env as { EMAIL?: EmailBinding }).EMAIL
   if (!binding || typeof binding.send !== "function") throw new Error("EMAIL binding is not configured")
-  await binding.send({
-    to: message.to,
-    from: message.from,
-    subject: message.subject,
-    html: message.html,
-    text: message.text,
-  })
+  const body = { to: message.to, subject: message.subject, html: message.html, text: message.text }
+  try {
+    await binding.send({ ...body, from: { email: message.from, name: LOGIN_FROM_NAME } })
+  } catch {
+    // If the named sender is ever refused, the plain address still gets the link out.
+    await binding.send({ ...body, from: message.from })
+  }
 }
