@@ -24596,7 +24596,6 @@ chinkier
 chinkiest
 chinking
 chinks
-chinky
 chinless
 chinned
 chinning
@@ -31398,12 +31397,10 @@ coomb
 coombe
 coombes
 coombs
-coon
 cooncan
 cooncans
 coonhound
 coonhounds
-coons
 coonskin
 coonskins
 coontie
@@ -36055,11 +36052,8 @@ daggles
 daggling
 daglock
 daglocks
-dago
 dagoba
 dagobas
-dagoes
-dagos
 dags
 daguerreotype
 daguerreotyped
@@ -36386,10 +36380,6 @@ darkening
 darkens
 darker
 darkest
-darkey
-darkeys
-darkie
-darkies
 darking
 darkish
 darkle
@@ -36405,7 +36395,6 @@ darkroom
 darkrooms
 darks
 darksome
-darky
 darling
 darlingly
 darlingness
@@ -53367,18 +53356,11 @@ faenas
 faerie
 faeries
 faery
-fag
 fagged
 fagging
-faggot
-faggoted
-faggoting
 faggotings
 faggotries
 faggotry
-faggots
-faggoty
-faggy
 fagin
 fagins
 fagot
@@ -53388,7 +53370,6 @@ fagoters
 fagoting
 fagotings
 fagots
-fags
 fahlband
 fahlbands
 faience
@@ -63164,10 +63145,6 @@ golgothas
 goliard
 goliardic
 goliards
-golliwog
-golliwogg
-golliwoggs
-golliwogs
 golly
 gollywog
 gollywogs
@@ -63302,9 +63279,6 @@ googolplexes
 googols
 gooier
 gooiest
-gook
-gooks
-gooky
 goombah
 goombahs
 goombay
@@ -69695,13 +69669,8 @@ honk
 honked
 honker
 honkers
-honkey
-honkeys
-honkie
-honkies
 honking
 honks
-honky
 honor
 honorabilities
 honorability
@@ -79453,8 +79422,6 @@ jiffies
 jiffs
 jiffy
 jig
-jigaboo
-jigaboos
 jigged
 jigger
 jiggered
@@ -81000,8 +80967,6 @@ kiester
 kiesters
 kif
 kifs
-kike
-kikes
 kilderkin
 kilderkins
 kilim
@@ -98176,8 +98141,6 @@ niggardliness
 niggardlinesses
 niggardly
 niggards
-nigger
-niggers
 niggle
 niggled
 niggler
@@ -112336,7 +112299,6 @@ pickabacks
 pickadil
 pickadils
 pickaninnies
-pickaninny
 pickaroon
 pickaroons
 pickax
@@ -115279,13 +115241,8 @@ pood
 poodle
 poodles
 poods
-poof
-poofs
 pooftah
 pooftahs
-poofter
-poofters
-poofy
 pooh
 poohed
 poohing
@@ -125283,8 +125240,6 @@ redshirt
 redshirted
 redshirting
 redshirts
-redskin
-redskins
 redstart
 redstarts
 redtail
@@ -129285,18 +129240,15 @@ retape
 retaped
 retapes
 retaping
-retard
 retardant
 retardants
 retardate
 retardates
 retardation
 retardations
-retarded
 retarder
 retarders
 retarding
-retards
 retarget
 retargeted
 retargeting
@@ -133088,8 +133040,6 @@ sambhar
 sambhars
 sambhur
 sambhurs
-sambo
-sambos
 sambuca
 sambucas
 sambuke
@@ -137690,7 +137640,6 @@ sheenies
 sheeniest
 sheening
 sheens
-sheeny
 sheep
 sheepberries
 sheepberry
@@ -143085,8 +143034,6 @@ spay
 spayed
 spaying
 spays
-spaz
-spazzes
 speak
 speakable
 speakeasies
@@ -143524,7 +143471,6 @@ sphygmomanometries
 sphygmomanometry
 sphygmus
 sphygmuses
-spic
 spica
 spicae
 spicas
@@ -143549,9 +143495,6 @@ spicily
 spiciness
 spicinesses
 spicing
-spick
-spicks
-spics
 spicula
 spiculae
 spicular
@@ -143600,7 +143543,6 @@ spiffs
 spiffy
 spigot
 spigots
-spik
 spike
 spiked
 spikelet
@@ -143618,7 +143560,6 @@ spikily
 spikiness
 spikinesses
 spiking
-spiks
 spiky
 spile
 spiled
@@ -144612,7 +144553,6 @@ squattier
 squattiest
 squatting
 squatty
-squaw
 squawfish
 squawfishes
 squawk
@@ -144623,7 +144563,6 @@ squawking
 squawks
 squawroot
 squawroots
-squaws
 squeak
 squeaked
 squeaker
@@ -169394,8 +169333,6 @@ wests
 westward
 westwards
 wet
-wetback
-wetbacks
 wether
 wethers
 wetland
@@ -170825,8 +170762,6 @@ woes
 woesome
 woful
 wofully
-wog
-wogs
 wok
 woke
 woken
@@ -171125,8 +171060,6 @@ woozily
 wooziness
 woozinesses
 woozy
-wop
-wops
 word
 wordage
 wordages
@@ -172065,8 +171998,6 @@ yeuks
 yeuky
 yew
 yews
-yid
-yids
 yield
 yielded
 yielder

@@ -6,7 +6,7 @@
     "dev": "next dev -H 0.0.0.0 -p 4721",
     "precompute": "tsx scripts/precompute.ts",
     "split-definitions": "tsx scripts/split-definitions.ts",
-    "test": "tsx --test src/lib/scoring.test.ts src/lib/cards.test.ts src/lib/share.test.ts src/lib/score-sound.test.ts src/lib/definition.test.ts src/lib/accounts.test.ts src/lib/server-dictionary.test.ts src/lib/login-mail.test.ts src/lib/friends.test.ts",
+    "test": "tsx --test src/lib/scoring.test.ts src/lib/cards.test.ts src/lib/share.test.ts src/lib/blocked.test.ts src/lib/score-sound.test.ts src/lib/definition.test.ts src/lib/accounts.test.ts src/lib/server-dictionary.test.ts src/lib/login-mail.test.ts src/lib/friends.test.ts",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 4721",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

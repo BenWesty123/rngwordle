@@ -45,7 +45,7 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MULTIPLIERS["swap-shop"], rarityMultiplier(2815));
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], 5);
   assert.equal(FACTOR_MULTIPLIERS["alphabet-step"], rarityMultiplier(16735));
-  assert.equal(FACTOR_MATCHES["lonely-word"], 35181);
+  assert.equal(FACTOR_MATCHES["lonely-word"], 35182);
   assert.equal(FACTOR_MULTIPLIERS["lonely-word"], 3);
   assert.equal(FACTOR_MULTIPLIERS["lonely-word"], rarityMultiplier(FACTOR_MATCHES["lonely-word"]));
   assert.equal(FACTOR_MATCHES["letter-collector"], 145);
@@ -63,13 +63,13 @@ test("rarer factors get larger multipliers", () => {
   assert.equal(FACTOR_MATCHES["roman-word"], 28);
   assert.equal(FACTOR_MULTIPLIERS["roman-word"], 36);
   assert.equal(FACTOR_MULTIPLIERS["roman-word"], rarityMultiplier(FACTOR_MATCHES["roman-word"]));
-  assert.equal(FACTOR_MATCHES["periodic-spelling"], 28923);
+  assert.equal(FACTOR_MATCHES["periodic-spelling"], 28897);
   assert.equal(FACTOR_MULTIPLIERS["periodic-spelling"], 3);
   assert.equal(
     FACTOR_MULTIPLIERS["periodic-spelling"],
     rarityMultiplier(FACTOR_MATCHES["periodic-spelling"]),
   );
-  assert.equal(FACTOR_MATCHES["perfectly-shared"], 34909);
+  assert.equal(FACTOR_MATCHES["perfectly-shared"], 34878);
   assert.equal(FACTOR_MULTIPLIERS["perfectly-shared"], 3);
   assert.equal(
     FACTOR_MULTIPLIERS["perfectly-shared"],

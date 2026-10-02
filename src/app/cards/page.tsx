@@ -3,6 +3,7 @@ import { CardBook, type SavedFinds } from "@/components/card-book"
 import { SiteHeader } from "@/components/site-header"
 import { listRollWords } from "@/lib/accounts"
 import { appDb } from "@/lib/app-db"
+import { isBlockedWord } from "@/lib/blocked"
 import { cardKey } from "@/lib/card-key"
 import { cardCatalog, catalogEntry, cardsInWord } from "@/lib/cards"
 import { currentAccount } from "@/lib/current-account"
@@ -23,7 +24,8 @@ export default async function CardsPage() {
       for (const id of cardsInWord(word)) {
         const entry = found.get(id)
         if (entry) entry.count += 1
-        else found.set(id, { first: word, count: 1 })
+        // A roll from before the blocklist keeps its cards but never shows the word.
+        else found.set(id, { first: isBlockedWord(word) ? "an older roll" : word, count: 1 })
       }
     }
   }

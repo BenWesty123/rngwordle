@@ -23,6 +23,8 @@ The Worker config is `wrangler.jsonc` and `open-next.config.ts`. D1 binding name
 
 ## Word list
 
+**Blocked words.** `data/blocked-words.txt` lists slurs the game never deals (69 words: racial and ethnic, homophobic, and ableist). `npm run precompute` drops them from the dictionary before anything else is built, so they never appear inside another card either (Inside, Anagram, Alphabet twins, Shrinking word), and it writes `src/data/blocked-words.json` for the app. Share links and score lookups refuse them, old rolls of them drop off the boards, and usernames containing them are rejected (look-alike spellings included) or shown as "Hidden player". Words that are only sometimes offensive are listed in the file but commented out; delete the `#` to block one, then rerun precompute.
+
 The list is **ENABLE1** (Enhanced North American Benchmark Lexicon), a public-domain word list compiled by Alan Beale for word games. It is vendored as `data/enable1.txt` from the public-domain `enable1.txt` in [dolph/dictionary](https://github.com/dolph/dictionary).
 
 ENABLE1 is already lowercase `a–z` dictionary words: no proper nouns, no abbreviations, no punctuation. The precompute step keeps entries of at least two letters and drops anything that isn’t plain letters. The bundled list runs from 2-letter words through 28-letter words (172,823 words), so both ends of the length multiplier have something to do.

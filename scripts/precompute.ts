@@ -6,15 +6,24 @@ import { TIER_BANDS, beatenFraction, tierForBeaten } from "../src/lib/tiers";
 
 const root = process.cwd();
 const raw = readFileSync(join(root, "data/enable1.txt"), "utf8");
+// Slurs the game never deals, and never shows inside another card (Inside, Anagram, chains).
+const blocked = new Set(
+  readFileSync(join(root, "data/blocked-words.txt"), "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim().toLowerCase())
+    .filter((line) => line && !line.startsWith("#")),
+);
 const words = [
   ...new Set(
     raw
       .split(/\r?\n/)
       .map((word) => word.trim().toLowerCase())
-      .filter((word) => /^[a-z]{2,}$/.test(word)),
+      .filter((word) => /^[a-z]{2,}$/.test(word) && !blocked.has(word)),
   ),
 ].sort();
 
+writeFileSync(join(root, "src/data/enable-words.json"), `${JSON.stringify(words.join("\n"))}\n`);
+writeFileSync(join(root, "src/data/blocked-words.json"), `${JSON.stringify([...blocked].sort())}\n`);
 writeFileSync(join(root, "src/data/shrinking-chains.json"), `${JSON.stringify(buildShrinkingChains(words))}\n`);
 writeFileSync(join(root, "src/data/alphabet-twins.json"), `${JSON.stringify(buildAlphabetTwins(words))}\n`);
 

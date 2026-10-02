@@ -1,5 +1,6 @@
+import { displayName, isBlockedWord } from "@/lib/blocked"
 import { randomUUID } from "node:crypto"
-import { normalizeUsername, periodStart, rankScoreTotals, type BoardRow, type BoardView, type TotalsRow, type TotalsView } from "@/lib/accounts"
+import { BOARD_SPARE, normalizeUsername, periodStart, rankScoreTotals, type BoardRow, type BoardView, type TotalsRow, type TotalsView } from "@/lib/accounts"
 import type { AppDatabase } from "@/lib/sql"
 
 export type FriendEntry = {
@@ -179,7 +180,7 @@ export async function listFriendsBoard(
           accountId,
           accountId,
           accountId,
-          limit,
+          limit + BOARD_SPARE,
         )
       : await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score FROM rolls WHERE played_at >= ? AND ${where}
@@ -191,14 +192,17 @@ export async function listFriendsBoard(
           accountId,
           accountId,
           accountId,
-          limit,
+          limit + BOARD_SPARE,
         )
-  return rows.map((row, index) => ({
-    rank: index + 1,
-    username: row.username,
-    word: row.word,
-    score: row.score,
-  }))
+  return rows
+    .filter((row) => !isBlockedWord(row.word))
+    .slice(0, limit)
+    .map((row, index) => ({
+      rank: index + 1,
+      username: displayName(row.username),
+      word: row.word,
+      score: row.score,
+    }))
 }
 
 export async function listFriendTotals(

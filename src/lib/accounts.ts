@@ -1,6 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import type { AppDatabase } from "@/lib/sql"
 import { utcDateKey } from "@/lib/day"
+import { displayName, isBlockedUsername, isBlockedWord } from "@/lib/blocked"
+
+/** Extra rows a board fetches, so skipping a roll of a blocked word still fills it. */
+export const BOARD_SPARE = 10
 
 export const ANONYMOUS_NAME = "Anonymous"
 export const LOGIN_LINK_MS = 30 * 60 * 1000
@@ -138,7 +142,7 @@ export function rankScoreTotals(
   })
   return ranked.slice(0, limit).map((row, index) => ({
     rank: index + 1,
-    username: row.username,
+    username: displayName(row.username),
     score: row.score,
   }))
 }
@@ -443,6 +447,7 @@ export async function setUsername(
 ): Promise<{ username: string } | { error: string }> {
   const username = normalizeUsername(raw)
   if (!username) return { error: "Use 3 to 20 letters, numbers, or underscores." }
+  if (isBlockedUsername(username)) return { error: "That username isn't allowed. Try another." }
   const key = username.toLowerCase()
   try {
     const changed = await db.run(
@@ -627,7 +632,7 @@ export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now
            LIMIT ?`,
           utcDateKey(new Date(now)),
           now,
-          limit,
+          limit + BOARD_SPARE,
         )
       : start == null
       ? await db.all<{ username: string; word: string; score: string }>(
@@ -637,7 +642,7 @@ export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now
            ORDER BY length(score) DESC, score DESC, played_at ASC
            LIMIT ?`,
           now,
-          limit,
+          limit + BOARD_SPARE,
         )
       : await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score
@@ -647,14 +652,17 @@ export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now
            LIMIT ?`,
           start,
           now,
-          limit,
+          limit + BOARD_SPARE,
         )
-  return rows.map((row, index) => ({
-    rank: index + 1,
-    username: row.username,
-    word: row.word,
-    score: row.score,
-  }))
+  return rows
+    .filter((row) => !isBlockedWord(row.word))
+    .slice(0, limit)
+    .map((row, index) => ({
+      rank: index + 1,
+      username: displayName(row.username),
+      word: row.word,
+      score: row.score,
+    }))
 }
 
 const TOTALS_ROLLS = `SELECT rolls.account_id AS account_id, accounts.username AS username, rolls.score AS score, rolls.played_at AS played_at

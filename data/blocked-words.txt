@@ -1,0 +1,128 @@
+# Words the game will never deal, and that shared links and usernames can't use.
+# One word per line. Lines starting with # are notes and are ignored.
+# To block a judgment call below, delete the "# " in front of it.
+
+# Racial and ethnic slurs
+coon
+coons
+dago
+dagoes
+dagos
+darkey
+darkeys
+darkie
+darkies
+darky
+golliwog
+golliwogg
+golliwoggs
+golliwogs
+gook
+gooks
+gooky
+chinky
+honkey
+honkeys
+honkie
+honkies
+honky
+jigaboo
+jigaboos
+kike
+kikes
+nigger
+niggers
+pickaninny
+redskin
+redskins
+sambo
+sambos
+sheeny
+spic
+spick
+spicks
+spics
+spik
+spiks
+squaw
+squaws
+wetback
+wetbacks
+wog
+wogs
+wop
+wops
+yid
+yids
+
+# Homophobic slurs
+fag
+faggot
+faggoted
+faggoting
+faggots
+faggoty
+faggy
+fags
+poof
+poofs
+poofter
+poofters
+poofy
+
+# Ableist slurs
+retard
+retarded
+retards
+spaz
+spazzes
+
+# Judgment calls: offensive in some uses, ordinary in others.
+# chink         (a narrow gap; the clink of glasses)
+# chinks
+# chinked
+# chinking
+# dyke          (also a spelling of dike, a sea wall)
+# dykes
+# dykey
+# homo          (homogenized milk)
+# homos
+# fagot         (a bundle of sticks)
+# fagots
+# fagoted
+# fagoting
+# pouf          (a padded footstool)
+# poufs
+# poufed
+# gyp           (to cheat; comes from "Gypsy")
+# gyps
+# spastic       (medical term; a strong insult in the UK)
+# spastics
+# mongoloid     (old medical and anthropology term)
+# mongoloids
+# cretin        (old medical term; now mainly an insult)
+# cretins
+# cripple       (dated; an ordinary verb too)
+# cripples
+# mulatto       (dated racial classification)
+# mulattoes
+# mulattos
+# quadroon
+# quadroons
+# octoroon
+# octoroons
+# kraut         (also short for sauerkraut)
+# krauts
+# mick
+# micks
+# limey
+# limeys
+# gringo
+# gringos
+# bohunk
+# bohunks
+# greaser       (also a mechanic, or a 1950s greaser)
+# greasers
+# guinea        (an old coin; guinea pig)
+# guineas
+# hunky         (attractive)
