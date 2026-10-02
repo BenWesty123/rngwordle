@@ -22,9 +22,17 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://rwgdle.app"),
   title: "RWGdle · Random Word Generator",
   description:
     "A random English word, scored from Scrabble tiles, a length multiplier, and a handful of bonuses. Your roll, not a shared puzzle.",
+  openGraph: {
+    siteName: "RWGdle",
+    title: "RWGdle · Random Word Generator",
+    description: "Roll a random English word and see how it scores. A new roll every day.",
+    url: "/",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {

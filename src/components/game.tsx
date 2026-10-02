@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
-import { Check, Copy, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAccount } from "@/components/account-provider";
 import { SiteHeader } from "@/components/site-header";
@@ -12,7 +12,8 @@ import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
 import { rememberCards, unseenCards } from "@/lib/card-collection";
-import { buildShareText, formatStanding } from "@/lib/share";
+import { buildShareMessage, formatStanding, shareLink, topCards } from "@/lib/share";
+import { ShareBar } from "@/components/share-bar";
 import { standingFor } from "@/lib/standing";
 import { tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
 import {
@@ -21,7 +22,6 @@ import {
   serverRollSnapshot,
   subscribeRoll,
   writeRoll,
-  type StoredRoll,
 } from "@/lib/storage";
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
@@ -207,7 +207,6 @@ export function Game() {
           <>
             {account.status === "needs-name" ? <UsernameForm compact /> : null}
             <Result
-              roll={roll}
               scored={scored}
               standing={standing}
               spinWord={spinWord}
@@ -376,7 +375,6 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
 }
 
 function Result({
-  roll,
   scored,
   standing,
   spinWord,
@@ -388,7 +386,6 @@ function Result({
   rollError,
   freshCards,
 }: {
-  roll: StoredRoll;
   scored: ScoredWord;
   standing: ReturnType<typeof standingFor>;
   spinWord: string | null;
@@ -401,12 +398,14 @@ function Result({
   freshCards: string[];
 }) {
   const spinning = spinWord !== null;
-  const share = buildShareText({
-    date: roll.date,
-    scored,
+  const link = shareLink(typeof window === "undefined" ? "https://rwgdle.app" : window.location.origin, scored.word);
+  const share = buildShareMessage({
+    word: scored.word,
+    total: scored.total,
     tierLabel: standing.tier.label,
     beaten: standing.beaten,
-    wordCount: standing.wordCount,
+    cards: topCards(scored),
+    link,
   });
 
   return (
@@ -433,6 +432,7 @@ function Result({
           key={`${scored.word}-${replayKey}`}
           scored={scored}
           share={share}
+          link={link}
           copied={copied}
           copyError={copyError}
           onCopy={onCopy}
@@ -492,13 +492,15 @@ function WordDefinition({ word, show, reduce }: { word: string; show: boolean; r
 function ScoreReveal({
   scored,
   share,
+  link,
   copied,
   copyError,
   onCopy,
   freshCards,
 }: {
   scored: ScoredWord;
-  share: string;
+  share: { text: string; withoutLink: string };
+  link: string;
   copied: boolean;
   copyError: boolean;
   onCopy: (text: string) => void;
@@ -716,6 +718,17 @@ function ScoreReveal({
       </div>
       {done && !reduce && (finalTier === "mythic" || finalTier === "epic") ? <Confetti tier={finalTier} /> : null}
 
+      {done ? (
+        <ShareBar
+          message={share.text}
+          messageWithoutLink={share.withoutLink}
+          link={link}
+          onCopy={onCopy}
+          copied={copied}
+          copyError={copyError}
+        />
+      ) : null}
+
       <section className="mx-auto mt-3 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
         {baseDone && visible > 0 ? (
           <ol ref={pileRef} className="card-pile flex flex-col gap-2">
@@ -750,25 +763,6 @@ function ScoreReveal({
         </Link>
       ) : null}
 
-      {done ? (
-        <section className="row-in mx-auto mt-10 w-full max-w-xl" aria-label="Share">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[11px] tracking-[0.28em] text-muted-foreground uppercase">Share</h2>
-            <Button type="button" variant="outline" className="h-8" onClick={() => onCopy(share)}>
-              {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
-          {copyError ? (
-            <p className="mt-2 text-xs text-muted-foreground" role="status">
-              Clipboard blocked. Select the text below and copy it yourself.
-            </p>
-          ) : null}
-          <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-card px-3 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground/90">
-            {share}
-          </pre>
-        </section>
-      ) : null}
     </>
   );
 }

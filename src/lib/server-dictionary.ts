@@ -31,3 +31,12 @@ export async function serverDictionary(): Promise<string[]> {
   if (inCloudflareWorker()) return wordListFromAssets()
   return parseWordList(readFileSync(join(process.cwd(), "public", "words.txt"), "utf8"))
 }
+
+let wordSet: Set<string> | null = null
+
+/** True when the word is in the dictionary, so a shared link can't show a made-up word. */
+export async function isDictionaryWord(word: string): Promise<boolean> {
+  if (!/^[a-z]{1,40}$/.test(word)) return false
+  wordSet ??= new Set(await serverDictionary())
+  return wordSet.has(word)
+}

@@ -1,4 +1,4 @@
-import { formatRowValue, type ScoredWord } from "@/lib/tiles";
+import type { ScoredWord } from "@/lib/tiles";
 
 export function formatBeaten(beaten: number): string {
   const rounded = Math.round(beaten * 1000) / 10;
@@ -13,22 +13,42 @@ export function formatStanding(beaten: number): string {
   return `${shown >= 50 ? "Top" : "Bottom"} ${formatBeaten(beaten)}`;
 }
 
-export function buildShareText(input: {
-  date: string;
-  scored: ScoredWord;
+export type ShareCard = { name: string; points: number };
+
+/** A roll's best cards, highest multiplier first. Repeats like Inside merge into one card. */
+export function topCards(scored: ScoredWord, limit = 3): ShareCard[] {
+  const merged = new Map<string, ShareCard>();
+  for (const row of scored.rows) {
+    if (!row.scored || row.id === "tiles" || row.points == null || row.points <= 1) continue;
+    const entry = merged.get(row.id);
+    if (entry) entry.points *= row.points;
+    else merged.set(row.id, { name: row.name.replace(/ ×\d+$/, ""), points: row.points });
+  }
+  return [...merged.values()].sort((left, right) => right.points - left.points).slice(0, limit);
+}
+
+/** The page a shared roll opens on: rwgdle.app/s/<word>. */
+export function shareLink(origin: string, word: string): string {
+  return `${origin}/s/${encodeURIComponent(word.toLowerCase())}`;
+}
+
+/** What a player sends a friend: the word, the score, the best cards, and a link to try it. */
+export function buildShareMessage(input: {
+  word: string;
+  total: number;
   tierLabel: string;
   beaten: number;
-  wordCount: number;
-}): string {
+  cards: ShareCard[];
+  link: string;
+}): { text: string; withoutLink: string } {
   const lines = [
-    `RWGdle · ${input.date}`,
-    input.scored.word.toUpperCase(),
-    `${input.scored.total.toLocaleString("en-US")} · ${input.tierLabel}`,
-    formatStanding(input.beaten),
-    "",
-    ...input.scored.rows.map((row) =>
-      row.match ? `${row.name}: ${row.match} ${formatRowValue(row)}` : `${row.name}: ${formatRowValue(row)}`,
-    ),
+    `🎲 My RWGdle word of the day is ${input.word.toUpperCase()}, for ${input.total.toLocaleString("en-US")} points!`,
+    `🏆 ${input.tierLabel} · ${formatStanding(input.beaten)}`,
   ];
-  return lines.join("\n");
+  if (input.cards.length > 0) {
+    lines.push(`🃏 ${input.cards.map((card) => `${card.name} ×${card.points.toLocaleString("en-US")}`).join(" · ")}`);
+  }
+  lines.push("Can you do better?");
+  const withoutLink = lines.join("\n");
+  return { text: `${withoutLink} 👉 ${input.link}`, withoutLink };
 }
