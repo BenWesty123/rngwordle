@@ -40,8 +40,8 @@ export async function POST(request: Request) {
   const waitSecret = await createLoginWait(db, created.token, describeDevice(request.headers.get("user-agent")))
 
   const origin = publicOrigin(request)
-  const link = new URL("/auth/verify", origin)
-  link.searchParams.set("token", created.token)
+  // Tokens are base64url, so they sit in the path as they are.
+  const link = new URL(`/login/${created.token}`, origin)
   const message = loginEmail({ to: normalized, url: link.toString() })
   const retryAfter = Math.ceil(LOGIN_RESEND_MS / 1000)
 
