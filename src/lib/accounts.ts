@@ -506,6 +506,79 @@ export async function saveAnonymousRoll(
   }
 }
 
+export const GUEST_COOKIE = "rngworlde_guest"
+/** A guest gets this many leaderboard rolls per login-free browser per UTC day. */
+const GUEST_DAILY_ROLLS = 1
+
+function guestHash(secret: string): string {
+  return createHash("sha256").update(`guest:${secret}`).digest("base64url")
+}
+
+export function newGuestSecret(): string {
+  return randomBytes(24).toString("base64url")
+}
+
+/**
+ * A logged-out roll. The first one each UTC day goes on the leaderboard as Anonymous.
+ * After that the browser gets practice rolls: dealt and scored, but not saved.
+ */
+export async function saveGuestRoll(
+  db: AppDatabase,
+  guestSecret: string,
+  now: number,
+  draw: () => { word: string; score: string },
+): Promise<{ roll: SavedRoll; created: boolean; practice: boolean } | { error: string }> {
+  const drawn = draw()
+  if (!/^[a-z]+$/.test(drawn.word) || !/^\d+$/.test(drawn.score)) return { error: "That roll could not be saved." }
+  const utcDay = utcDateKey(new Date(now))
+  const roll = { username: ANONYMOUS_NAME, word: drawn.word, score: drawn.score, playedAt: now, utcDay }
+  const hash = guestHash(guestSecret)
+  const used = await db.get<{ n: number }>(
+    "SELECT count(*) AS n FROM guest_days WHERE guest_hash = ? AND utc_day = ?",
+    hash,
+    utcDay,
+  )
+  if ((used?.n ?? 0) >= GUEST_DAILY_ROLLS) return { roll, created: false, practice: true }
+  const rollId = randomUUID()
+  try {
+    // One transaction: the day's slot and the roll land together, or not at all.
+    await db.batch([
+      { sql: "INSERT INTO guest_days (guest_hash, utc_day, roll_id) VALUES (?, ?, ?)", params: [hash, utcDay, rollId] },
+      {
+        sql: "INSERT INTO rolls (id, account_id, username, word, score, played_at, utc_day) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+        params: [rollId, ANONYMOUS_NAME, drawn.word, drawn.score, now, utcDay],
+      },
+    ])
+  } catch (error) {
+    // Two tabs rolled at once: the other one took today's slot.
+    if (isConstraintError(error)) return { roll, created: false, practice: true }
+    throw error
+  }
+  return { roll, created: true, practice: false }
+}
+
+/** Login emails one visitor may ask for per UTC day, across every address. */
+export const LOGIN_REQUESTS_PER_DAY = 30
+
+/** Count a login request from this visitor. False once today's allowance is used up. */
+export async function allowLoginRequest(db: AppDatabase, visitor: string, now = Date.now()): Promise<boolean> {
+  const hash = createHash("sha256").update(`login:${visitor}`).digest("base64url")
+  const utcDay = utcDateKey(new Date(now))
+  const row = await db.get<{ count: number }>(
+    "SELECT count FROM login_requests WHERE ip_hash = ? AND utc_day = ?",
+    hash,
+    utcDay,
+  )
+  if ((row?.count ?? 0) >= LOGIN_REQUESTS_PER_DAY) return false
+  await db.run(
+    `INSERT INTO login_requests (ip_hash, utc_day, count) VALUES (?, ?, 1)
+     ON CONFLICT (ip_hash, utc_day) DO UPDATE SET count = count + 1`,
+    hash,
+    utcDay,
+  )
+  return true
+}
+
 export async function saveDailyRoll(
   db: AppDatabase,
   accountId: string,
@@ -545,7 +618,18 @@ export async function saveDailyRoll(
 export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now(), limit = 100): Promise<BoardRow[]> {
   const start = periodStart(view, new Date(now))
   const rows =
-    start == null
+    view === "today"
+      ? await db.all<{ username: string; word: string; score: string }>(
+          `SELECT username, word, score
+           FROM rolls
+           WHERE utc_day = ? AND played_at <= ?
+           ORDER BY length(score) DESC, score DESC, played_at ASC
+           LIMIT ?`,
+          utcDateKey(new Date(now)),
+          now,
+          limit,
+        )
+      : start == null
       ? await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score
            FROM rolls
@@ -557,7 +641,7 @@ export async function listBoard(db: AppDatabase, view: BoardView, now = Date.now
         )
       : await db.all<{ username: string; word: string; score: string }>(
           `SELECT username, word, score
-           FROM rolls
+           FROM rolls INDEXED BY rolls_rank
            WHERE played_at >= ? AND played_at <= ?
            ORDER BY length(score) DESC, score DESC, played_at ASC
            LIMIT ?`,

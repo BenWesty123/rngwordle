@@ -5,6 +5,8 @@ import { TileBox } from "@/components/tile"
 import { appDb } from "@/lib/app-db"
 import { formatScore, listBoard, listTotals, parseBoardView, parseTotalsView, type BoardRow, type BoardView, type TotalsRow, type TotalsView } from "@/lib/accounts"
 import { currentAccount } from "@/lib/current-account"
+import { utcDateKey } from "@/lib/day"
+import { cachedJson } from "@/lib/edge-cache"
 import { listFriendships, listFriendsBoard, listFriendTotals } from "@/lib/friends"
 import { standingFor } from "@/lib/standing"
 import { TIER_STYLE } from "@/lib/tier-style"
@@ -194,14 +196,15 @@ export default async function LeaderboardPage({
       ? await listFriendsBoard(db, named.id, rollView)
       : friends
         ? []
-        : await listBoard(db, rollView)
+        : // The shared boards are cached for 30 seconds per Cloudflare location; friends boards are personal.
+          await cachedJson(`board:${rollView}:${utcDateKey()}`, 30, () => listBoard(db, rollView))
   const totalRows = !totals
     ? []
     : friends && named
       ? await listFriendTotals(db, named.id, totalsView)
       : friends
         ? []
-        : await listTotals(db, totalsView)
+        : await cachedJson(`totals:${totalsView}:${utcDateKey()}`, 30, () => listTotals(db, totalsView))
   const currentRoll = ROLL_VIEWS.find((item) => item.id === rollView) ?? ROLL_VIEWS[0]!
   const currentTotal = TOTAL_VIEWS.find((item) => item.id === totalsView) ?? TOTAL_VIEWS[0]!
   const note = totals ? currentTotal.note : currentRoll.note

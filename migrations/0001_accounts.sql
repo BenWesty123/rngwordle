@@ -65,3 +65,24 @@ CREATE TABLE IF NOT EXISTS rolls (
 
 CREATE INDEX IF NOT EXISTS rolls_played_at ON rolls (played_at);
 CREATE INDEX IF NOT EXISTS rolls_utc_day ON rolls (utc_day);
+
+-- Leaderboards rank by score: longer digit strings first, then the digits, then the earlier roll.
+-- These indexes let a board read just the rows it shows instead of sorting every roll.
+CREATE INDEX IF NOT EXISTS rolls_rank ON rolls (length(score) DESC, score DESC, played_at);
+CREATE INDEX IF NOT EXISTS rolls_day_rank ON rolls (utc_day, length(score) DESC, score DESC, played_at);
+
+-- A guest browser's one leaderboard roll per UTC day. Only a hash of its cookie is kept.
+CREATE TABLE IF NOT EXISTS guest_days (
+  guest_hash TEXT NOT NULL,
+  utc_day TEXT NOT NULL,
+  roll_id TEXT NOT NULL,
+  PRIMARY KEY (guest_hash, utc_day)
+);
+
+-- Login emails asked for per visitor per UTC day, so the form can't be used to spam.
+CREATE TABLE IF NOT EXISTS login_requests (
+  ip_hash TEXT NOT NULL,
+  utc_day TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  PRIMARY KEY (ip_hash, utc_day)
+);

@@ -163,7 +163,7 @@ Accounts, login links, sessions, and saved rolls use the same tables in two plac
 
 ## Leaderboard
 
-The leaderboard is at `/leaderboard`. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
+The leaderboard is at `/leaderboard`. The shared boards and today's top roll are cached for 30 seconds per Cloudflare location, and indexes on the score order (`rolls_rank`, `rolls_day_rank`) let a board read only the rows it shows. Four views, top 100 each, highest score first: today (UTC day), this week (Monday 00:00 UTC through now), this month (calendar month UTC), and all time. Each row is rank, username, word, and score. Anonymous rows are included. A tie goes to the earlier roll. An empty period says so.
 
 A logged-in player with a username can switch that leaderboard to Friends. It ranks their rolls plus accepted friends, for the same four periods. Anonymous players have no friends list.
 
@@ -173,4 +173,4 @@ Open Friends, type the other player's exact username, and send a request. They a
 
 ## Rolls
 
-Generate asks the server to deal. The server uses the same list and the same scorer. On the Worker that list is the `/words.txt` asset, because the Worker does not keep the app directory as its working directory. A logged-out roll is saved with no account and the name Anonymous, and the latest `{ date, word }` stays in this browser under `rngworlde.roll.v1`. A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.
+Generate asks the server to deal. The server uses the same list and the same scorer. On the Worker that list is the `/words.txt` asset, because the Worker does not keep the app directory as its working directory. A logged-out browser gets one leaderboard roll per UTC day, saved with no account as Anonymous and tracked by a hashed cookie (`rngworlde_guest`, table `guest_days`); its `{ date, word }` stays in this browser under `rngworlde.roll.v1`. Further rolls that day are practice rolls: dealt and scored, but not saved, not on the leaderboard, and no cards. Rolls are rate limited per visitor (60 a minute, Cloudflare `ROLL_LIMITER`), and login emails too (5 a minute via `LOGIN_LIMITER`, 30 a day in `login_requests`). A logged-in roll is saved once per account per UTC day. The row uses the username if they have one, and Anonymous if they do not. Another generate that day shows the saved word and does not replace it.

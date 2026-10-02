@@ -12,6 +12,9 @@ import {
   listTotals,
   loginLinkSentRecently,
   loginResendWait,
+  saveGuestRoll,
+  allowLoginRequest,
+  LOGIN_REQUESTS_PER_DAY,
   createLoginWait,
   approveLoginWaits,
   claimLoginWait,
@@ -530,4 +533,55 @@ test("devices are described for the login confirm screen", () => {
     "Safari on iPhone",
   )
   assert.equal(describeDevice(null), "A browser")
+})
+
+test("a guest browser gets one leaderboard roll a day, then practice rolls", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-10-02T12:00:00.000Z")
+  let n = 0
+  const draw = () => ({ word: ["salt", "quiz", "otto"][n++ % 3]!, score: String(100 + n) })
+  const first = await saveGuestRoll(db, "guest-secret-aaaaaaaaaaaaaaaa", now, draw)
+  assert.ok(!("error" in first) && first.created && !first.practice)
+  const second = await saveGuestRoll(db, "guest-secret-aaaaaaaaaaaaaaaa", now + 1000, draw)
+  assert.ok(!("error" in second) && !second.created && second.practice)
+  // Another browser still gets its own leaderboard roll.
+  const other = await saveGuestRoll(db, "guest-secret-bbbbbbbbbbbbbbbb", now + 2000, draw)
+  assert.ok(!("error" in other) && other.created)
+  // The next UTC day, the first browser gets a fresh one.
+  const tomorrow = await saveGuestRoll(db, "guest-secret-aaaaaaaaaaaaaaaa", now + 24 * 60 * 60 * 1000, draw)
+  assert.ok(!("error" in tomorrow) && tomorrow.created)
+  const saved = await db.all<{ word: string }>("SELECT word FROM rolls ORDER BY played_at")
+  assert.equal(saved.length, 3)
+  // The secret itself is never stored.
+  const raw = await db.all<{ guest_hash: string }>("SELECT guest_hash FROM guest_days")
+  assert.ok(raw.every((row) => !row.guest_hash.includes("guest-secret")))
+})
+
+test("one visitor can ask for only so many login emails a day", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-10-02T12:00:00.000Z")
+  for (let index = 0; index < LOGIN_REQUESTS_PER_DAY; index += 1) assert.equal(await allowLoginRequest(db, "203.0.113.9", now), true)
+  assert.equal(await allowLoginRequest(db, "203.0.113.9", now), false)
+  assert.equal(await allowLoginRequest(db, "198.51.100.4", now), true)
+  assert.equal(await allowLoginRequest(db, "203.0.113.9", now + 24 * 60 * 60 * 1000), true)
+})
+
+test("boards rank the same with the score indexes, longest digits first", async () => {
+  const db = databaseFromSqlite(openDatabase(":memory:"))
+  await migrateRolls(db)
+  const now = Date.parse("2026-10-02T12:00:00.000Z")
+  const scores = ["999", "1000", "25", "1000000", "1000"]
+  let n = 0
+  for (const score of scores) {
+    await saveGuestRoll(db, `guest-secret-${"x".repeat(16)}-${n}`, now + n * 1000, () => ({ word: "salt", score }))
+    n += 1
+  }
+  for (const view of ["today", "week", "month", "all"] as const) {
+    const board = await listBoard(db, view, now + 60_000)
+    assert.deepEqual(board.map((row) => row.score), ["1000000", "1000", "1000", "999", "25"], view)
+  }
+  // Yesterday's rolls don't reach today's board.
+  assert.equal((await listBoard(db, "today", now + 24 * 60 * 60 * 1000)).length, 0)
 })

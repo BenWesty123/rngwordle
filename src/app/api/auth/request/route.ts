@@ -8,16 +8,24 @@ import {
   LOGIN_WAIT_COOKIE,
   loginResendWait,
   normalizeEmail,
+  allowLoginRequest,
 } from "@/lib/accounts"
 import { loginWaitCookieOptions } from "@/lib/current-account"
 import { loginEmail, sendLoginEmail } from "@/lib/login-mail"
+import { allowRequest, visitorKey } from "@/lib/rate-limit"
 import { publicOrigin } from "@/lib/request-origin"
 import { inCloudflareWorker } from "@/lib/runtime"
 import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
+const TOO_MANY = "Too many login emails from here. Try again later."
+
 export async function POST(request: Request) {
+  const visitor = visitorKey(request)
+  if (!(await allowRequest("LOGIN_LIMITER", visitor))) {
+    return NextResponse.json({ error: TOO_MANY }, { status: 429 })
+  }
   let email = ""
   try {
     const body = (await request.json()) as { email?: unknown }
@@ -33,6 +41,9 @@ export async function POST(request: Request) {
   if (wait > 0) {
     return NextResponse.json({ ok: true, limited: true, retryAfter: Math.ceil(wait / 1000) })
   }
+
+  // A daily cap per visitor, across every address, so the form can't be used to spam people.
+  if (!(await allowLoginRequest(db, visitor))) return NextResponse.json({ error: TOO_MANY }, { status: 429 })
 
   const created = await createLoginLink(db, normalized)
   if ("error" in created) return NextResponse.json({ error: created.error }, { status: 400 })
