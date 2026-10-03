@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { Check, Copy, MessageCircle, Send, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
 function subscribeNothing(): () => void {
@@ -44,6 +45,7 @@ export function ShareBar({
   const [copiedFor, setCopiedFor] = useState<"discord" | "copy" | null>(null);
 
   async function shareNatively() {
+    track("share:native");
     try {
       await navigator.share({ text: message });
     } catch {
@@ -52,6 +54,7 @@ export function ShareBar({
   }
 
   function copyFor(target: "discord" | "copy") {
+    track(target === "discord" ? "share:discord" : "share:copy");
     setCopiedFor(target);
     onCopy(message);
   }
@@ -69,7 +72,7 @@ export function ShareBar({
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <a className={cn(LINK_BUTTON, "bg-[#1fa855]")} href={`https://wa.me/?text=${encoded}`} target="_blank" rel="noopener noreferrer">
+        <a className={cn(LINK_BUTTON, "bg-[#1fa855]")} href={`https://wa.me/?text=${encoded}`} target="_blank" rel="noopener noreferrer" onClick={() => track("share:whatsapp")}>
           <MessageCircle className="size-4" aria-hidden />
           WhatsApp
         </a>
@@ -82,6 +85,7 @@ export function ShareBar({
           href={`https://x.com/intent/post?text=${encoded}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => track("share:x")}
         >
           <span aria-hidden className="text-base leading-none font-bold">𝕏</span>
           Post
@@ -91,6 +95,7 @@ export function ShareBar({
           href={`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(messageWithoutLink)}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => track("share:telegram")}
         >
           <Send className="size-4" aria-hidden />
           Telegram

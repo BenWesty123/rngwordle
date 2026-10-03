@@ -10,6 +10,7 @@ import {
   SESSION_COOKIE,
 } from "@/lib/accounts"
 import { newCards } from "@/lib/cards"
+import { bumpCounter } from "@/lib/counters"
 import { randomWord } from "@/lib/dictionary"
 import { allowRequest, visitorKey } from "@/lib/rate-limit"
 import { publicOrigin } from "@/lib/request-origin"
@@ -23,6 +24,14 @@ export const runtime = "nodejs"
 export async function POST(request: Request) {
   if (!(await allowRequest("ROLL_LIMITER", visitorKey(request)))) {
     return NextResponse.json({ error: "That's a lot of rolls. Take a breather and try again in a minute." }, { status: 429 })
+  }
+  // Set when this player arrived from a friend's shared link, for the stats page.
+  let fromShare = false
+  try {
+    const body = (await request.json()) as { fromShare?: unknown }
+    fromShare = body.fromShare === true
+  } catch {
+    fromShare = false
   }
   const jar = await cookies()
   const token = jar.get(SESSION_COOKIE)?.value
@@ -52,6 +61,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: detail }, { status: 500 })
     }
     if ("error" in guest) return NextResponse.json({ error: guest.error }, { status: 400 })
+    if (guest.practice) await countQuietly(db, "practice_roll")
+    else if (fromShare) await countQuietly(db, "shared_link_roll")
     const response = NextResponse.json({
       word: guest.roll.word,
       score: guest.roll.score,
@@ -84,6 +95,7 @@ export async function POST(request: Request) {
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 })
   }
+  if (result.created && fromShare) await countQuietly(db, "shared_link_roll")
   return NextResponse.json({
     word: result.roll.word,
     score: result.roll.score,
@@ -92,4 +104,13 @@ export async function POST(request: Request) {
     scored: scoreWord(result.roll.word),
     newCards: result.created ? newCards(result.roll.word, earlier) : [],
   })
+}
+
+/** A stats count must never get in the way of a roll. */
+async function countQuietly(db: Awaited<ReturnType<typeof appDb>>, name: "practice_roll" | "shared_link_roll") {
+  try {
+    await bumpCounter(db, name)
+  } catch {
+    // Missed count; the roll still goes through.
+  }
 }

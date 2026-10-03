@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { TileBox } from "@/components/tile"
 import { cardRarity, RARITY_STAMP } from "@/lib/card-rarity"
@@ -8,6 +9,7 @@ import { formatStanding, topCards } from "@/lib/share"
 import { standingFor } from "@/lib/standing"
 import { TIER_STYLE } from "@/lib/tier-style"
 import { tilesFor } from "@/lib/tiles"
+import { markFromShare, track } from "@/lib/track"
 import { cn } from "@/lib/utils"
 
 /**
@@ -21,6 +23,15 @@ export function SharedRoll({ word }: { word: string }) {
   const standing = scored ? standingFor(scored.total) : null
   const tone = standing ? TIER_STYLE[standing.tier.id] : null
   const cards = scored ? topCards(scored) : []
+
+  // Count the visit (link-preview bots don't run this), and remember it so a first roll counts as a share that worked.
+  const counted = useRef(false)
+  useEffect(() => {
+    if (counted.current) return
+    counted.current = true
+    track("shared_link_view")
+    markFromShare()
+  }, [])
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center py-10 text-center">

@@ -12,6 +12,7 @@ import { flickerWord } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
 import { rememberCards, unseenCards } from "@/lib/card-collection";
+import { takeFromShare } from "@/lib/track";
 import { buildShareMessage, formatStanding, shareLink, topCards } from "@/lib/share";
 import { ShareBar } from "@/components/share-bar";
 import { standingFor } from "@/lib/standing";
@@ -105,7 +106,11 @@ export function Game() {
     // The bag starts shaking on the click; any wait for the server shakes with it.
     const startedAt = performance.now();
     try {
-      const response = await fetch("/api/rolls", { method: "POST" });
+      const response = await fetch("/api/rolls", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fromShare: takeFromShare() }),
+      });
       const body = (await response.json()) as {
         word?: string;
         score?: string;

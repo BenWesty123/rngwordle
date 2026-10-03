@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS login_requests (
   count INTEGER NOT NULL,
   PRIMARY KEY (ip_hash, utc_day)
 );
+
+-- Anonymous daily counts for the private stats page: shares by channel, shared-link
+-- visits, practice rolls. Nothing here says who did what.
+CREATE TABLE IF NOT EXISTS daily_counts (
+  utc_day TEXT NOT NULL,
+  name TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  PRIMARY KEY (utc_day, name)
+);
 `
 
 const REBUILD_ROLLS = `DROP TABLE IF EXISTS rolls_next;

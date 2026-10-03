@@ -71,7 +71,15 @@ export default function PrivacyPage() {
             <p>
               The game runs on Cloudflare, which hosts the site, stores the database, and sends the login emails. Like any
               web host, Cloudflare processes your network address to deliver pages and block attacks. There is no
-              advertising, no analytics service, and no tracking across other sites.
+              advertising and no tracking across other sites.
+            </p>
+          </Section>
+
+          <Section title="How we see how the game is doing">
+            <p>
+              RWGdle counts some things anonymously each day: how many rolls there were, how many shares went out by app
+              (WhatsApp, Discord and so on), and how many people opened a shared link. These are plain daily totals. They
+              aren&apos;t linked to you, your account, or your device, and no cookies are used for them.
             </p>
           </Section>
 
