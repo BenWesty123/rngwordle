@@ -40,12 +40,11 @@ export function randomWord(words: readonly string[]): string {
 }
 
 /**
- * Dictionary length weights (same counts as scoring's LENGTH_COUNTS).
- * The bag draws a length from these so the shake doesn't give away the roll.
+ * Dictionary length weights for 4–10 letters (the same counts as scoring's
+ * LENGTH_COUNTS). The bag stays inside this band so the row doesn't leap
+ * between a 2-letter word and a 20-letter one.
  */
 const FLICKER_LENGTH_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
-  [2, 96],
-  [3, 968],
   [4, 3891],
   [5, 8621],
   [6, 15219],
@@ -53,23 +52,6 @@ const FLICKER_LENGTH_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
   [8, 28413],
   [9, 24870],
   [10, 20300],
-  [11, 15504],
-  [12, 11358],
-  [13, 7827],
-  [14, 5127],
-  [15, 3192],
-  [16, 1943],
-  [17, 1127],
-  [18, 594],
-  [19, 329],
-  [20, 160],
-  [21, 62],
-  [22, 30],
-  [23, 13],
-  [24, 9],
-  [25, 2],
-  [27, 2],
-  [28, 1],
 ];
 
 const FLICKER_LENGTH_SPAN = FLICKER_LENGTH_WEIGHTS.reduce((sum, [, count]) => sum + count, 0);

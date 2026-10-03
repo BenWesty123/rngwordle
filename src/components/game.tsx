@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Ref } from "react";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAccount } from "@/components/account-provider";
@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { UsernameForm } from "@/components/username-form";
 import { Button } from "@/components/ui/button";
 import { utcDateKey } from "@/lib/day";
-import { flickerWord } from "@/lib/dictionary";
+import { flickerWord, randomFlickerLength } from "@/lib/dictionary";
 import { armScoreAudio, playLetterPoints, playMultiplier, playSheetMusic, playVerdict, prepareMultiplierScore, stopScoreAudio } from "@/lib/score-sound";
 import { primeScore, retryScore, useScored } from "@/lib/score-client";
 import { rememberCards, unseenCards } from "@/lib/card-collection";
@@ -25,12 +25,17 @@ import {
 } from "@/lib/storage";
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
-import { TileBox } from "@/components/tile";
+import { TileBox, tileSizeClass } from "@/components/tile";
 import { TIER_STYLE } from "@/lib/tier-style";
 import { cardRarity, RARITY_BADGE, RARITY_STAMP } from "@/lib/card-rarity";
 
 const TILE_REVEAL_MS = 460;
 const BOX_REVEAL_MS = 1450;
+/** How long each random word sits before the next one. */
+const FLICKER_MS = 200;
+/** The shake stays on a 10-wide track, so a shorter word doesn't slide the row. */
+const FLICKER_TRACK = 10;
+const TILE_ROW = "mt-4 flex flex-wrap justify-center gap-1.5";
 
 
 export function Game() {
@@ -77,11 +82,14 @@ export function Game() {
     return () => window.clearTimeout(id);
   }, [copied]);
 
-  /** Shuffle the tiles before the reveal. A short settle when the bag already shook while dealing. */
-  function startSpin(frames = 14) {
+  /**
+   * Shuffle glyphs in the word's own slots. Length stays put so the reveal
+   * can take over those same positions.
+   */
+  function startSpin(length: number, frames = 14) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
-    setSpinWord(flickerWord());
+    setSpinWord(flickerWord(length));
     let frame = 0;
     spinTimer.current = window.setInterval(() => {
       frame += 1;
@@ -91,8 +99,8 @@ export function Game() {
         setSpinWord(null);
         return;
       }
-      setSpinWord(flickerWord());
-    }, 45);
+      setSpinWord(flickerWord(length));
+    }, FLICKER_MS);
   }
 
   async function onGenerate() {
@@ -133,7 +141,7 @@ export function Game() {
       setReplayKey((key) => key + 1);
       setCopied(false);
       setCopyError(false);
-      startSpin(performance.now() - startedAt >= 500 ? 6 : 14);
+      startSpin(body.word.length, performance.now() - startedAt >= 500 ? 6 : 14);
     } catch {
       setDealt(false);
       setRollError("That roll didn't save.");
@@ -238,7 +246,7 @@ export function Game() {
             </Button>
           </div>
         ) : roll ? (
-          <ShakingBag label="Finding your roll…" />
+          <ShakingBag length={roll.word.length} label="Finding your roll…" />
         ) : dealt ? (
           <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
             Dealing…
@@ -257,28 +265,86 @@ export function Game() {
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
 
 /**
- * Rattling tiles while the server deals or a saved roll loads. Each frame draws
- * a new length, so the row stays up without giving away the word.
+ * Rattling tiles while the server deals or a saved roll loads.
+ * A known length keeps every slot where the word will land. Otherwise the
+ * length wanders between 4 and 10, slower than the letters.
  */
-function ShakingBag({ label }: { label: string }) {
+function ShakingBag({ label, length }: { label: string; length?: number }) {
   const reduce = useReducedMotion();
-  const [letters, setLetters] = useState(() => flickerWord());
+  const [letters, setLetters] = useState(() => flickerWord(length));
   useEffect(() => {
     if (reduce) return;
-    const id = window.setInterval(() => setLetters(flickerWord()), 45);
+    if (length != null) {
+      const id = window.setInterval(() => setLetters(flickerWord(length)), FLICKER_MS);
+      return () => window.clearInterval(id);
+    }
+    let count = randomFlickerLength();
+    let ticks = 0;
+    const id = window.setInterval(() => {
+      ticks += 1;
+      if (ticks % 3 === 0) count = randomFlickerLength();
+      setLetters(flickerWord(count));
+    }, FLICKER_MS);
     return () => window.clearInterval(id);
-  }, [reduce]);
+  }, [length, reduce]);
   return (
     <div className="flex flex-1 flex-col pt-2" role="status">
       <h1 className="text-center text-sm text-muted-foreground">{label}</h1>
-      {reduce ? null : (
-        <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
-          {tilesFor(letters).map((tile, index) => (
-            <TileBox key={index} tile={tile} length={letters.length} shaking />
-          ))}
-        </ul>
-      )}
+      {reduce ? null : <TileTrack glyphs={letters} length={letters.length} />}
     </div>
+  );
+}
+
+/**
+ * Fixed slots for one word. Ten columns is the floor, so a 4-letter shake and
+ * the 4-letter word that follows occupy the same places. Longer words grow the
+ * track once, then stay.
+ */
+function TileTrack({
+  glyphs,
+  length,
+  realTiles,
+  revealed = 0,
+  labelled,
+  className,
+  trackRef,
+  dataTiles,
+  dataTileCount,
+}: {
+  glyphs: string;
+  length: number;
+  realTiles?: Tile[];
+  /** Leading letters that have resolved into the rolled word. */
+  revealed?: number;
+  labelled?: string;
+  className?: string;
+  trackRef?: Ref<HTMLUListElement>;
+  dataTiles?: number;
+  dataTileCount?: number;
+}) {
+  const total = Math.max(FLICKER_TRACK, length);
+  const start = Math.floor((total - length) / 2);
+  const sized = (glyphs + "a".repeat(length)).slice(0, length);
+  const flicker = tilesFor(sized);
+  return (
+    <ul
+      ref={trackRef}
+      className={cn(TILE_ROW, className)}
+      aria-hidden={labelled ? undefined : true}
+      aria-label={labelled}
+      data-tiles={dataTiles}
+      data-tile-count={dataTileCount}
+    >
+      {Array.from({ length: total }, (_, slot) => {
+        const offset = slot - start;
+        if (offset < 0 || offset >= length) {
+          return <li key={slot} aria-hidden className={cn("invisible", tileSizeClass(length))} />;
+        }
+        const real = realTiles != null && offset < revealed;
+        const tile = real ? realTiles[offset]! : flicker[offset]!;
+        return <TileBox key={slot} tile={tile} length={length} concealed={!real && labelled != null} />;
+      })}
+    </ul>
   );
 }
 
@@ -431,13 +497,7 @@ function Result({
           Today&apos;s leaderboard roll is already saved. Practice rolls are just for fun: they don&apos;t count or collect cards.
         </p>
       ) : null}
-      {spinning ? (
-        <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
-          {tilesFor(spinWord).map((tile, index) => (
-            <TileBox key={index} tile={tile} length={spinWord.length} shaking />
-          ))}
-        </ul>
-      ) : null}
+      {spinning ? <TileTrack glyphs={spinWord} length={spinWord.length} /> : null}
 
       {rollError ? (
         <p className="mt-4 text-center text-sm text-foreground" role="alert">
@@ -540,10 +600,12 @@ function ScoreReveal({
   // Start on the first letter so the shuffle hands off to a visible tile. The
   // interval used to wait a full step, and the row went blank in between.
   const [letters, setLetters] = useState(1);
+  const [mask, setMask] = useState(() => flickerWord(scored.length));
   const [shown, setShown] = useState(0);
   const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
+  const lettersRef = useRef(1);
   const tileRowRef = useRef<HTMLUListElement>(null);
   const pileRef = useRef<HTMLOListElement>(null);
   const pileTops = useRef(new Map<string, number>());
@@ -551,6 +613,7 @@ function ScoreReveal({
   if (reduce && shown !== steps.length) setShown(steps.length);
   if (reduce && settled !== steps.length) setSettled(steps.length);
   const visibleLetters = reduce ? scored.tiles.length : letters;
+  lettersRef.current = visibleLetters;
   const visible = reduce ? steps.length : shown;
   const baseDone = visibleLetters >= scored.tiles.length;
   const done = baseDone && settled >= steps.length;
@@ -588,6 +651,15 @@ function ScoreReveal({
       stopScoreAudio();
     };
   }, [reduce, scored.tiles.length]);
+
+  useEffect(() => {
+    if (reduce) return;
+    const id = window.setInterval(() => {
+      if (lettersRef.current >= tilesRef.current.length) return;
+      setMask(flickerWord(tilesRef.current.length));
+    }, FLICKER_MS);
+    return () => window.clearInterval(id);
+  }, [reduce]);
 
   useLayoutEffect(() => {
     if (reduce || !baseDone) return;
@@ -685,28 +757,23 @@ function ScoreReveal({
       />
 
       <div className={cn(done && !reduce && (finalTier === "mythic" || finalTier === "epic") && "screen-shake")}>
-      <ul
-        ref={tileRowRef}
-        className={cn("mt-3 flex flex-wrap justify-center gap-1.5", done && finalTier === "trash" && "tiles-slump")}
-        aria-label="Scrabble tiles"
-        data-tiles={visibleLetters}
-        data-tile-count={scored.tiles.length}
-      >
-        {scored.tiles.slice(0, visibleLetters).map((tile, index) => (
-          <TileBox
-            key={`${tile.letter}-${index}`}
-            tile={tile}
-            length={scored.length}
-            fresh={index === visibleLetters - 1 && visibleLetters > 1 && !baseDone}
-          />
-        ))}
-      </ul>
+      <TileTrack
+        trackRef={tileRowRef}
+        glyphs={mask}
+        length={scored.length}
+        realTiles={scored.tiles}
+        revealed={visibleLetters}
+        labelled="Scrabble tiles"
+        className={done && finalTier === "trash" ? "tiles-slump" : undefined}
+        dataTiles={visibleLetters}
+        dataTileCount={scored.tiles.length}
+      />
       <WordDefinition word={scored.word} show={baseDone} reduce={reduce} />
 
       <div className="mt-5 text-center">
         <p className="sr-only">Score</p>
         <div className="relative inline-block">
-          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-mono font-bold tabular-nums leading-none", scoreSize(display))}>
+          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-display leading-none tracking-tight italic", scoreSize(display))}>
             {display.toLocaleString("en-US")}
           </p>
           {done && !reduce ? <SparkleBurst tier={finalTier} /> : null}
@@ -812,7 +879,7 @@ function MultiplierCard({
   return (
     <article
       className={cn(
-        "relative rounded-2xl border bg-card px-4 pt-5 pb-4",
+        "relative rounded-2xl border bg-card px-4 pt-10 pb-8",
         featured ? "card-pop border-amber-600/40 shadow-lg dark:border-amber-200/40" : "border-border",
       )}
       aria-live={featured ? "polite" : undefined}
