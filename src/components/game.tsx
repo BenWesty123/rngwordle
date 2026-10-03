@@ -25,7 +25,7 @@ import {
 } from "@/lib/storage";
 import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
-import { TileBox, tileSizeClass } from "@/components/tile";
+import { TileBox } from "@/components/tile";
 import { TIER_STYLE } from "@/lib/tier-style";
 import { cardRarity, RARITY_BADGE, RARITY_STAMP } from "@/lib/card-rarity";
 
@@ -33,8 +33,6 @@ const TILE_REVEAL_MS = 460;
 const BOX_REVEAL_MS = 1450;
 /** How long each random word sits before the next one. */
 const FLICKER_MS = 200;
-/** The shake stays on a 10-wide track, so a shorter word doesn't slide the row. */
-const FLICKER_TRACK = 10;
 const TILE_ROW = "mt-4 flex flex-wrap justify-center gap-1.5";
 
 
@@ -296,9 +294,8 @@ function ShakingBag({ label, length }: { label: string; length?: number }) {
 }
 
 /**
- * Fixed slots for one word. Ten columns is the floor, so a 4-letter shake and
- * the 4-letter word that follows occupy the same places. Longer words grow the
- * track once, then stay.
+ * The word's own tiles, centered as a group. No side spacers, so a short word
+ * sits on the middle of the page and stays there as the letters resolve.
  */
 function TileTrack({
   glyphs,
@@ -306,7 +303,6 @@ function TileTrack({
   realTiles,
   revealed = 0,
   labelled,
-  className,
   trackRef,
   dataTiles,
   dataTileCount,
@@ -317,32 +313,25 @@ function TileTrack({
   /** Leading letters that have resolved into the rolled word. */
   revealed?: number;
   labelled?: string;
-  className?: string;
   trackRef?: Ref<HTMLUListElement>;
   dataTiles?: number;
   dataTileCount?: number;
 }) {
-  const total = Math.max(FLICKER_TRACK, length);
-  const start = Math.floor((total - length) / 2);
   const sized = (glyphs + "a".repeat(length)).slice(0, length);
   const flicker = tilesFor(sized);
   return (
     <ul
       ref={trackRef}
-      className={cn(TILE_ROW, className)}
+      className={TILE_ROW}
       aria-hidden={labelled ? undefined : true}
       aria-label={labelled}
       data-tiles={dataTiles}
       data-tile-count={dataTileCount}
     >
-      {Array.from({ length: total }, (_, slot) => {
-        const offset = slot - start;
-        if (offset < 0 || offset >= length) {
-          return <li key={slot} aria-hidden className={cn("invisible", tileSizeClass(length))} />;
-        }
-        const real = realTiles != null && offset < revealed;
-        const tile = real ? realTiles[offset]! : flicker[offset]!;
-        return <TileBox key={slot} tile={tile} length={length} concealed={!real && labelled != null} />;
+      {Array.from({ length }, (_, index) => {
+        const real = realTiles != null && index < revealed;
+        const tile = real ? realTiles[index]! : flicker[index]!;
+        return <TileBox key={index} tile={tile} length={length} concealed={!real && labelled != null} />;
       })}
     </ul>
   );
@@ -764,7 +753,6 @@ function ScoreReveal({
         realTiles={scored.tiles}
         revealed={visibleLetters}
         labelled="Scrabble tiles"
-        className={done && finalTier === "trash" ? "tiles-slump" : undefined}
         dataTiles={visibleLetters}
         dataTileCount={scored.tiles.length}
       />
@@ -822,9 +810,9 @@ function ScoreReveal({
         />
       ) : null}
 
-      <section className="mx-auto mt-3 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
+      <section className="mx-auto mt-10 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
         {baseDone && visible > 0 ? (
-          <ol ref={pileRef} className="card-pile flex flex-col gap-2">
+          <ol ref={pileRef} className="card-pile flex flex-col gap-8">
             {steps
               .slice(0, visible)
               .map((row, stepIndex) => ({ row, stepIndex }))
@@ -879,7 +867,7 @@ function MultiplierCard({
   return (
     <article
       className={cn(
-        "relative rounded-2xl border bg-card px-4 pt-10 pb-8",
+        "relative rounded-2xl border bg-card px-6 pt-14 pb-12",
         featured ? "card-pop border-amber-600/40 shadow-lg dark:border-amber-200/40" : "border-border",
       )}
       aria-live={featured ? "polite" : undefined}

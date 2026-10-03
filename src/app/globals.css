@@ -379,7 +379,6 @@
 @keyframes slump {
   to {
     transform: translateY(5px) rotate(var(--slump, 4deg));
-    filter: grayscale(0.85) brightness(0.75);
   }
 }
 
