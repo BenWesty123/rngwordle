@@ -27,7 +27,6 @@ test("stats add up rolls, people, sign-ups, and anonymous counters by UTC day", 
   await bumpCounter(db, "share:discord", now)
   await bumpCounter(db, "shared_link_view", now)
   await bumpCounter(db, "shared_link_roll", now)
-  await bumpCounter(db, "practice_roll", yesterday)
 
   const { days, totals } = await loadStats(db, now)
   assert.equal(days.length, 14)
@@ -41,7 +40,6 @@ test("stats add up rolls, people, sign-ups, and anonymous counters by UTC day", 
   assert.equal(days[0]!.sharedViews, 1)
   assert.equal(days[0]!.sharedRolls, 1)
   assert.equal(days[1]!.rolls, 1)
-  assert.equal(days[1]!.practice, 1)
   assert.deepEqual(totals, { accounts: 1, named: 1, rolls: 4, friendships: 0 })
 })
 

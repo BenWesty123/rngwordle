@@ -44,8 +44,6 @@ export function Game() {
   const [replayKey, setReplayKey] = useState(0);
   // Cards a fresh roll unlocked for the first time, for the "New card!" ribbon.
   const [freshCards, setFreshCards] = useState<{ word: string; ids: string[] } | null>(null);
-  // A guest's extra roll after today's leaderboard roll: shown, but not saved and no cards.
-  const [practiceWord, setPracticeWord] = useState<string | null>(null);
   const spinTimer = useRef<number | null>(null);
   const { account, refresh, rememberToday } = useAccount();
   const snapshot = useSyncExternalStore(subscribeRoll, readRollSnapshot, serverRollSnapshot);
@@ -59,8 +57,7 @@ export function Game() {
       : account.status === "guest" && guestRoll?.date === todayKey
         ? guestRoll
         : null;
-  const practice = account.status === "guest" && practiceWord !== null;
-  const roll = practice ? { date: todayKey, word: practiceWord } : savedRoll;
+  const roll = savedRoll;
   const daily =
     (account.status === "player" || account.status === "needs-name") &&
     account.today != null &&
@@ -117,7 +114,6 @@ export function Game() {
         playedAt?: number;
         scored?: ScoredWord;
         newCards?: string[];
-        practice?: boolean;
         error?: string;
       };
       if (!response.ok || !body.word || typeof body.score !== "string" || typeof body.playedAt !== "number") {
@@ -126,15 +122,11 @@ export function Game() {
         return;
       }
       // Players get new cards from the server, which knows every past roll. Guests check this browser.
-      // Practice rolls don't count, so they unlock nothing.
-      const ids = body.practice ? [] : (body.newCards ?? (body.scored ? unseenCards(body.scored) : []));
+      const ids = body.newCards ?? (body.scored ? unseenCards(body.scored) : []);
       setFreshCards({ word: body.word, ids });
       if (body.scored) primeScore(body.scored);
-      if (body.practice) setPracticeWord(body.word);
-      else if (account.status === "guest") {
-        setPracticeWord(null);
-        writeRoll({ date: utcDateKey(), word: body.word });
-      } else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
+      if (account.status === "guest") writeRoll({ date: utcDateKey(), word: body.word });
+      else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
       setReplayKey((key) => key + 1);
       setCopied(false);
       setCopyError(false);
@@ -183,8 +175,8 @@ export function Game() {
 
   // Every card a shown roll scores goes into this browser's collection.
   useEffect(() => {
-    if (scored && !practice) rememberCards(scored);
-  }, [scored, practice]);
+    if (scored) rememberCards(scored);
+  }, [scored]);
   const standing = scored ? standingFor(scored.total) : null;
   const glow = EMPTY_GLOW;
 
@@ -193,18 +185,7 @@ export function Game() {
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
       <div className="relative mx-auto flex min-h-dvh w-full flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
         <SiteHeader
-          trailing={
-            roll && scored && standing ? (
-              <Button
-                type="button"
-                className="h-9 shrink-0"
-                disabled={dealing || spinWord !== null}
-                onClick={() => void onGenerate()}
-              >
-                {dealing ? "Dealing…" : "Generate again"}
-              </Button>
-            ) : null
-          }
+          trailing={roll && scored && standing ? <NextWordCountdown /> : null}
         />
 
         {account.status === "loading" ? (
@@ -229,7 +210,6 @@ export function Game() {
               copyError={copyError}
               onCopy={onCopy}
               daily={daily}
-              practice={practice}
               replayKey={replayKey}
               rollError={rollError}
               freshCards={freshCards?.word === roll.word ? freshCards.ids : []}
@@ -260,6 +240,36 @@ export function Game() {
 }
 
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
+
+/** Milliseconds until the next UTC midnight, when a new word can be rolled. */
+function msUntilNextWord(now: number): number {
+  const next = new Date(now);
+  next.setUTCHours(24, 0, 0, 0);
+  return next.getTime() - now;
+}
+
+function subscribeMinute(onChange: () => void): () => void {
+  const id = window.setInterval(onChange, 30_000);
+  return () => window.clearInterval(id);
+}
+
+/** One word a day: once it's out, the header says when the next one arrives. */
+function NextWordCountdown() {
+  const minutes = useSyncExternalStore(
+    subscribeMinute,
+    () => Math.ceil(msUntilNextWord(Date.now()) / 60_000),
+    () => null,
+  );
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const label = hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
+  return (
+    <span className="shrink-0 rounded-full border border-border bg-card/70 px-3 py-1.5 text-xs text-muted-foreground tabular-nums">
+      Next word in {label}
+    </span>
+  );
+}
 
 /**
  * Rattling tiles while the server deals or a saved roll loads. Laid out like the
@@ -398,7 +408,6 @@ function Result({
   copyError,
   onCopy,
   daily,
-  practice,
   replayKey,
   rollError,
   freshCards,
@@ -410,7 +419,6 @@ function Result({
   copyError: boolean;
   onCopy: (text: string) => void;
   daily: boolean;
-  practice: boolean;
   replayKey: number;
   rollError: string | null;
   freshCards: string[];
@@ -429,13 +437,8 @@ function Result({
   return (
     <div className="flex flex-1 flex-col pt-2">
       <h1 className="text-center text-sm text-muted-foreground">
-        {spinning ? "Shaking the bag…" : practice ? "Practice roll" : daily ? "Today's saved roll" : "Your word"}
+        {spinning ? "Shaking the bag…" : daily ? "Today's saved roll" : "Your word"}
       </h1>
-      {practice && !spinning ? (
-        <p className="mx-auto mt-1 max-w-sm text-center text-xs text-pretty text-muted-foreground">
-          Today&apos;s leaderboard roll is already saved. Practice rolls are just for fun: they don&apos;t count or collect cards.
-        </p>
-      ) : null}
       {spinning ? (
         <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
           {tilesFor(spinWord).map((tile, index) => (
@@ -460,7 +463,6 @@ function Result({
           copyError={copyError}
           onCopy={onCopy}
           freshCards={freshCards}
-          shareable={!practice}
         />
       ) : null}
     </div>
@@ -521,7 +523,6 @@ function ScoreReveal({
   copyError,
   onCopy,
   freshCards,
-  shareable,
 }: {
   scored: ScoredWord;
   share: { text: string; withoutLink: string };
@@ -530,8 +531,6 @@ function ScoreReveal({
   copyError: boolean;
   onCopy: (text: string) => void;
   freshCards: string[];
-  /** Practice rolls aren't the day's roll, so there's nothing to share. */
-  shareable: boolean;
 }) {
   const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
   // The ribbon goes on the first card of each newly unlocked kind (Inside can show several).
@@ -745,7 +744,7 @@ function ScoreReveal({
       </div>
       {done && !reduce && (finalTier === "mythic" || finalTier === "epic") ? <Confetti tier={finalTier} /> : null}
 
-      {done && shareable ? (
+      {done ? (
         <ShareBar
           message={share.text}
           messageWithoutLink={share.withoutLink}

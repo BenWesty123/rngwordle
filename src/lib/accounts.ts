@@ -512,8 +512,6 @@ export async function saveAnonymousRoll(
 }
 
 export const GUEST_COOKIE = "rngworlde_guest"
-/** A guest gets this many leaderboard rolls per login-free browser per UTC day. */
-const GUEST_DAILY_ROLLS = 1
 
 function guestHash(secret: string): string {
   return createHash("sha256").update(`guest:${secret}`).digest("base64url")
@@ -523,27 +521,35 @@ export function newGuestSecret(): string {
   return randomBytes(24).toString("base64url")
 }
 
+/** The roll this guest browser already made today, if any. */
+async function guestRollFor(db: AppDatabase, hash: string, utcDay: string): Promise<SavedRoll | null> {
+  const row = await db.get<{ username: string; word: string; score: string; played_at: number; utc_day: string }>(
+    `SELECT rolls.username, rolls.word, rolls.score, rolls.played_at, rolls.utc_day
+     FROM guest_days JOIN rolls ON rolls.id = guest_days.roll_id
+     WHERE guest_days.guest_hash = ? AND guest_days.utc_day = ?`,
+    hash,
+    utcDay,
+  )
+  if (!row) return null
+  return { username: row.username, word: row.word, score: row.score, playedAt: row.played_at, utcDay: row.utc_day }
+}
+
 /**
- * A logged-out roll. The first one each UTC day goes on the leaderboard as Anonymous.
- * After that the browser gets practice rolls: dealt and scored, but not saved.
+ * A logged-out roll: one per browser per UTC day, saved on the leaderboard as Anonymous.
+ * Asking again that day hands back the same word; a new one is never dealt.
  */
 export async function saveGuestRoll(
   db: AppDatabase,
   guestSecret: string,
   now: number,
   draw: () => { word: string; score: string },
-): Promise<{ roll: SavedRoll; created: boolean; practice: boolean } | { error: string }> {
+): Promise<{ roll: SavedRoll; created: boolean } | { error: string }> {
+  const utcDay = utcDateKey(new Date(now))
+  const hash = guestHash(guestSecret)
+  const existing = await guestRollFor(db, hash, utcDay)
+  if (existing) return { roll: existing, created: false }
   const drawn = draw()
   if (!/^[a-z]+$/.test(drawn.word) || !/^\d+$/.test(drawn.score)) return { error: "That roll could not be saved." }
-  const utcDay = utcDateKey(new Date(now))
-  const roll = { username: ANONYMOUS_NAME, word: drawn.word, score: drawn.score, playedAt: now, utcDay }
-  const hash = guestHash(guestSecret)
-  const used = await db.get<{ n: number }>(
-    "SELECT count(*) AS n FROM guest_days WHERE guest_hash = ? AND utc_day = ?",
-    hash,
-    utcDay,
-  )
-  if ((used?.n ?? 0) >= GUEST_DAILY_ROLLS) return { roll, created: false, practice: true }
   const rollId = randomUUID()
   try {
     // One transaction: the day's slot and the roll land together, or not at all.
@@ -555,11 +561,12 @@ export async function saveGuestRoll(
       },
     ])
   } catch (error) {
-    // Two tabs rolled at once: the other one took today's slot.
-    if (isConstraintError(error)) return { roll, created: false, practice: true }
-    throw error
+    if (!isConstraintError(error)) throw error
+    // Two tabs rolled at once: the other one took today's slot, so show its word.
+    const winner = await guestRollFor(db, hash, utcDay)
+    return winner ? { roll: winner, created: false } : { error: "You've already rolled today. Come back tomorrow." }
   }
-  return { roll, created: true, practice: false }
+  return { roll: { username: ANONYMOUS_NAME, word: drawn.word, score: drawn.score, playedAt: now, utcDay }, created: true }
 }
 
 /** Login emails one visitor may ask for per UTC day, across every address. */

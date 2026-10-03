@@ -9,7 +9,7 @@ export type ShareChannel = (typeof SHARE_CHANNELS)[number]
 export const CLIENT_COUNTERS = [...SHARE_CHANNELS.map((channel) => `share:${channel}` as const), "shared_link_view"] as const
 export type ClientCounter = (typeof CLIENT_COUNTERS)[number]
 
-export type Counter = ClientCounter | "practice_roll" | "shared_link_roll"
+export type Counter = ClientCounter | "shared_link_roll"
 
 export function isClientCounter(name: string): name is ClientCounter {
   return (CLIENT_COUNTERS as readonly string[]).includes(name)

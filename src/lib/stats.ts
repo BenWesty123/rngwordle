@@ -11,7 +11,6 @@ export type DayStats = {
   players: number
   /** Guest browsers that made their leaderboard roll. */
   guests: number
-  practice: number
   /** Someone asked for a login link with a new email. */
   signups: number
   /** ...and later picked a username. */
@@ -37,7 +36,6 @@ function emptyDay(day: string): DayStats {
     guestRolls: 0,
     players: 0,
     guests: 0,
-    practice: 0,
     signups: 0,
     named: 0,
     shares: 0,
@@ -103,8 +101,7 @@ export async function loadStats(db: AppDatabase, now = Date.now(), count = 14): 
     const day = byDay.get(row.utc_day)
     if (!day) continue
     const value = Number(row.count)
-    if (row.name === "practice_roll") day.practice = value
-    else if (row.name === "shared_link_view") day.sharedViews = value
+    if (row.name === "shared_link_view") day.sharedViews = value
     else if (row.name === "shared_link_roll") day.sharedRolls = value
     else if (row.name.startsWith("share:")) {
       const channel = row.name.slice("share:".length) as ShareChannel

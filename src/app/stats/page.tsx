@@ -80,7 +80,7 @@ export default async function StatsPage() {
   const [today, yesterday] = [days[0]!, days[1]!]
   const week = days.slice(0, 7)
   const sum = (pick: (day: DayStats) => number, list = week) => list.reduce((total, day) => total + pick(day), 0)
-  const maxRolls = Math.max(...days.map((day) => day.rolls + day.practice), 1)
+  const maxRolls = Math.max(...days.map((day) => day.rolls), 1)
   const channels = SHARE_CHANNELS.map((channel) => ({ channel, count: sum((day) => day.channels[channel]) })).sort(
     (left, right) => right.count - left.count,
   )
@@ -103,9 +103,8 @@ export default async function StatsPage() {
 
           <Section title="Today">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Tile label="Leaderboard rolls" today={today.rolls} yesterday={yesterday.rolls} hint={`${n(today.playerRolls)} players · ${n(today.guestRolls)} guests`} />
+              <Tile label="Rolls" today={today.rolls} yesterday={yesterday.rolls} hint={`${n(today.playerRolls)} players · ${n(today.guestRolls)} guests`} />
               <Tile label="People who rolled" today={today.players + today.guests} yesterday={yesterday.players + yesterday.guests} hint={`${n(today.players)} logged in · ${n(today.guests)} guests`} />
-              <Tile label="Practice rolls" today={today.practice} yesterday={yesterday.practice} />
               <Tile label="New sign-ups" today={today.signups} yesterday={yesterday.signups} hint={`${n(today.named)} picked a username`} />
               <Tile label="Shares" today={today.shares} yesterday={yesterday.shares} />
               <Tile
@@ -151,7 +150,7 @@ export default async function StatsPage() {
             </ul>
           </Section>
 
-          <Section title="Last 14 days" note="Bar: leaderboard rolls (solid) and practice rolls (faint).">
+          <Section title="Last 14 days">
             <div className="overflow-x-auto rounded-2xl border border-border">
               <table className="w-full min-w-[42rem] text-sm">
                 <thead className="bg-secondary/60 text-left text-xs text-muted-foreground">
@@ -160,7 +159,6 @@ export default async function StatsPage() {
                     <th className="px-3 py-2 font-medium">Rolls</th>
                     <th className="w-40 px-3 py-2 font-medium" />
                     <th className="px-3 py-2 text-right font-medium">People</th>
-                    <th className="px-3 py-2 text-right font-medium">Practice</th>
                     <th className="px-3 py-2 text-right font-medium">Sign-ups</th>
                     <th className="px-3 py-2 text-right font-medium">Shares</th>
                     <th className="px-3 py-2 text-right font-medium">Link visits</th>
@@ -175,11 +173,9 @@ export default async function StatsPage() {
                       <td className="px-3 py-2">
                         <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
                           <div className="h-full bg-primary" style={{ width: `${(day.rolls / maxRolls) * 100}%` }} />
-                          <div className="h-full bg-primary/30" style={{ width: `${(day.practice / maxRolls) * 100}%` }} />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right">{n(day.players + day.guests)}</td>
-                      <td className="px-3 py-2 text-right">{n(day.practice)}</td>
                       <td className="px-3 py-2 text-right">{n(day.signups)}</td>
                       <td className="px-3 py-2 text-right">{n(day.shares)}</td>
                       <td className="px-3 py-2 text-right">{n(day.sharedViews)}</td>

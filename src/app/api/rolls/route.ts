@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   if (!account) {
-    // Guests: one leaderboard roll per browser per UTC day, then practice rolls that aren't saved.
+    // Guests: one roll per browser per UTC day. Asking again returns the same word.
     const existing = jar.get(GUEST_COOKIE)?.value
     const guestSecret = existing && /^[A-Za-z0-9_-]{20,64}$/.test(existing) ? existing : newGuestSecret()
     let guest: Awaited<ReturnType<typeof saveGuestRoll>>
@@ -61,14 +61,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: detail }, { status: 500 })
     }
     if ("error" in guest) return NextResponse.json({ error: guest.error }, { status: 400 })
-    if (guest.practice) await countQuietly(db, "practice_roll")
-    else if (fromShare) await countQuietly(db, "shared_link_roll")
+    if (guest.created && fromShare) await countQuietly(db, "shared_link_roll")
     const response = NextResponse.json({
       word: guest.roll.word,
       score: guest.roll.score,
       playedAt: guest.roll.playedAt,
       created: guest.created,
-      practice: guest.practice,
       scored: scoreWord(guest.roll.word),
     })
     if (guestSecret !== existing) {
@@ -107,7 +105,7 @@ export async function POST(request: Request) {
 }
 
 /** A stats count must never get in the way of a roll. */
-async function countQuietly(db: Awaited<ReturnType<typeof appDb>>, name: "practice_roll" | "shared_link_roll") {
+async function countQuietly(db: Awaited<ReturnType<typeof appDb>>, name: "shared_link_roll") {
   try {
     await bumpCounter(db, name)
   } catch {

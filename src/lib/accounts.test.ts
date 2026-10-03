@@ -535,16 +535,18 @@ test("devices are described for the login confirm screen", () => {
   assert.equal(describeDevice(null), "A browser")
 })
 
-test("a guest browser gets one leaderboard roll a day, then practice rolls", async () => {
+test("a guest browser gets one roll a day, and asking again returns the same word", async () => {
   const db = databaseFromSqlite(openDatabase(":memory:"))
   await migrateRolls(db)
   const now = Date.parse("2026-10-02T12:00:00.000Z")
   let n = 0
   const draw = () => ({ word: ["salt", "quiz", "otto"][n++ % 3]!, score: String(100 + n) })
   const first = await saveGuestRoll(db, "guest-secret-aaaaaaaaaaaaaaaa", now, draw)
-  assert.ok(!("error" in first) && first.created && !first.practice)
+  assert.ok(!("error" in first) && first.created)
   const second = await saveGuestRoll(db, "guest-secret-aaaaaaaaaaaaaaaa", now + 1000, draw)
-  assert.ok(!("error" in second) && !second.created && second.practice)
+  assert.ok(!("error" in second) && !second.created)
+  // The same word as the first roll, not a new deal.
+  assert.ok(!("error" in first) && !("error" in second) && second.roll.word === first.roll.word && second.roll.score === first.roll.score)
   // Another browser still gets its own leaderboard roll.
   const other = await saveGuestRoll(db, "guest-secret-bbbbbbbbbbbbbbbb", now + 2000, draw)
   assert.ok(!("error" in other) && other.created)
