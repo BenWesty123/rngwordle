@@ -39,7 +39,53 @@ export function randomWord(words: readonly string[]): string {
   return words[value % words.length] ?? words[0]!;
 }
 
-export function flickerWord(length: number): string {
+/**
+ * Dictionary length weights (same counts as scoring's LENGTH_COUNTS).
+ * The bag draws a length from these so the shake doesn't give away the roll.
+ */
+const FLICKER_LENGTH_WEIGHTS: ReadonlyArray<readonly [number, number]> = [
+  [2, 96],
+  [3, 968],
+  [4, 3891],
+  [5, 8621],
+  [6, 15219],
+  [7, 23096],
+  [8, 28413],
+  [9, 24870],
+  [10, 20300],
+  [11, 15504],
+  [12, 11358],
+  [13, 7827],
+  [14, 5127],
+  [15, 3192],
+  [16, 1943],
+  [17, 1127],
+  [18, 594],
+  [19, 329],
+  [20, 160],
+  [21, 62],
+  [22, 30],
+  [23, 13],
+  [24, 9],
+  [25, 2],
+  [27, 2],
+  [28, 1],
+];
+
+const FLICKER_LENGTH_SPAN = FLICKER_LENGTH_WEIGHTS.reduce((sum, [, count]) => sum + count, 0);
+
+/** A length the bag might deal, weighted like the dictionary. */
+export function randomFlickerLength(): number {
+  let pick = Math.floor(Math.random() * FLICKER_LENGTH_SPAN);
+  for (const [length, count] of FLICKER_LENGTH_WEIGHTS) {
+    if (pick < count) return length;
+    pick -= count;
+  }
+  return 8;
+}
+
+/** Random letters. Omit length to also draw a random dictionary length. */
+export function flickerWord(length = randomFlickerLength()): string {
   const glyphs = "abcdefghijklmnopqrstuvwxyz";
   let word = "";
   const size = Math.max(2, length);

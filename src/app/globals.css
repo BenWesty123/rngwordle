@@ -297,20 +297,16 @@
 
 @keyframes stamp {
   0% {
-    transform: scale(2.6) rotate(-18deg);
+    transform: scale(2.6);
     opacity: 0;
   }
   55% {
-    transform: scale(0.88) rotate(2deg);
+    transform: scale(0.88);
     opacity: 1;
   }
   100% {
-    transform: rotate(-6deg);
+    transform: none;
   }
-}
-
-.stamp {
-  transform: rotate(-6deg);
 }
 
 .stamp-in {

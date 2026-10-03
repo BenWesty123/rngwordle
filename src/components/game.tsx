@@ -78,10 +78,10 @@ export function Game() {
   }, [copied]);
 
   /** Shuffle the tiles before the reveal. A short settle when the bag already shook while dealing. */
-  function startSpin(word: string, frames = 14) {
+  function startSpin(frames = 14) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
-    setSpinWord(flickerWord(word.length));
+    setSpinWord(flickerWord());
     let frame = 0;
     spinTimer.current = window.setInterval(() => {
       frame += 1;
@@ -91,7 +91,7 @@ export function Game() {
         setSpinWord(null);
         return;
       }
-      setSpinWord(flickerWord(word.length));
+      setSpinWord(flickerWord());
     }, 45);
   }
 
@@ -133,7 +133,7 @@ export function Game() {
       setReplayKey((key) => key + 1);
       setCopied(false);
       setCopyError(false);
-      startSpin(body.word, performance.now() - startedAt >= 500 ? 6 : 14);
+      startSpin(performance.now() - startedAt >= 500 ? 6 : 14);
     } catch {
       setDealt(false);
       setRollError("That roll didn't save.");
@@ -212,7 +212,7 @@ export function Game() {
             </Button>
           </div>
         ) : dealing ? (
-          <ShakingBag length={roll?.word.length ?? 8} label="Shaking the bag…" />
+          <ShakingBag label="Shaking the bag…" />
         ) : roll && scored && standing ? (
           <>
             {account.status === "needs-name" ? <UsernameForm compact /> : null}
@@ -238,7 +238,7 @@ export function Game() {
             </Button>
           </div>
         ) : roll ? (
-          <ShakingBag length={roll.word.length} label="Finding your roll…" />
+          <ShakingBag label="Finding your roll…" />
         ) : dealt ? (
           <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
             Dealing…
@@ -257,24 +257,24 @@ export function Game() {
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
 
 /**
- * Rattling tiles while the server deals or a saved roll loads. Laid out like the
- * reveal's own shuffle, so the hand-over to the real word doesn't jump.
+ * Rattling tiles while the server deals or a saved roll loads. Each frame draws
+ * a new length, so the row stays up without giving away the word.
  */
-function ShakingBag({ length, label }: { length: number; label: string }) {
+function ShakingBag({ label }: { label: string }) {
   const reduce = useReducedMotion();
-  const [letters, setLetters] = useState(() => flickerWord(length));
+  const [letters, setLetters] = useState(() => flickerWord());
   useEffect(() => {
     if (reduce) return;
-    const id = window.setInterval(() => setLetters(flickerWord(length)), 45);
+    const id = window.setInterval(() => setLetters(flickerWord()), 45);
     return () => window.clearInterval(id);
-  }, [length, reduce]);
+  }, [reduce]);
   return (
     <div className="flex flex-1 flex-col pt-2" role="status">
       <h1 className="text-center text-sm text-muted-foreground">{label}</h1>
       {reduce ? null : (
         <ul aria-hidden className="mt-4 flex flex-wrap justify-center gap-1.5">
           {tilesFor(letters).map((tile, index) => (
-            <TileBox key={index} tile={tile} length={length} shaking />
+            <TileBox key={index} tile={tile} length={letters.length} shaking />
           ))}
         </ul>
       )}
@@ -537,7 +537,9 @@ function ScoreReveal({
   const tilesRef = useRef(scored.tiles);
   const wordRef = useRef(scored.word);
   const reduce = useReducedMotion();
-  const [letters, setLetters] = useState(0);
+  // Start on the first letter so the shuffle hands off to a visible tile. The
+  // interval used to wait a full step, and the row went blank in between.
+  const [letters, setLetters] = useState(1);
   const [shown, setShown] = useState(0);
   const [settled, setSettled] = useState(0);
   const [display, setDisplay] = useState(0);
@@ -566,18 +568,20 @@ function ScoreReveal({
     const tiles = tilesRef.current;
     if (tiles.length === 0) return;
     let heard = 0;
-    const id = window.setInterval(() => {
+    const revealNext = () => {
       const pile = tilesRef.current;
-      if (heard >= pile.length) {
-        window.clearInterval(id);
-        return;
-      }
+      if (heard >= pile.length) return false;
       const tile = pile[heard];
       const runningBefore = pile.slice(0, heard).reduce((sum, item) => sum + item.value, 0);
       if (tile) playLetterPoints(tile.value, runningBefore);
       heard += 1;
       setLetters(heard);
-      if (heard >= pile.length) window.clearInterval(id);
+      return heard < pile.length;
+    };
+    // The first letter is already on screen. Sound it now, then keep the same step.
+    revealNext();
+    const id = window.setInterval(() => {
+      if (!revealNext()) window.clearInterval(id);
     }, TILE_REVEAL_MS);
     return () => {
       window.clearInterval(id);
@@ -693,7 +697,7 @@ function ScoreReveal({
             key={`${tile.letter}-${index}`}
             tile={tile}
             length={scored.length}
-            fresh={index === visibleLetters - 1 && !baseDone}
+            fresh={index === visibleLetters - 1 && visibleLetters > 1 && !baseDone}
           />
         ))}
       </ul>
@@ -702,7 +706,7 @@ function ScoreReveal({
       <div className="mt-5 text-center">
         <p className="sr-only">Score</p>
         <div className="relative inline-block">
-          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-mono tabular-nums leading-none", scoreSize(display))}>
+          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-mono font-bold tabular-nums leading-none", scoreSize(display))}>
             {display.toLocaleString("en-US")}
           </p>
           {done && !reduce ? <SparkleBurst tier={finalTier} /> : null}
@@ -824,17 +828,20 @@ function MultiplierCard({
           New card!
         </span>
       ) : null}
-      {rarity ? (
-        <span
-          aria-hidden
-          className={cn(
-            "stamp absolute -top-3 right-3 rounded-md border-2 bg-background px-2 py-0.5 font-mono text-lg leading-none font-bold tabular-nums",
-            RARITY_STAMP[rarity],
-            featured && "stamp-in",
-          )}
-        >
-          ×{row.points}
-        </span>
+      {rarity && row.points != null ? (
+        <div className="absolute -top-3 right-3 flex items-center gap-1.5">
+          <FactorBadge points={row.points} />
+          <span
+            aria-hidden
+            className={cn(
+              "rounded-md border-2 bg-background px-2 py-0.5 font-mono text-lg leading-none font-bold tabular-nums",
+              RARITY_STAMP[rarity],
+              featured && "stamp-in",
+            )}
+          >
+            ×{row.points}
+          </span>
+        </div>
       ) : null}
       <ul className="flex flex-wrap justify-center gap-1.5" aria-label={`${row.name} tiles`}>
         {tiles.map((tile, index) => (
@@ -848,12 +855,7 @@ function MultiplierCard({
           />
         ))}
       </ul>
-      <p className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
-        <span className={featured ? "text-base" : "text-sm"}>{row.name}</span>
-        {row.points != null && row.points > 1 ? (
-          <FactorBadge points={row.points} />
-        ) : null}
-      </p>
+      <p className={cn("mt-3 text-center", featured ? "text-base" : "text-sm")}>{row.name}</p>
       {row.reason ? (
         <p className="mt-1 text-center text-sm leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
       ) : null}
@@ -866,7 +868,7 @@ function FactorBadge({ points }: { points: number }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium",
+        "inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-xs leading-none font-medium",
         RARITY_BADGE[label],
       )}
       data-rarity={label}
