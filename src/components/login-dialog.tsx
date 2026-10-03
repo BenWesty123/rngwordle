@@ -233,6 +233,12 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
                 </span>
                 Waiting for you to tap the link…
               </p>
+              <div className="mt-4 rounded-lg border border-border bg-secondary/60 px-3.5 py-3 text-sm text-pretty">
+                <p className="font-medium text-foreground">Can&apos;t see it?</p>
+                <p className="mt-1 text-muted-foreground">
+                  Check your spam or junk folder. If it&apos;s there, mark it as not spam so future emails arrive normally.
+                </p>
+              </div>
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -245,7 +251,7 @@ export function LoginDialogProvider({ children }: { children: ReactNode }) {
                 </Button>
                 <DialogClose render={<Button variant="outline" className="h-12 text-base" />}>Close</DialogClose>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">Not there? Check spam, or resend. You can close this; it still logs in.</p>
+              <p className="mt-3 text-xs text-muted-foreground">You can close this. It still logs in when you tap the link.</p>
             </div>
           ) : (
             <form className="grid gap-4" noValidate onSubmit={(event) => void onSubmit(event)}>
