@@ -1,6 +1,13 @@
 import type { Tile } from "@/lib/tiles";
 import { cn } from "@/lib/utils";
 
+/** Shared with the empty slots that hold a short word in the fixed track. */
+export function tileSizeClass(length: number, small = false): string {
+  if (length > 16) return "h-8 w-7 text-base";
+  if (small) return "h-9 w-7 text-lg sm:w-8";
+  return "h-11 w-9 text-xl sm:h-12 sm:w-10 sm:text-2xl";
+}
+
 /** One Scrabble tile. No hooks, so the leaderboard can render it on the server. */
 export function TileBox({
   tile,
@@ -11,6 +18,7 @@ export function TileBox({
   shaking = false,
   small = false,
   dropDelay,
+  concealed = false,
 }: {
   tile: Tile;
   length: number;
@@ -22,12 +30,15 @@ export function TileBox({
   small?: boolean;
   /** Stagger for a row that drops in all at once, in ms. */
   dropDelay?: number;
+  /** Flicker glyphs that haven't resolved into the word yet. */
+  concealed?: boolean;
 }) {
   return (
     <li
+      aria-hidden={concealed || undefined}
       className={cn(
-        "tile-face relative flex items-center justify-center rounded-[5px] font-display uppercase transition-[transform,opacity,filter] duration-300",
-        length > 16 ? "h-8 w-7 text-base" : small ? "h-9 w-7 text-lg sm:w-8" : "h-11 w-9 text-xl sm:h-12 sm:w-10 sm:text-2xl",
+        "tile-face relative flex items-center justify-center rounded-[5px] font-display uppercase transition-[opacity,filter] duration-300",
+        tileSizeClass(length, small),
         tile.rare && "tile-rare",
         tile.twin && "ring-2 ring-[oklch(0.5_0.07_58/0.35)] ring-inset",
         lit && "tile-lit",
