@@ -20,6 +20,8 @@
       "allowed_sender_addresses": ["login@rwgdle.app"]
     }
   ],
+  // Smart Placement: Cloudflare may run the Worker near the D1 database, so a roll's several queries don't each cross the world.
+  "placement": { "mode": "smart" },
   // Workers Logs: errors and requests show under the Worker's Observability tab.
   "observability": { "enabled": true },
   // Usernames allowed to open rwgdle.app/stats, comma-separated.
