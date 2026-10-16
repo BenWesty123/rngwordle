@@ -14,7 +14,6 @@
  * Sound-word tags still come from Webster's 1913 dictionary.
  */
 
-import alphabetTwinGroups from "@/data/alphabet-twins.json";
 import enableWordsText from "@/data/enable-words.json";
 import shrinkingChains from "@/data/shrinking-chains.json";
 import wordFacts from "@/data/word-facts.json";
@@ -22,16 +21,39 @@ import { RARE_LETTERS, tilesFor, twinPositions, type LedgerRow, type ScoredWord 
 
 export { formatRowValue, TILE_VALUES, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
 
-const ENABLE_WORDS = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
 const SHRINKING_CHAINS = Object.assign(Object.create(null), shrinkingChains) as Record<string, string>;
-const ALPHABET_TWINS = nullPrototypeGroups(alphabetTwinGroups as Record<string, Record<string, string[]>>);
 
-const ANAGRAM_GROUPS = new Map<string, string[]>();
-for (const word of ENABLE_WORDS) {
-  const key = [...word].sort().join("");
-  const group = ANAGRAM_GROUPS.get(key);
-  if (group) group.push(word);
-  else ANAGRAM_GROUPS.set(key, [word]);
+type EnableIndex = { set: Set<string>; words: string[]; masks: Uint32Array };
+let enableIndex: EnableIndex | null = null;
+
+/**
+ * The ENABLE list, built on first use so a fresh Worker only pays for it when it scores a word.
+ * Each word keeps a bit mask of its distinct letters, so anagrams and alphabet twins
+ * are a quick scan instead of prebuilt groups.
+ */
+function enable(): EnableIndex {
+  if (enableIndex) return enableIndex;
+  const set = new Set((enableWordsText as string).split("\n").filter((word) => word.length > 0));
+  const words = [...set];
+  const masks = new Uint32Array(words.length);
+  for (let index = 0; index < words.length; index += 1) masks[index] = letterMask(words[index]!);
+  enableIndex = { set, words, masks };
+  return enableIndex;
+}
+
+function isEnableWord(word: string): boolean {
+  return enable().set.has(word);
+}
+
+/** One bit per distinct letter a–z. */
+function letterMask(word: string): number {
+  let mask = 0;
+  for (let index = 0; index < word.length; index += 1) mask |= 1 << (word.charCodeAt(index) - 97);
+  return mask >>> 0;
+}
+
+function sortedLetters(word: string): string {
+  return [...word].sort().join("");
 }
 
 const WORD_FACT_TAGS = wordFacts.words as Record<string, string[]>;
@@ -218,7 +240,7 @@ export function stackThreshold(id: StackedFactorId): number {
 /**
  * Multiplier for a consonant run of this length. Built from how many ENABLE
  * words have a run at least this long, then raised where two lengths tied, and
- * raised to RARITY_POWER like every other card.
+ * raised to RARITY_POWER like every other card.
  * A run of 1 does not score.
  */
 export const CONSONANT_CHAIN_MULTIPLIERS: Record<number, number> = {
@@ -1222,15 +1244,15 @@ function neighbourCount(word: string): number {
     const suffix = word.slice(index);
     for (const letter of EDIT_ALPHABET) {
       const inserted = prefix + letter + suffix;
-      if (ENABLE_WORDS.has(inserted)) found.add(inserted);
+      if (isEnableWord(inserted)) found.add(inserted);
       if (index < word.length && letter !== word[index]) {
         const swapped = prefix + letter + word.slice(index + 1);
-        if (ENABLE_WORDS.has(swapped)) found.add(swapped);
+        if (isEnableWord(swapped)) found.add(swapped);
       }
     }
     if (index < word.length) {
       const deleted = prefix + word.slice(index + 1);
-      if (deleted.length > 0 && ENABLE_WORDS.has(deleted)) found.add(deleted);
+      if (deleted.length > 0 && isEnableWord(deleted)) found.add(deleted);
     }
   }
   found.delete(word);
@@ -1369,7 +1391,7 @@ export function buildingBlockRun(word: string): string[] | null {
   const prefixes: string[] = [];
   for (let length = 1; length <= word.length; length += 1) {
     const prefix = word.slice(0, length);
-    if (ENABLE_WORDS.has(prefix)) prefixes.push(prefix);
+    if (isEnableWord(prefix)) prefixes.push(prefix);
   }
   let best: string[] | null = null;
   let current: string[] = [];
@@ -1392,7 +1414,7 @@ export function wovenWords(word: string): { odd: string; even: string } | null {
     else even += word[index] ?? "";
   }
   if (odd.length < 2 || even.length < 2) return null;
-  if (!ENABLE_WORDS.has(odd) || !ENABLE_WORDS.has(even)) return null;
+  if (!isEnableWord(odd) || !isEnableWord(even)) return null;
   return { odd, even };
 }
 
@@ -1412,10 +1434,10 @@ export function doubleOrNothingHits(word: string): DoubleOrNothingHit[] {
     if (run === 1) {
       const letter = word[index] ?? "";
       const longer = word.slice(0, index) + letter + letter + word.slice(end);
-      if (ENABLE_WORDS.has(longer)) hits.push({ highlight: [index], word: longer });
+      if (isEnableWord(longer)) hits.push({ highlight: [index], word: longer });
     } else if (run === 2) {
       const shorter = word.slice(0, index) + word[index] + word.slice(end);
-      if (ENABLE_WORDS.has(shorter)) hits.push({ highlight: [index, index + 1], word: shorter });
+      if (isEnableWord(shorter)) hits.push({ highlight: [index, index + 1], word: shorter });
     }
     index = end;
   }
@@ -1437,7 +1459,7 @@ export function alphabetStepHits(word: string): AlphabetStepHit[] {
       const stepped = letters.slice();
       stepped[index] = String.fromCharCode(nextCode);
       const next = stepped.join("");
-      if (next === word || !ENABLE_WORDS.has(next)) continue;
+      if (next === word || !isEnableWord(next)) continue;
       hits.push({ index, word: next });
     }
   }
@@ -1458,7 +1480,7 @@ export function swapShopHits(word: string): SwapShopHit[] {
     swapped[index] = right;
     swapped[index + 1] = left;
     const next = swapped.join("");
-    if (next === word || !ENABLE_WORDS.has(next)) continue;
+    if (next === word || !isEnableWord(next)) continue;
     hits.push({ index, word: next });
   }
   return hits;
@@ -1567,7 +1589,7 @@ function isLonelyWord(word: string): boolean {
   if (word.length > 1) {
     for (let index = 0; index < word.length; index += 1) {
       const deleted = word.slice(0, index) + word.slice(index + 1);
-      if (deleted.length > 0 && ENABLE_WORDS.has(deleted)) return false;
+      if (deleted.length > 0 && isEnableWord(deleted)) return false;
     }
   }
   for (let index = 0; index < word.length; index += 1) {
@@ -1575,50 +1597,54 @@ function isLonelyWord(word: string): boolean {
     const suffix = word.slice(index + 1);
     for (const letter of EDIT_ALPHABET) {
       if (letter === word[index]) continue;
-      if (ENABLE_WORDS.has(prefix + letter + suffix)) return false;
+      if (isEnableWord(prefix + letter + suffix)) return false;
     }
   }
   for (let index = 0; index <= word.length; index += 1) {
     const prefix = word.slice(0, index);
     const suffix = word.slice(index);
     for (const letter of EDIT_ALPHABET) {
-      if (ENABLE_WORDS.has(prefix + letter + suffix)) return false;
+      if (isEnableWord(prefix + letter + suffix)) return false;
     }
   }
   return true;
 }
 
 export function anagramsOf(word: string): string[] {
-  const group = ANAGRAM_GROUPS.get([...word].sort().join("")) ?? [];
-  return group.filter((other) => other !== word);
+  const { words, masks } = enable();
+  const mask = letterMask(word);
+  const key = sortedLetters(word);
+  const anagrams: string[] = [];
+  for (let index = 0; index < words.length; index += 1) {
+    if (masks[index] !== mask) continue;
+    const other = words[index]!;
+    if (other.length === word.length && other !== word && sortedLetters(other) === key) anagrams.push(other);
+  }
+  return anagrams;
 }
 
 export function insideHits(word: string): string[] {
   return insideSlices(word).map((hit) => hit.text);
 }
 
-function nullPrototypeGroups(
-  groups: Record<string, Record<string, string[]>>,
-): Record<string, Record<string, string[]>> {
-  const outer = Object.create(null) as Record<string, Record<string, string[]>>;
-  for (const setKey of Object.keys(groups)) {
-    outer[setKey] = Object.assign(Object.create(null), groups[setKey]) as Record<string, string[]>;
-  }
-  return outer;
-}
-
+/**
+ * ENABLE words with the same distinct letters in different amounts. Like the old
+ * prebuilt groups, there are none unless the list itself has two or more letter counts for that set.
+ */
 function alphabetTwinPartners(word: string): string[] | null {
-  const letters = [...word];
-  const setKey = [...new Set(letters)].sort().join("");
-  const countKey = letters.slice().sort().join("");
-  const group = ALPHABET_TWINS[setKey];
-  if (!group) return null;
+  const { words, masks } = enable();
+  const mask = letterMask(word);
+  const countKey = sortedLetters(word);
+  const counts = new Set<string>();
   const partners: string[] = [];
-  for (const key of Object.keys(group)) {
-    if (key === countKey) continue;
-    partners.push(...(group[key] ?? []));
+  for (let index = 0; index < words.length; index += 1) {
+    if (masks[index] !== mask) continue;
+    const other = words[index]!;
+    const otherKey = sortedLetters(other);
+    counts.add(otherKey);
+    if (otherKey !== countKey) partners.push(other);
   }
-  if (partners.length === 0) return null;
+  if (counts.size < 2 || partners.length === 0) return null;
   partners.sort();
   return partners;
 }
@@ -1632,7 +1658,7 @@ function formatAlphabetTwins(partners: string[]): string {
 function insideOut(word: string): string | null {
   if (word.length < 2) return null;
   const rotated = word.slice(1) + word[0];
-  if (rotated === word || !ENABLE_WORDS.has(rotated)) return null;
+  if (rotated === word || !isEnableWord(rotated)) return null;
   return rotated;
 }
 
@@ -1640,14 +1666,14 @@ function frontOrBack(word: string): { withoutFirst: string; withoutLast: string 
   if (word.length < 2) return null;
   const withoutFirst = word.slice(1);
   const withoutLast = word.slice(0, -1);
-  if (!ENABLE_WORDS.has(withoutFirst) || !ENABLE_WORDS.has(withoutLast)) return null;
+  if (!isEnableWord(withoutFirst) || !isEnableWord(withoutLast)) return null;
   return { withoutFirst, withoutLast };
 }
 
 function letterSandwich(word: string): string | null {
   if (word.length < 5) return null;
   const middle = word.slice(1, -1);
-  if (middle.length < 3 || !ENABLE_WORDS.has(middle)) return null;
+  if (middle.length < 3 || !isEnableWord(middle)) return null;
   return middle;
 }
 
@@ -1657,7 +1683,7 @@ function insideSlices(word: string): Array<{ text: string; start: number }> {
     for (let end = word.length; end >= start + 3; end -= 1) {
       if (start === 0 && end === word.length) continue;
       const text = word.slice(start, end);
-      if (ENABLE_WORDS.has(text)) hits.push({ text, start });
+      if (isEnableWord(text)) hits.push({ text, start });
     }
   }
   return hits;
