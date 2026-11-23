@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LeaderboardWord } from "@/components/leaderboard-word"
 import { LoginPrompt } from "@/components/login-dialog"
 import { SiteHeader } from "@/components/site-header"
 import { TileBox } from "@/components/tile"
@@ -108,11 +109,11 @@ function RollPodium({ rows, me }: { rows: BoardRow[]; me: string | null }) {
     <div className="mt-8 flex flex-col gap-3">
       <article className={cn("relative rounded-3xl border bg-card px-5 pt-8 pb-6 text-center", MEDALS[0].card)}>
         <Medal place={0} className="absolute -top-4 left-1/2 size-10 -translate-x-1/2" />
-        <ul className="flex flex-wrap justify-center gap-1" aria-label={first.word}>
+        <LeaderboardWord word={first.word} className="inline-flex flex-wrap justify-center gap-1 align-top hover:opacity-80">
           {tiles.map((tile, index) => (
-            <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} small />
+            <TileBox key={`${tile.letter}-${index}`} as="span" tile={tile} length={tiles.length} small concealed />
           ))}
-        </ul>
+        </LeaderboardWord>
         <p className="mt-5 font-mono text-4xl leading-none tabular-nums sm:text-5xl">{formatScore(first.score)}</p>
         <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <TierBadge score={first.score} />
@@ -127,7 +128,7 @@ function RollPodium({ rows, me }: { rows: BoardRow[]; me: string | null }) {
           {rest.map((row, index) => (
             <article key={`${row.rank}-${row.word}`} className={cn("relative rounded-2xl border bg-card px-4 pt-6 pb-4 text-center", MEDALS[index + 1]!.card)}>
               <Medal place={index + 1} className="absolute -top-4 left-1/2 -translate-x-1/2" />
-              <p className="font-display text-2xl leading-tight tracking-tight break-words italic">{row.word}</p>
+              <LeaderboardWord word={row.word} className="max-w-full font-display text-2xl leading-tight tracking-tight break-words italic underline decoration-border underline-offset-4 hover:decoration-current" />
               <p className="mt-2 font-mono text-xl tabular-nums">{formatScore(row.score)}</p>
               <p className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
                 <TierBadge score={row.score} small />
@@ -326,7 +327,7 @@ export default async function LeaderboardPage({
                     <li key={`${row.rank}-${row.username}-${row.word}`} className={rowClass(me === row.username)}>
                       <span className="text-center font-mono text-sm text-muted-foreground tabular-nums">{row.rank}</span>
                       <span className="min-w-0">
-                        <span className="block truncate font-display text-xl leading-tight tracking-tight italic">{row.word}</span>
+                        <LeaderboardWord word={row.word} className="block max-w-full truncate text-left font-display text-xl leading-tight tracking-tight italic underline decoration-border underline-offset-4 hover:decoration-current" />
                         <span className="block truncate text-xs text-muted-foreground">
                           {row.username}
                           {me === row.username ? <YouChip /> : null}
