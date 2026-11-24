@@ -1,7 +1,9 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { CardRarityPill } from "@/components/card-rarity-pill"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { cardRarity } from "@/lib/card-rarity"
 import { retryScore, useScored } from "@/lib/score-client"
 import { formatRowValue } from "@/lib/tiles"
 import { cn } from "@/lib/utils"
@@ -54,9 +56,12 @@ function TriggeredCards({ word }: { word: string }) {
         <ul className="grid gap-2">
           {cards.map((card, index) => (
             <li key={`${card.id}-${index}`} className="rounded-lg border border-border bg-card p-3">
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span className="font-medium">{card.name}</span>
-                <span className="shrink-0 font-mono text-foreground tabular-nums">{formatRowValue(card)}</span>
+                <div className="flex items-center gap-2">
+                  {card.points !== null ? <CardRarityPill rarity={cardRarity(card.points)} /> : null}
+                  <span className="shrink-0 font-mono text-foreground tabular-nums">{formatRowValue(card)}</span>
+                </div>
               </div>
               {card.reason ? <p className="mt-1 text-muted-foreground">{card.reason}</p> : null}
             </li>

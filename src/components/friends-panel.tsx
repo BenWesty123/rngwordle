@@ -1,5 +1,7 @@
 "use client"
 
+import { PlayerLink } from "@/components/player-link"
+
 import { useState, type FormEvent, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -55,7 +57,7 @@ export function FriendsPanel({ list }: { list: FriendList }) {
 
   return (
     <>
-      <form className="mt-8 max-w-md" onSubmit={(event) => void onRequest(event)}>
+      <form className="mt-8" onSubmit={(event) => void onRequest(event)}>
         <label className="block text-sm text-foreground" htmlFor="friend-username">
           Username
         </label>
@@ -150,7 +152,7 @@ function RequestList({
         <ul className="mt-3">
           {rows.map((row) => (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
-              <span className="text-sm text-foreground">{row.username}</span>
+              <PlayerLink username={row.username} className="text-sm text-foreground" />
               {children(row)}
             </li>
           ))}

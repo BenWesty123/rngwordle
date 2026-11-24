@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { LeaderboardWord } from "@/components/leaderboard-word"
+import { PlayerLink } from "@/components/player-link"
 import { LoginPrompt } from "@/components/login-dialog"
 import { SiteHeader } from "@/components/site-header"
 import { TileBox } from "@/components/tile"
@@ -27,6 +28,7 @@ const ROLL_VIEWS: Array<{ id: BoardView; label: string; empty: string; note: str
 const TOTAL_VIEWS: Array<{ id: TotalsView; label: string; empty: string; note: string }> = [
   { id: "week", label: "This week", empty: "No totals this week.", note: "Monday 00:00 UTC through now." },
   { id: "month", label: "This month", empty: "No totals this month.", note: "This calendar month, UTC." },
+  { id: "all", label: "All time", empty: "No totals yet.", note: "Every saved roll." },
 ]
 
 const MEDALS = [
@@ -118,7 +120,7 @@ function RollPodium({ rows, me }: { rows: BoardRow[]; me: string | null }) {
         <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <TierBadge score={first.score} />
           <span>
-            by <span className="text-foreground">{first.username}</span>
+            by <PlayerLink username={first.username} className="text-foreground" />
             {me === first.username ? <YouChip /> : null}
           </span>
         </p>
@@ -133,7 +135,7 @@ function RollPodium({ rows, me }: { rows: BoardRow[]; me: string | null }) {
               <p className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
                 <TierBadge score={row.score} small />
                 <span>
-                  by <span className="text-foreground">{row.username}</span>
+                  by <PlayerLink username={row.username} className="text-foreground" />
                   {me === row.username ? <YouChip /> : null}
                 </span>
               </p>
@@ -159,7 +161,7 @@ function TotalsPodium({ rows, me }: { rows: TotalsRow[]; me: string | null }) {
         >
           <Medal place={index} className="absolute -top-4 left-1/2 -translate-x-1/2" />
           <p className={cn("truncate text-foreground", index === 0 ? "text-xl" : "text-base")}>
-            {row.username}
+            <PlayerLink username={row.username} />
             {me === row.username ? <YouChip /> : null}
           </p>
           <p className={cn("mt-2 font-mono leading-none tabular-nums", index === 0 ? "text-3xl" : "text-2xl")}>{formatScore(row.score)}</p>
@@ -309,7 +311,7 @@ export default async function LeaderboardPage({
                     <li key={`${row.rank}-${row.username}`} className={rowClass(me === row.username)}>
                       <span className="text-center font-mono text-sm text-muted-foreground tabular-nums">{row.rank}</span>
                       <span className="min-w-0 truncate text-base text-foreground">
-                        {row.username}
+                        <PlayerLink username={row.username} />
                         {me === row.username ? <YouChip /> : null}
                       </span>
                       <span className="font-mono text-sm text-foreground tabular-nums">{formatScore(row.score)}</span>
@@ -329,7 +331,7 @@ export default async function LeaderboardPage({
                       <span className="min-w-0">
                         <LeaderboardWord word={row.word} className="block max-w-full truncate text-left font-display text-xl leading-tight tracking-tight italic underline decoration-border underline-offset-4 hover:decoration-current" />
                         <span className="block truncate text-xs text-muted-foreground">
-                          {row.username}
+                          <PlayerLink username={row.username} />
                           {me === row.username ? <YouChip /> : null}
                         </span>
                       </span>

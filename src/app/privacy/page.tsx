@@ -51,7 +51,7 @@ export default function PrivacyPage() {
             <p>
               RWGdle stores your <strong className="text-foreground">email address</strong>, used only to send you login
               links, and the <strong className="text-foreground">username</strong> you pick, which is shown publicly on
-              leaderboards. Your email is never shown to other players.
+              leaderboards. Other players can open your public roll history from your username. Your email is never shown to other players.
             </p>
             <p>
               It also stores your daily rolls (the word, score, and time), your friend requests and friends, and a login

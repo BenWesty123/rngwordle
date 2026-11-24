@@ -35,7 +35,7 @@ export type BoardRow = {
   score: string
 }
 
-export type TotalsView = "week" | "month"
+export type TotalsView = Exclude<BoardView, "today">
 
 export type TotalsRow = {
   rank: number
@@ -91,7 +91,7 @@ export function parseBoardView(value: string | undefined): BoardView {
 }
 
 export function parseTotalsView(value: string | undefined): TotalsView {
-  if (value === "month") return "month"
+  if (value === "month" || value === "all") return value
   return "week"
 }
 
@@ -694,4 +694,27 @@ export async function listTotals(db: AppDatabase, view: TotalsView, now = Date.n
     })),
     limit,
   )
+}
+
+export async function getPlayerHistory(db: AppDatabase, rawUsername: string, now = Date.now()) {
+  const username = normalizeUsername(rawUsername)
+  if (!username || username.toLowerCase() === ANONYMOUS_NAME.toLowerCase() || isBlockedUsername(username)) return null
+
+  const account = await db.get<{ id: string; username: string }>(
+    "SELECT id, username FROM accounts WHERE username_key = ? AND username IS NOT NULL",
+    username.toLowerCase(),
+  )
+  if (!account) return null
+
+  const rows = await db.all<{ word: string; score: string; utc_day: string }>(
+    `SELECT word, score, utc_day FROM rolls
+     WHERE account_id = ? AND username = ? AND played_at <= ?
+     ORDER BY utc_day DESC`,
+    account.id,
+    account.username,
+    now,
+  )
+  const rolls = rows.filter((row) => !isBlockedWord(row.word))
+  const total = rolls.reduce((sum, row) => addScoreDigits(sum, row.score), "0")
+  return { username: account.username, rolls, total }
 }
