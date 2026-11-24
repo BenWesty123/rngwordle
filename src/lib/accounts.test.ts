@@ -10,6 +10,8 @@ import {
   addScoreDigits,
   listBoard,
   listTotals,
+  getPlayerHistory,
+  parseTotalsView,
   loginLinkSentRecently,
   loginResendWait,
   saveGuestRoll,
@@ -399,6 +401,7 @@ test("totals add every named roll in the week or month and leave anonymous rolls
   await saveDailyRoll(db, ada.accountId, monday, () => ({ word: "aa", score: "1000" }))
   await saveDailyRoll(db, ada.accountId, Date.parse("2026-09-22T12:00:00.000Z"), () => ({ word: "tone", score: "2500" }))
   await saveDailyRoll(db, ada.accountId, beforeWeek, () => ({ word: "cat", score: "9000" }))
+  await saveDailyRoll(db, ada.accountId, Date.parse("2026-08-31T12:00:00.000Z"), () => ({ word: "dog", score: "12" }))
   await saveDailyRoll(db, bea.accountId, now, () => ({ word: "quiz", score: "4000" }))
   await saveDailyRoll(db, cy.accountId, now, () => ({ word: "dog", score: "8000" }))
   await saveAnonymousRoll(db, now, () => ({ word: "eel", score: "7000" }))
@@ -420,6 +423,17 @@ test("totals add every named roll in the week or month and leave anonymous rolls
       ["bea", "4000"],
     ],
   )
+  const all = await listTotals(db, parseTotalsView("all"), now)
+  assert.deepEqual(all.map((row) => [row.username, row.score]), [["ada", "12512"], ["bea", "4000"]])
+
+  const anonymous = await saveAnonymousRoll(db, now - 7 * 86400000, () => ({ word: "owl", score: "50" }))
+  assert.ok("roll" in anonymous)
+  await db.run("UPDATE rolls SET account_id = ? WHERE username = ? AND played_at = ?", ada.accountId, anonymous.roll.username, anonymous.roll.playedAt)
+  const history = await getPlayerHistory(db, "ADA", now)
+  assert.equal(history?.total, "12512")
+  assert.deepEqual(history?.rolls.map((roll) => roll.word), ["tone", "aa", "cat", "dog"])
+  assert.equal(await getPlayerHistory(db, ANONYMOUS_NAME, now), null)
+  assert.equal(await getPlayerHistory(db, "missing", now), null)
 })
 
 function d1ThatRejectsScriptExec(raw: DatabaseSync): D1Binding {

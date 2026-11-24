@@ -6,6 +6,7 @@ import { Lock } from "lucide-react"
 import { useLocalCards } from "@/lib/card-collection"
 import { cardKey } from "@/lib/card-key"
 import { RARITY_BADGE, RARITY_BORDER, RARITY_ORDER } from "@/lib/card-rarity"
+import { CardRarityPill } from "@/components/card-rarity-pill"
 import type { Card, CardCategory, CatalogEntry } from "@/lib/cards"
 import { cn } from "@/lib/utils"
 
@@ -193,10 +194,8 @@ function CollectedCard({ card, found }: { card: Card; found: Found }) {
       className={cn("relative flex h-full flex-col rounded-2xl border bg-card px-4 pt-4 pb-3.5 shadow-sm", RARITY_BORDER[card.rarity])}
       data-found=""
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium", RARITY_BADGE[card.rarity])}>
-          {card.rarity}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardRarityPill rarity={card.rarity} />
         <span className="font-mono text-sm font-semibold tabular-nums">{card.value}</span>
       </div>
       <h3 className="mt-3 font-display text-xl leading-tight tracking-tight italic">{card.name}</h3>
@@ -221,10 +220,8 @@ function LockedCard({ entry }: { entry: CatalogEntry }) {
       className="relative flex h-full min-h-36 flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card/30 px-4 pt-4 pb-3.5"
       aria-label={`Locked ${entry.rarity} card`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium opacity-70", RARITY_BADGE[entry.rarity])}>
-          {entry.rarity}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardRarityPill rarity={entry.rarity} />
         <span className="font-mono text-sm font-semibold text-muted-foreground tabular-nums" aria-hidden>
           ×?
         </span>

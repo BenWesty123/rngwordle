@@ -28,7 +28,10 @@ import type { TierId } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 import { TileBox } from "@/components/tile";
 import { TIER_STYLE } from "@/lib/tier-style";
-import { cardRarity, RARITY_BADGE, RARITY_STAMP } from "@/lib/card-rarity";
+import { cardRarity, RARITY_STAMP } from "@/lib/card-rarity";
+import { CardRarityPill } from "@/components/card-rarity-pill";
+import { LeaderboardWord } from "@/components/leaderboard-word";
+import { PlayerLink } from "@/components/player-link";
 
 const TILE_REVEAL_MS = 460;
 const BOX_REVEAL_MS = 1450;
@@ -361,8 +364,6 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
 
   useEffect(() => {
     let cancel = false;
-    setTop(undefined);
-    setTopError(false);
     fetch("/api/today")
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
       .then((body: { top?: TodayTop | null }) => {
@@ -395,7 +396,11 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
         {topError ? (
           <div className="mt-6" role="alert">
             <p className="text-sm text-foreground">Today&apos;s highest roll didn&apos;t load.</p>
-            <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => setAttempt((value) => value + 1)}>
+            <Button type="button" variant="outline" className="mt-3 h-9" onClick={() => {
+              setTop(undefined);
+              setTopError(false);
+              setAttempt((value) => value + 1);
+            }}>
               Try again
             </Button>
           </div>
@@ -415,11 +420,11 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
           </div>
         ) : (
           <div className="row-in mt-5 flex flex-col items-center">
-            <ul className="flex flex-wrap justify-center gap-1.5" aria-label={top.word}>
+            <LeaderboardWord word={top.word} className="inline-flex flex-wrap justify-center gap-1.5 hover:opacity-80">
               {tiles.map((tile, index) => (
-                <TileBox key={`${tile.letter}-${index}`} tile={tile} length={tiles.length} dropDelay={index * 70} />
+                <TileBox key={`${tile.letter}-${index}`} as="span" tile={tile} length={tiles.length} dropDelay={index * 70} concealed />
               ))}
-            </ul>
+            </LeaderboardWord>
             <p className="mt-6 font-mono text-5xl leading-none tabular-nums sm:text-6xl">{top.score}</p>
             <p
               className={cn(
@@ -430,7 +435,7 @@ function FirstToday({ rollError, onGenerate }: { rollError: string | null; onGen
               {standing.tier.label}
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
-              Rolled by <span className="text-foreground">{top.username}</span>
+              Rolled by <PlayerLink username={top.username} className="text-foreground" />
               <span aria-hidden> · </span>
               {formatStanding(standing.beaten)}
             </p>
@@ -891,7 +896,7 @@ function MultiplierCard({
       ) : null}
       {rarity && row.points != null ? (
         <div className="absolute -top-3 right-3 flex items-center gap-1.5">
-          <FactorBadge points={row.points} />
+          <CardRarityPill rarity={rarity} />
           <span
             aria-hidden
             className={cn(
@@ -921,21 +926,6 @@ function MultiplierCard({
         <p className="mt-1 text-center text-sm leading-relaxed text-pretty text-muted-foreground">{row.reason}</p>
       ) : null}
     </article>
-  );
-}
-
-function FactorBadge({ points }: { points: number }) {
-  const label = cardRarity(points);
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-xs leading-none font-medium",
-        RARITY_BADGE[label],
-      )}
-      data-rarity={label}
-    >
-      {label}
-    </span>
   );
 }
 

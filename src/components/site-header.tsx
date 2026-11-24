@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAccount } from "@/components/account-provider"
 import { useLoginDialog } from "@/components/login-dialog"
+import { PlayerLink } from "@/components/player-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 
@@ -35,7 +36,7 @@ export function SiteHeader({ trailing }: { trailing?: ReactNode }) {
           </Button>
         ) : null}
         {account.status === "player" ? (
-          <span className="max-w-32 truncate text-sm text-foreground">{account.username}</span>
+          <PlayerLink username={account.username} className="max-w-32 truncate text-sm text-foreground" />
         ) : null}
         {account.status === "guest" || account.status === "error" ? (
           <Button variant="outline" className="h-9" type="button" onClick={() => openLogin()}>

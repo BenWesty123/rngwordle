@@ -14,11 +14,11 @@ export function cardRarity(points: number): CardRarity {
 }
 
 export const RARITY_BADGE = {
-  Common: "border-zinc-500/40 bg-zinc-500/10 text-zinc-700 dark:border-zinc-300/40 dark:bg-zinc-300/10 dark:text-zinc-100",
-  Uncommon: "border-emerald-600/45 bg-emerald-600/10 text-emerald-800 dark:border-emerald-300/45 dark:bg-emerald-300/15 dark:text-emerald-100",
-  Rare: "border-sky-600/45 bg-sky-600/10 text-sky-800 dark:border-sky-300/50 dark:bg-sky-300/15 dark:text-sky-100",
-  Epic: "border-violet-600/45 bg-violet-600/10 text-violet-800 dark:border-violet-300/50 dark:bg-violet-300/15 dark:text-violet-100",
-  Legendary: "border-amber-600/55 bg-amber-500/15 text-amber-800 dark:border-amber-200/60 dark:bg-amber-200/15 dark:text-amber-100",
+  Common: "border-zinc-500/40 bg-zinc-100 text-zinc-700 dark:border-zinc-300/40 dark:bg-zinc-800 dark:text-zinc-100",
+  Uncommon: "border-emerald-600/45 bg-emerald-100 text-emerald-800 dark:border-emerald-300/45 dark:bg-emerald-950 dark:text-emerald-100",
+  Rare: "border-sky-600/45 bg-sky-100 text-sky-800 dark:border-sky-300/50 dark:bg-sky-950 dark:text-sky-100",
+  Epic: "border-violet-600/45 bg-violet-100 text-violet-800 dark:border-violet-300/50 dark:bg-violet-950 dark:text-violet-100",
+  Legendary: "border-amber-600/55 bg-amber-100 text-amber-800 dark:border-amber-200/60 dark:bg-amber-950 dark:text-amber-100",
 } as const;
 
 export const RARITY_STAMP = {
