@@ -15,6 +15,17 @@ import {
   rarityMultiplier,
   scoreWord,
 } from "./scoring";
+import { sortedCardHits, type LedgerRow } from "./tiles";
+
+test("card hits sort by multiplier and keep repeat hits together", () => {
+  const row = (id: string, points: number, scored = true): LedgerRow => ({ id, name: id, detail: "", points, scored });
+  const rows = [row("tiles", 18), row("inside", 3), row("epic", 19), row("rare", 8), row("inside", 11), row("miss", 30, false), row("length", 1)];
+  const ordered = sortedCardHits(rows);
+  assert.deepEqual(ordered.map(({ id, points }) => [id, points]), [
+    ["epic", 19], ["inside", 11], ["inside", 3], ["rare", 8],
+  ]);
+  assert.equal(rows[0]?.id, "tiles");
+});
 
 test("common lengths sit at ×1", () => {
   for (const length of [6, 7, 8, 9, 10, 11, 12]) assert.equal(lengthMultiplier(length), 1);

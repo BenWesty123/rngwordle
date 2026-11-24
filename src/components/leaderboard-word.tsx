@@ -5,7 +5,7 @@ import { CardRarityPill } from "@/components/card-rarity-pill"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { cardRarity } from "@/lib/card-rarity"
 import { retryScore, useScored } from "@/lib/score-client"
-import { formatRowValue } from "@/lib/tiles"
+import { formatRowValue, sortedCardHits } from "@/lib/tiles"
 import { cn } from "@/lib/utils"
 
 export function LeaderboardWord({ word, className, children }: {
@@ -36,7 +36,7 @@ export function LeaderboardWord({ word, className, children }: {
 function TriggeredCards({ word }: { word: string }) {
   const scored = useScored(word)
   const cards = scored && scored !== "error"
-    ? scored.rows.filter((row) => row.scored && row.id !== "tiles")
+    ? sortedCardHits(scored.rows)
     : []
 
   return (
