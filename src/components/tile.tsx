@@ -10,6 +10,7 @@ export function tileSizeClass(length: number, small = false): string {
 
 /** One Scrabble tile. No hooks, so the leaderboard can render it on the server. */
 export function TileBox({
+  as: Element = "li",
   tile,
   length,
   lit = false,
@@ -20,6 +21,7 @@ export function TileBox({
   dropDelay,
   concealed = false,
 }: {
+  as?: "li" | "span";
   tile: Tile;
   length: number;
   lit?: boolean;
@@ -34,7 +36,7 @@ export function TileBox({
   concealed?: boolean;
 }) {
   return (
-    <li
+    <Element
       aria-hidden={concealed || undefined}
       className={cn(
         "tile-face relative flex items-center justify-center rounded-[5px] font-display uppercase transition-[opacity,filter] duration-300",
@@ -53,6 +55,6 @@ export function TileBox({
     >
       {tile.letter}
       <span className="absolute right-1 bottom-0.5 font-mono text-[9px] leading-none not-italic opacity-60">{tile.value}</span>
-    </li>
+    </Element>
   );
 }
