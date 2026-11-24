@@ -16,7 +16,7 @@ import { takeFromShare } from "@/lib/track";
 import { buildShareMessage, formatStanding, shareLink, topCards } from "@/lib/share";
 import { ShareBar } from "@/components/share-bar";
 import { standingFor } from "@/lib/standing";
-import { tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
+import { sortedCardHits, tilesFor, type LedgerRow, type ScoredWord, type Tile } from "@/lib/tiles";
 import {
   parseRoll,
   readRollSnapshot,
@@ -47,7 +47,7 @@ export function Game() {
   const [dealing, setDealing] = useState(false);
   const [dealt, setDealt] = useState(false);
   const [rollError, setRollError] = useState<string | null>(null);
-  const [replayKey, setReplayKey] = useState(0);
+  const [reveal, setReveal] = useState<{ word: string; key: number } | null>(null);
   // Cards a fresh roll unlocked for the first time, for the "New card!" ribbon.
   const [freshCards, setFreshCards] = useState<{ word: string; ids: string[] } | null>(null);
   const spinTimer = useRef<number | null>(null);
@@ -121,6 +121,7 @@ export function Game() {
         word?: string;
         score?: string;
         playedAt?: number;
+        created?: boolean;
         scored?: ScoredWord;
         newCards?: string[];
         error?: string;
@@ -131,21 +132,26 @@ export function Game() {
         return;
       }
       // Players get new cards from the server, which knows every past roll. Guests check this browser.
-      const ids = body.newCards ?? (body.scored ? unseenCards(body.scored) : []);
+      const ids = body.created ? body.newCards ?? (body.scored ? unseenCards(body.scored) : []) : [];
       setFreshCards({ word: body.word, ids });
       if (body.scored) primeScore(body.scored);
+      if (body.created) startReveal(body.word, performance.now() - startedAt >= 500 ? 6 : 14);
       if (account.status === "guest") writeRoll({ date: utcDateKey(), word: body.word });
       else rememberToday({ word: body.word, score: body.score, playedAt: body.playedAt });
-      setReplayKey((key) => key + 1);
       setCopied(false);
       setCopyError(false);
-      startSpin(body.word.length, performance.now() - startedAt >= 500 ? 6 : 14);
     } catch {
       setDealt(false);
       setRollError("That roll didn't save.");
     } finally {
       setDealing(false);
     }
+  }
+
+  function startReveal(word: string, frames?: number) {
+    if (spinTimer.current !== null) return;
+    setReveal((previous) => ({ word, key: (previous?.key ?? 0) + 1 }));
+    startSpin(word.length, frames);
   }
 
   async function onCopy(text: string) {
@@ -193,9 +199,7 @@ export function Game() {
     <div className="relative min-h-dvh">
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-[28rem]", glow)} />
       <div className="relative mx-auto flex min-h-dvh w-full flex-col px-5 pt-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
-        <SiteHeader
-          trailing={roll && scored && standing ? <NextWordCountdown /> : null}
-        />
+        <SiteHeader />
 
         {account.status === "loading" ? (
           <p className="py-16 text-sm text-muted-foreground">Checking this browser…</p>
@@ -219,7 +223,11 @@ export function Game() {
               copyError={copyError}
               onCopy={onCopy}
               daily={daily}
-              replayKey={replayKey}
+              replayKey={reveal?.word === roll.word ? reveal.key : 0}
+              onReplay={() => {
+                armScoreAudio();
+                startReveal(roll.word);
+              }}
               rollError={rollError}
               freshCards={freshCards?.word === roll.word ? freshCards.ids : []}
             />
@@ -249,36 +257,6 @@ export function Game() {
 }
 
 const EMPTY_GLOW = "bg-[radial-gradient(ellipse_at_top,var(--glow),transparent_60%)]";
-
-/** Milliseconds until the next UTC midnight, when a new word can be rolled. */
-function msUntilNextWord(now: number): number {
-  const next = new Date(now);
-  next.setUTCHours(24, 0, 0, 0);
-  return next.getTime() - now;
-}
-
-function subscribeMinute(onChange: () => void): () => void {
-  const id = window.setInterval(onChange, 30_000);
-  return () => window.clearInterval(id);
-}
-
-/** One word a day: once it's out, the header says when the next one arrives. */
-function NextWordCountdown() {
-  const minutes = useSyncExternalStore(
-    subscribeMinute,
-    () => Math.ceil(msUntilNextWord(Date.now()) / 60_000),
-    () => null,
-  );
-  if (minutes === null) return null;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  const label = hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
-  return (
-    <span className="shrink-0 rounded-full border border-border bg-card/70 px-3 py-1.5 text-xs text-muted-foreground tabular-nums">
-      Next word in {label}
-    </span>
-  );
-}
 
 /**
  * Rattling tiles while the server deals or a saved roll loads.
@@ -469,6 +447,7 @@ function Result({
   onCopy,
   daily,
   replayKey,
+  onReplay,
   rollError,
   freshCards,
 }: {
@@ -480,6 +459,7 @@ function Result({
   onCopy: (text: string) => void;
   daily: boolean;
   replayKey: number;
+  onReplay: () => void;
   rollError: string | null;
   freshCards: string[];
 }) {
@@ -517,6 +497,8 @@ function Result({
           copyError={copyError}
           onCopy={onCopy}
           freshCards={freshCards}
+          animate={replayKey > 0}
+          onReplay={onReplay}
         />
       ) : null}
     </div>
@@ -541,7 +523,6 @@ function WordDefinition({ word, show, reduce }: { word: string; show: boolean; r
   const [gloss, setGloss] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let cancel = false;
-    setGloss(undefined);
     fetch(`/api/definition?word=${encodeURIComponent(word)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("missing"))))
       .then((body: { definition?: unknown }) => {
@@ -577,6 +558,8 @@ function ScoreReveal({
   copyError,
   onCopy,
   freshCards,
+  animate,
+  onReplay,
 }: {
   scored: ScoredWord;
   share: { text: string; withoutLink: string };
@@ -585,23 +568,26 @@ function ScoreReveal({
   copyError: boolean;
   onCopy: (text: string) => void;
   freshCards: string[];
+  animate: boolean;
+  onReplay: () => void;
 }) {
-  const steps = scored.rows.filter((row) => row.id !== "tiles" && row.scored && (row.points ?? 0) > 1);
+  // New cards stack above the previous ones, so reveal the final display order backwards.
+  const [steps] = useState(() => sortedCardHits(scored.rows).reverse());
   // The ribbon goes on the first card of each newly unlocked kind (Inside can show several).
   const ribbonAt = new Set(
     freshCards.map((id) => steps.findIndex((step) => step.id === id)).filter((index) => index >= 0),
   );
-  const stepsRef = useRef(steps);
   const tilesRef = useRef(scored.tiles);
   const wordRef = useRef(scored.word);
-  const reduce = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion();
+  const reduce = !animate || prefersReducedMotion;
   // Start on the first letter so the shuffle hands off to a visible tile. The
   // interval used to wait a full step, and the row went blank in between.
   const [letters, setLetters] = useState(1);
-  const [mask, setMask] = useState(() => flickerWord(scored.length));
+  const [mask, setMask] = useState(() => animate ? flickerWord(scored.length) : scored.word);
   const [shown, setShown] = useState(0);
   const [settled, setSettled] = useState(0);
-  const [display, setDisplay] = useState(0);
+  const [animatedScore, setAnimatedScore] = useState(0);
   const displayRef = useRef(0);
   const lettersRef = useRef(1);
   const tileRowRef = useRef<HTMLUListElement>(null);
@@ -617,9 +603,10 @@ function ScoreReveal({
   const visible = reduce ? steps.length : shown;
   const baseDone = visibleLetters >= scored.tiles.length;
   const done = baseDone && settled >= steps.length;
+  const display = reduce ? scored.total : animatedScore;
   const tileTarget = scored.tiles.slice(0, visibleLetters).reduce((sum, tile) => sum + tile.value, 0);
   const previous = runningTotal(scored.tileSum, steps, Math.max(0, visible - 1));
-  const target = baseDone ? runningTotal(scored.tileSum, steps, visible) : tileTarget;
+  const target = done ? scored.total : baseDone ? runningTotal(scored.tileSum, steps, visible) : tileTarget;
   const live = standingFor(target);
   const tone = TIER_STYLE[live.tier.id];
   const finalTier = live.tier.id;
@@ -664,37 +651,36 @@ function ScoreReveal({
   useLayoutEffect(() => {
     if (reduce || !baseDone) return;
     const tier = standingFor(scored.total).tier.id;
-    const pending = stepsRef.current;
     prepareMultiplierScore(
-      pending.map((step) => step.points ?? 0),
+      steps.map((step) => step.points ?? 0),
       tier,
     );
-    if (pending.length === 0) {
+    if (steps.length === 0) {
       playVerdict();
       return;
     }
     let heard = 0;
     const id = window.setInterval(() => {
-      const boxes = stepsRef.current;
-      if (heard < boxes.length) {
+      if (heard < steps.length) {
         // Sheet music plays the word as a tune instead of the usual chord.
-        if (boxes[heard]?.id === "sheet-music") playSheetMusic(wordRef.current);
+        if (steps[heard]?.id === "sheet-music") playSheetMusic(wordRef.current);
         else playMultiplier(heard);
         heard += 1;
         setShown(heard);
         setSettled(heard - 1);
         return;
       }
-      setSettled(boxes.length);
+      setSettled(steps.length);
       window.clearInterval(id);
     }, BOX_REVEAL_MS);
     return () => {
       window.clearInterval(id);
       stopScoreAudio();
     };
-  }, [baseDone, reduce, scored.total, steps.length]);
+  }, [baseDone, reduce, scored.total, steps]);
 
   useLayoutEffect(() => {
+    if (reduce) return;
     const row = tileRowRef.current;
     if (row && visibleLetters > 0) {
       const rect = row.getBoundingClientRect();
@@ -712,7 +698,7 @@ function ScoreReveal({
       const top = item.getBoundingClientRect().top;
       const earlier = pileTops.current.get(key);
       next.set(key, top);
-      if (reduce || earlier == null) continue;
+      if (earlier == null) continue;
       const delta = earlier - top;
       if (Math.abs(delta) < 0.5) continue;
       item.animate([{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }], {
@@ -726,7 +712,6 @@ function ScoreReveal({
   useEffect(() => {
     if (reduce) {
       displayRef.current = scored.total;
-      setDisplay(scored.total);
       return;
     }
     const from = displayRef.current;
@@ -739,7 +724,7 @@ function ScoreReveal({
       const eased = 1 - (1 - t) ** 3;
       const next = Math.round(from + (target - from) * eased);
       displayRef.current = next;
-      setDisplay(next);
+      setAnimatedScore(next);
       if (t < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -772,7 +757,7 @@ function ScoreReveal({
       <div className="mt-5 text-center">
         <p className="sr-only">Score</p>
         <div className="relative inline-block">
-          <p key={`${visibleLetters}-${visible}`} className={cn("score-pop font-display leading-none tracking-tight italic", scoreSize(display))}>
+          <p key={`${visibleLetters}-${visible}`} className={cn("font-display leading-none tracking-tight italic", !reduce && "score-pop", scoreSize(display))}>
             {display.toLocaleString("en-US")}
           </p>
           {done && !reduce ? <SparkleBurst tier={finalTier} /> : null}
@@ -811,14 +796,21 @@ function ScoreReveal({
       {done && !reduce && (finalTier === "mythic" || finalTier === "epic") ? <Confetti tier={finalTier} /> : null}
 
       {done ? (
-        <ShareBar
-          message={share.text}
-          messageWithoutLink={share.withoutLink}
-          link={link}
-          onCopy={onCopy}
-          copied={copied}
-          copyError={copyError}
-        />
+        <>
+          {!prefersReducedMotion ? (
+            <Button type="button" variant="outline" className="mx-auto mt-4" onClick={onReplay}>
+              Replay reveal
+            </Button>
+          ) : null}
+          <ShareBar
+            message={share.text}
+            messageWithoutLink={share.withoutLink}
+            link={link}
+            onCopy={onCopy}
+            copied={copied}
+            copyError={copyError}
+          />
+        </>
       ) : null}
 
       <section className="mx-auto mt-10 w-full max-w-xl" aria-label="Multipliers" data-boxes={visible} data-box-count={steps.length}>
@@ -829,7 +821,7 @@ function ScoreReveal({
               .map((row, stepIndex) => ({ row, stepIndex }))
               .reverse()
               .map(({ row, stepIndex }) => {
-                const isNewest = stepIndex === visible - 1;
+                const isNewest = !reduce && stepIndex === visible - 1;
                 return (
                   <li
                     key={`${row.id}-${stepIndex}`}

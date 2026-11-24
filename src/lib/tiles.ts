@@ -72,6 +72,22 @@ export type ScoredWord = {
   total: number;
 };
 
+/** Strongest multipliers first, with repeated hits from each card kept together. */
+export function sortedCardHits(rows: readonly LedgerRow[]): LedgerRow[] {
+  const groups = new Map<string, LedgerRow[]>();
+  for (const row of rows) {
+    if (row.id === "tiles" || !row.scored || (row.points ?? 0) <= 1) continue;
+    const group = groups.get(row.id);
+    if (group) group.push(row);
+    else groups.set(row.id, [row]);
+  }
+  const byMultiplier = (a: LedgerRow, b: LedgerRow) => (b.points ?? 0) - (a.points ?? 0);
+  return [...groups.values()]
+    .map((group) => group.sort(byMultiplier))
+    .sort((a, b) => byMultiplier(a[0]!, b[0]!))
+    .flat();
+}
+
 /** Scrabble tiles for a lowercase a–z word. */
 export function tilesFor(word: string): Tile[] {
   const twinFlags = twinPositions(word);
